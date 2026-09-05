@@ -9,6 +9,12 @@ file(GLOB_RECURSE LUA_SRCS
     "src/lua/liblua/*.c"
 )
 
+file(GLOB_RECURSE PICOTTS_SRCS
+    "src/tts/picotts/lib/*.c"
+    "src/tts/picotts/*.c"
+)
+list(FILTER PICOTTS_SRCS EXCLUDE REGEX ".*/picorsrc\\.c$")
+
 idf_component_register(
     SRCS 
         "src/cbdos_core.cpp"
@@ -108,11 +114,17 @@ idf_component_register(
         "src/security/kerberos/kerberos_pin_store_nvs.cpp"
         "src/security/kerberos/tinycbor/cborencoder.c"
         "src/security/kerberos/tinycbor/cborparser.c"
+        "src/system/tts.cpp"
+        "src/tts/PicoTTSService.cpp"
         ${HELIX_SRCS}
         ${LUA_SRCS}
+        ${PICOTTS_SRCS}
     INCLUDE_DIRS 
         "include"
         "src/system"
+        "src/tts"
+        "src/tts/picotts"
+        "src/tts/picotts/lib"
         "src/ui"
         "src/ui/components"
         "src/ui/mascot"
@@ -161,7 +173,7 @@ idf_component_register(
         "assets/icons/app_config.bin"
 )
 
-target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-maybe-uninitialized -Wno-unused-but-set-variable -Wno-unused-variable)
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-maybe-uninitialized -Wno-unused-but-set-variable -Wno-unused-variable -Wno-implicit-fallthrough -Wno-unused-function)
 
 target_compile_definitions(${COMPONENT_LIB} PUBLIC -DESP32 -DUSE_DEFAULT_STDLIB -DHELIX_LOGGING_ACTIVE=0 -DLUA_32BITS)
 target_compile_options(${COMPONENT_LIB} PUBLIC -Wno-error -Wno-format -Wno-unused-variable)

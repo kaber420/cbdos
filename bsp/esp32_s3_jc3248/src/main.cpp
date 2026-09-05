@@ -9,6 +9,8 @@
 #include "cbdos/mesh/mesh_engine.hpp"
 #include "cbdos/config_manager.hpp"
 #include "cbdos/time.hpp"
+#include "cbdos/tts.hpp"
+#include "PicoTTSService.hpp"
 #include "../../core/src/lua/LuaBridge.hpp"
 #include <Arduino.h>
 #include <WiFi.h>
@@ -94,6 +96,9 @@ void setup() {
     cbdos::bsp::initMeshTransportS3();
     cbdos::bsp::initHttpClientS3();
     cbdos::bsp::initHidDriverS3();
+
+    // Registrar servicio de TTS (Offline-First: permanece en reposo hasta su primer uso)
+    cbdos::tts::setTTSService(&cbdos::tts::PicoTTSService::getInstance());
 
     // Conectar time <--> mesh mediante callbacks (sin acoplamiento directo entre módulos)
     cbdos::time::setTowerSyncRequestCallback([]() {

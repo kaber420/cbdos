@@ -1,5 +1,6 @@
 #include "cbdos/hid.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/tts.hpp"
 #include <esp_log.h>
 #include <tinyusb.h>
 #include <class/hid/hid_device.h>
@@ -340,6 +341,15 @@ static void serial_interactive_cli_task(void* arg) {
                         tx_frame[5 + sizeof(ping_data)] = crc;
                         loader_port_write(tx_frame, 6 + sizeof(ping_data), 500);
                         printf("[SERIAL_CLI_OUT] ✅ Trama enviada al C3 para emisión por radio ESP-NOW!\n");
+                    } else if (line_buf.rfind("tts: ", 0) == 0 || line_buf.rfind("tts ", 0) == 0) {
+                        std::string textToSpeak = line_buf.substr(line_buf.find(' ') + 1);
+                        printf("[SERIAL_CLI_OUT] 🗣️ Sintetizando voz: \"%s\"...\n", textToSpeak.c_str());
+                        bool ok = ::cbdos::tts::speak(textToSpeak);
+                        if (ok) {
+                            printf("[SERIAL_CLI_OUT] ✅ Texto encolado en PicoTTS.\n");
+                        } else {
+                            printf("[SERIAL_CLI_ERR] ❌ Error al iniciar síntesis TTS (¿MicroSD insertada con diccionarios?).\n");
+                        }
                     } else {
                         std::string outRes;
                         bool ok = ::LuaEngine::getInstance().executeString(line_buf, &outRes);

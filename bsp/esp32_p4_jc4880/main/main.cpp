@@ -12,6 +12,8 @@
 #include "LVGL_Port.h"
 #include "cbdos/config_manager.hpp"
 #include "cbdos/time.hpp"
+#include "cbdos/tts.hpp"
+#include "PicoTTSService.hpp"
 #include <esp_log.h>
 #include <nvs_flash.h>
 #include "usb_device_manager.hpp"
@@ -68,6 +70,9 @@ extern "C" void app_main(void) {
     cbdos::bsp::initHttpClientP4();
     cbdos::bsp::initHidDriverP4();
     cbdos::usb::UsbDeviceManager::getInstance().init();
+
+    // Registrar servicio de TTS (Offline-First: permanece en reposo hasta su primer uso)
+    cbdos::tts::setTTSService(&cbdos::tts::PicoTTSService::getInstance());
 
     // Inicializar radio determinista segun NVS (Offline-First)
     cbdos::radio::init();

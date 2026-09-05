@@ -195,9 +195,17 @@ esp_err_t AudioHAL::setSampleRate(uint32_t sampleRate) {
     fs.sample_rate = sampleRate;
     fs.mclk_multiple = 256;
 
-    // Reconfigurar sample rate
+    // Sincronizar ambos canales (TX y RX) para evitar conflicto de clock peer en I2S dúplex
+    if (recordDevHandle) {
+        esp_codec_dev_close(recordDevHandle);
+    }
     esp_codec_dev_close(playDevHandle);
+
     esp_err_t ret = esp_codec_dev_open(playDevHandle, &fs);
+    if (recordDevHandle) {
+        esp_codec_dev_open(recordDevHandle, &fs);
+    }
+
     if (ret == ESP_OK) {
         currentSampleRate = sampleRate;
         ESP_LOGI(TAG, "I2S Hardware Sample Rate actualizado a %lu Hz", sampleRate);
