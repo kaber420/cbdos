@@ -180,7 +180,7 @@ public:
         return result;
     }
 
-    bool openShell(cbdos::ssh::SshDataCallback onData, uint16_t cols, uint16_t rows) override {
+    bool openShell(cbdos::ssh::SshDataCallback onData, uint16_t cols, uint16_t rows, const std::string& termType) override {
         if (!isConnected()) {
             return false;
         }
@@ -198,7 +198,8 @@ public:
             return false;
         }
 
-        if (ssh_channel_request_pty_size(m_shellChannel, "xterm-256color", cols, rows) != SSH_OK) {
+        const char* ptyType = termType.empty() ? "vt100" : termType.c_str();
+        if (ssh_channel_request_pty_size(m_shellChannel, ptyType, cols, rows) != SSH_OK) {
             ssh_channel_close(m_shellChannel);
             ssh_channel_free(m_shellChannel);
             m_shellChannel = nullptr;
