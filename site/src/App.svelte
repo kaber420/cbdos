@@ -1,7 +1,6 @@
 <script lang="ts">
   import Navbar from './lib/Navbar.svelte';
   import Hero from './lib/Hero.svelte';
-  import Pillars from './lib/Pillars.svelte';
   import HardwareExplorer from './lib/HardwareExplorer.svelte';
   import AppShowcase from './lib/AppShowcase.svelte';
   import LuaPlayground from './lib/LuaPlayground.svelte';
@@ -13,7 +12,6 @@
 <main class="app-layout">
   <Navbar />
   <Hero />
-  <Pillars />
   <HardwareExplorer />
   <AppShowcase />
   <LuaPlayground />

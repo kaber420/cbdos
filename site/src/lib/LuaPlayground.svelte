@@ -1,5 +1,5 @@
 <script lang="ts">
-  type ExampleKey = 'ui' | 'badusb' | 'mesh' | 'audio';
+  type ExampleKey = 'ui' | 'badusb' | 'storage' | 'audio';
 
   let activeExample = $state<ExampleKey>('ui');
   let copyStatus = $state(false);
@@ -28,54 +28,54 @@ end)
 app:run()`
     },
     badusb: {
-      title: 'Inyector HID BadUSB',
-      filename: 'stealth_recon.luapp',
-      desc: 'Control del periférico USB-OTG en modo teclado/ratón para auditorías de seguridad.',
-      code: `-- stealth_recon.luapp - Ataque DuckyScript mediante API HID
+      title: 'Inyector HID DuckyScript',
+      filename: 'ducky_runner.luapp',
+      desc: 'Control del periférico USB-OTG en modo teclado para automatización.',
+      code: `-- ducky_runner.luapp - Inyección DuckyScript mediante API HID
 local hid = cbdos.hid
 
 if not hid.is_connected() then
-    print("[ERROR] Conecta el puerto USB-OTG a un host.")
+    print("[AVISO] Conecta el puerto USB-OTG a un host.")
     return
 end
 
-print("[HID] Dispositivo USB inicializado. Inyectando payload...")
+print("[HID] Dispositivo USB inicializado. Inyectando secuencia...")
 cbdos.sys.delay(1000)
 
 -- Abrir diálogo Ejecutar en Windows
 hid.send_combo({"GUI", "r"})
 cbdos.sys.delay(300)
 
--- Escribir comando powershell y ejecutar
-hid.type_string("powershell -NoP -NonI -W Hidden -Exec Bypass")
+-- Escribir comando y pulsar Enter
+hid.type_string("notepad.exe")
 hid.press_key("ENTER")
 cbdos.sys.delay(500)
 
-print("[HID] Inyección completada exitosamente.")`
+print("[HID] Secuencia inyectada correctamente.")`
     },
-    mesh: {
-      title: 'Transmisor Mesh ESP-NOW',
-      filename: 'mesh_beacon.luapp',
-      desc: 'Envío de paquetes TLV cifrados fuera de internet a nodos cercanos.',
-      code: `-- mesh_beacon.luapp - Baliza de telemetría P2P
-local mesh = cbdos.mesh
-local channel = 6
+    storage: {
+      title: 'Gestión de Ficheros MicroSD',
+      filename: 'storage_io.luapp',
+      desc: 'Lectura, escritura e inspección de archivos en FATFS desde scripts.',
+      code: `-- storage_io.luapp - Operaciones con la tarjeta MicroSD
+local fs = cbdos.storage
+local log_path = "/sdcard/logs/session.txt"
 
-mesh.set_channel(channel)
-mesh.set_encryption_key("CBDOS-SECRET-KEY-128")
+print("[STORAGE] Comprobando montaje de MicroSD...")
+if not fs.is_mounted() then
+    print("[ERROR] MicroSD no detectada en Slot 0.")
+    return
+end
 
--- Callback reactivo al recibir paquetes de otros Cyberdecks
-mesh.on_receive(function(sender_short_id, rssi, data)
-    print(string.format("[MESH] De: 0x%04X | RSSI: %d dBm | Msg: %s", 
-        sender_short_id, rssi, data))
-end)
+-- Escribir registro en la MicroSD
+local timestamp = cbdos.sys.uptime_ms()
+fs.append_file(log_path, string.format("[%d ms] Inicio de sesion\\n", timestamp))
+print("[STORAGE] Registro guardado en " .. log_path)
 
--- Enviar paquete TLV de estado cada 5 segundos
-while true do
-    local battery = cbdos.sys.get_battery_voltage()
-    local payload = string.format("NODE_ALIVE:batt=%.2fV", battery)
-    mesh.broadcast(payload)
-    cbdos.sys.delay(5000)
+-- Listar ficheros en el directorio raíz
+local files = fs.list_dir("/sdcard")
+for _, file in ipairs(files) do
+    print("  -> " .. file.name .. " (" .. file.size .. " bytes)")
 end`
     },
     audio: {
@@ -140,10 +140,10 @@ end`
             </button>
             <button 
               class="tab-file" 
-              class:active={activeExample === 'mesh'} 
-              onclick={() => activeExample = 'mesh'}
+              class:active={activeExample === 'storage'} 
+              onclick={() => activeExample = 'storage'}
             >
-              mesh.luapp
+              storage.luapp
             </button>
             <button 
               class="tab-file" 

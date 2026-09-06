@@ -4,7 +4,7 @@ CBDos incluye un conjunto de aplicaciones nativas construidas con **LVGL v9.5**,
 
 ---
 
-## 🛠️ Herramientas de Sistema y Campo
+## 🛠️ Herramientas de Sistema
 
 | Aplicación | Icono / Función | Descripción |
 | :--- | :--- | :--- |

@@ -1,5 +1,5 @@
 <script lang="ts">
-  type Category = 'all' | 'system' | 'radio' | 'media' | 'security';
+  type Category = 'all' | 'system' | 'usb' | 'media' | 'security';
 
   let selectedCategory = $state<Category>('all');
   let searchQuery = $state('');
@@ -19,58 +19,91 @@
   const apps: AppItem[] = [
     {
       id: 'flasher',
-      title: 'Flasheador de Campo Autónomo',
+      title: 'Flasheador Autónomo',
       category: 'system',
-      catLabel: 'Sistema & Campo',
+      catLabel: 'Sistema',
       icon: '⚡',
-      desc: 'Convierte el Cyberdeck en un programador de microcontroladores autónomo. Flashea chips ESP32-C3, ESP32-C6 y RP2040 por USB-OTG o UART desde la MicroSD.',
+      desc: 'Convierte el dispositivo en un programador autónomo. Flashea microcontroladores externos (ESP32-C3, ESP32-C6, RP2040) por USB-OTG o UART directamente desde la MicroSD.',
       tech: ['USB-OTG Host', 'UART Driver', 'SDMMC FATFS'],
       isNative: true,
       hasLuaApi: true
     },
     {
-      id: 'meshchat',
-      title: 'MeshChat P2P Cifrado',
-      category: 'radio',
-      catLabel: 'Radio & Mesh',
-      icon: '📡',
-      desc: 'Comunicaciones tácticas directas fuera de internet. Protocolo ad-hoc sobre ESP-NOW con paquetes TLV, Short IDs dinámicos y cifrado de canal.',
-      tech: ['ESP-NOW 2.4GHz', 'Paquetes TLV', 'Aislamiento RF'],
+      id: 'filemanager',
+      title: 'Explorador de Archivos',
+      category: 'system',
+      catLabel: 'Sistema',
+      icon: '📁',
+      desc: 'Navegación veloz por el sistema de ficheros FAT32/exFAT. Permite inspeccionar carpetas, lanzar archivos de configuración y ejecutar micro-apps .luapp.',
+      tech: ['SDMMC 4-bit', 'FATFS Virtual File System', 'LDO VO4'],
+      isNative: true,
+      hasLuaApi: true
+    },
+    {
+      id: 'texteditor',
+      title: 'Editor de Texto & Código',
+      category: 'system',
+      catLabel: 'Sistema',
+      icon: '📝',
+      desc: 'Edición directa de ficheros de configuración, logs y scripts en la tarjeta MicroSD con teclado táctil en pantalla o teclado físico USB.',
+      tech: ['LVGL Textarea', 'MicroSD VFS', 'Teclado Virtual'],
+      isNative: true,
+      hasLuaApi: true
+    },
+    {
+      id: 'terminal',
+      title: 'Terminal & Consola Interactiva',
+      category: 'system',
+      catLabel: 'Sistema',
+      icon: '💻',
+      desc: 'Shell interactivo local para inspección del sistema de archivos, ejecución de comandos del sistema y pruebas en tiempo real.',
+      tech: ['ANSI Stream', 'CLI Parser', 'Zero-Poll'],
       isNative: true,
       hasLuaApi: true
     },
     {
       id: 'badusb',
       title: 'BadUSB & DuckyScript Runner',
-      category: 'security',
-      catLabel: 'BadUSB & Seguridad',
+      category: 'usb',
+      catLabel: 'USB & HID',
       icon: '⌨️',
-      desc: 'Emulador HID USB de alta velocidad. Inyección de keystrokes a partir de scripts DuckyScript v2 con consola serie reactiva (/dev/ttyACM0).',
+      desc: 'Emulador HID USB de alta velocidad. Inyección de pulsaciones de teclado a partir de scripts DuckyScript v2 con consola serie reactiva.',
       tech: ['USB Composite HID', 'DuckyScript v2', 'Zero-Poll'],
       isNative: true,
       hasLuaApi: true
     },
     {
       id: 'audioplayer',
-      title: 'Helix MP3 & Visualizador FFT',
+      title: 'Reproductor Helix MP3',
       category: 'media',
       catLabel: 'Multimedia & Juegos',
       icon: '🎵',
-      desc: 'Reproductor de música de alta fidelidad con decodificador Helix MP3 de punto fijo corriendo en Core 1, codec Everest ES8311 y barra de espectro FFT.',
+      desc: 'Reproductor de música con decodificador Helix MP3 de punto fijo corriendo en Core 1, códec Everest ES8311 por I2S y barra de espectro FFT reactiva.',
       tech: ['Helix Fixed-Point', 'Everest ES8311', 'I2S DMA'],
       isNative: true,
       hasLuaApi: true
     },
     {
-      id: 'filemanager',
-      title: 'Explorador MicroSD & Launcher',
-      category: 'system',
-      catLabel: 'Sistema & Campo',
-      icon: '📁',
-      desc: 'Navegación veloz por el sistema de ficheros FAT32/exFAT. Permite inspeccionar logs, lanzar archivos de configuración y ejecutar micro-apps .luapp.',
-      tech: ['SDMMC 4-bit', 'FATFS Virtual File System', 'LDO VO4'],
+      id: 'audiorecorder',
+      title: 'Grabadora de Audio I2S',
+      category: 'media',
+      catLabel: 'Multimedia & Juegos',
+      icon: '🎙️',
+      desc: 'Captura y grabación de audio en tiempo real directamente a la MicroSD utilizando el códec Everest ES8311 a través de canales DMA.',
+      tech: ['Everest ES8311', 'I2S DMA ADC', 'WAV/PCM'],
       isNative: true,
       hasLuaApi: true
+    },
+    {
+      id: 'gallery',
+      title: 'Galería & Visor de Imágenes',
+      category: 'media',
+      catLabel: 'Multimedia & Juegos',
+      icon: '🖼️',
+      desc: 'Visor de imágenes con vista de miniaturas y navegación a pantalla completa desde la tarjeta MicroSD con aceleración DMA2D.',
+      tech: ['DMA2D Blit', 'Decodificador PNG/BMP', 'Touch Gestures'],
+      isNative: true,
+      hasLuaApi: false
     },
     {
       id: 'doom',
@@ -85,7 +118,7 @@
     },
     {
       id: 'Kerberos',
-      title: 'Kerberos Passkey  FIDO2 ',
+      title: 'Kerberos Passkey FIDO2',
       category: 'security',
       catLabel: 'Seguridad',
       icon: '🛡️',
@@ -93,17 +126,6 @@
       tech: ['FIDO2 / U2F', 'NVS Encryption', 'AES-256'],
       isNative: true,
       hasLuaApi: false
-    },
-    {
-      id: 'pendiente-sniffer',
-      title: 'RF Packet Sniffer & Spectrum',
-      category: 'radio',
-      catLabel: 'Radio & Mesh',
-      icon: '📶',
-      desc: 'Monitor pasivo de tramas de radio Wi-Fi 802.11 y balizas Bluetooth Low Energy con analizador de intensidad RSSI en tiempo real.',
-      tech: ['Promiscuous Mode', 'BLE Scanner', 'Visualizador RSSI'],
-      isNative: true,
-      hasLuaApi: true
     }
   ];
 
@@ -153,14 +175,14 @@
         <button class="chip" class:active={selectedCategory === 'system'} onclick={() => selectedCategory = 'system'}>
           Sistema
         </button>
-        <button class="chip" class:active={selectedCategory === 'radio'} onclick={() => selectedCategory = 'radio'}>
-          Radio & Mesh
+        <button class="chip" class:active={selectedCategory === 'usb'} onclick={() => selectedCategory = 'usb'}>
+          USB & HID
         </button>
         <button class="chip" class:active={selectedCategory === 'media'} onclick={() => selectedCategory = 'media'}>
           Multimedia
         </button>
         <button class="chip" class:active={selectedCategory === 'security'} onclick={() => selectedCategory = 'security'}>
-          Seguridad & HID
+          Seguridad
         </button>
       </div>
     </div>

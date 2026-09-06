@@ -4,7 +4,7 @@
       id: 'index',
       title: 'Visión del Sistema & Arquitectura',
       file: 'manual/index.md',
-      desc: 'Introducción a CBDos, diseño offline-first, pilares de ingeniería y estructura del proyecto.',
+      desc: 'Introducción a CBDos, arquitectura del sistema y estructura del proyecto.',
       icon: '📖',
       tag: 'General'
     },
@@ -28,7 +28,7 @@
       id: 'apps',
       title: 'Catálogo y Manual de Apps',
       file: 'manual/apps/overview.md',
-      desc: 'Detalles operativos de Flasher, MeshChat, AudioPlayer, BadUSB, Doom y herramientas de campo.',
+      desc: 'Detalles operativos de Flasher, FileManager, AudioPlayer, BadUSB, TextEditor y Doom.',
       icon: '🕹️',
       tag: 'Software'
     },

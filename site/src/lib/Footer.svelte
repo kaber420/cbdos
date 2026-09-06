@@ -7,7 +7,7 @@
           <span class="brand-badge">v0.2.3</span>
         </div>
         <p class="footer-tagline">
-          El sistema operativo embebido y offline-first para cyberdecks, consolas portátiles y hardware táctico ESP32.
+          Sistema operativo para cyberdecks y consolas portátiles basadas en ESP32.
         </p>
         <div class="footer-badges">
           <span class="badge badge-cyan">ESP32-P4 RISC-V</span>
@@ -20,7 +20,6 @@
         <h4>Navegación</h4>
         <ul>
           <li><a href="#hero">Inicio</a></li>
-          <li><a href="#pilares">Pilares Tecnológicos</a></li>
           <li><a href="#hardware">Hardware & Placas</a></li>
           <li><a href="#apps">Catálogo de Apps</a></li>
           <li><a href="#luapp">Ecosistema Lua++</a></li>
@@ -32,20 +31,20 @@
       <div class="footer-links-col">
         <h4>Ingeniería & Specs</h4>
         <ul>
-          <li><a href="https://github.com/kaber420/CBD-os/tree/main/specs" target="_blank" rel="noopener noreferrer">Especificaciones Técnicas</a></li>
-          <li><a href="https://github.com/kaber420/CBD-os/blob/main/specs/hardware/pinouts_and_ports.md" target="_blank" rel="noopener noreferrer">Mapa de Pines & Buses</a></li>
-          <li><a href="https://github.com/kaber420/CBD-os/blob/main/specs/architecture/hal_and_core_architecture.md" target="_blank" rel="noopener noreferrer">Arquitectura HAL</a></li>
-          <li><a href="https://github.com/kaber420/CBD-os/blob/main/specs/api/core_apis_reference.md" target="_blank" rel="noopener noreferrer">Referencia de APIs</a></li>
+          <li><a href="https://github.com/kaber420/cbdos/tree/main/specs" target="_blank" rel="noopener noreferrer">Especificaciones Técnicas</a></li>
+          <li><a href="https://github.com/kaber420/cbdos/blob/main/specs/hardware/pinouts_and_ports.md" target="_blank" rel="noopener noreferrer">Mapa de Pines & Buses</a></li>
+          <li><a href="https://github.com/kaber420/cbdos/blob/main/specs/architecture/hal_and_core_architecture.md" target="_blank" rel="noopener noreferrer">Arquitectura HAL</a></li>
+          <li><a href="https://github.com/kaber420/cbdos/blob/main/specs/api/core_apis_reference.md" target="_blank" rel="noopener noreferrer">Referencia de APIs</a></li>
         </ul>
       </div>
 
       <div class="footer-links-col">
         <h4>Código & Comunidad</h4>
         <ul>
-          <li><a href="https://github.com/kaber420/CBD-os" target="_blank" rel="noopener noreferrer">Repositorio GitHub</a></li>
-          <li><a href="https://github.com/kaber420/CBD-os/tree/v0.2.3-dev" target="_blank" rel="noopener noreferrer">Rama de Desarrollo (v0.2.3-dev)</a></li>
-          <li><a href="https://github.com/kaber420/CBD-os/issues" target="_blank" rel="noopener noreferrer">Reportar un Bug</a></li>
-          <li><a href="https://github.com/kaber420/CBD-os/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Licencia GPLv3</a></li>
+          <li><a href="https://github.com/kaber420/cbdos" target="_blank" rel="noopener noreferrer">Repositorio GitHub</a></li>
+          <li><a href="https://github.com/kaber420/cbdos/tree/v0.2.3-dev" target="_blank" rel="noopener noreferrer">Rama de Desarrollo (v0.2.3-dev)</a></li>
+          <li><a href="https://github.com/kaber420/cbdos/issues" target="_blank" rel="noopener noreferrer">Reportar un Bug</a></li>
+          <li><a href="https://github.com/kaber420/cbdos/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Licencia GPLv3</a></li>
         </ul>
       </div>
     </div>

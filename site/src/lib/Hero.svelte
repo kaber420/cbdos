@@ -28,16 +28,6 @@
         '[HID] Injected 48 keystrokes in 320ms. Device detached cleanly.'
       ]
     },
-    mesh: {
-      cmd: 'mesh.scan_nodes()',
-      output: [
-        '[MESH] Initializing ESP-NOW stealth interface (Channel 6)...',
-        '[MESH] Node detected: MAC 48:27:E2:0A:11:F2 | ShortID: 0x11F2 | RSSI: -42 dBm',
-        '[MESH] Node detected: MAC 30:AE:A4:91:00:84 | ShortID: 0x0084 | RSSI: -68 dBm',
-        '[MESH] Sending TLV handshake (Encrypted AES-128 GCM)...',
-        '[MESH] Node 0x11F2 handshake ACK received (RTT: 4ms). Route stored.'
-      ]
-    },
     audio: {
       cmd: 'audio.play_stream("/sdcard/music/synthwave.mp3")',
       output: [
@@ -50,7 +40,7 @@
   };
 
   function copyInstallCmd() {
-    navigator.clipboard.writeText('git clone https://github.com/kaber420/CBD-os.git && cd CBD-os');
+    navigator.clipboard.writeText('git clone https://github.com/kaber420/cbdos.git && cd cbdos');
     copiedCommand = true;
     setTimeout(() => copiedCommand = false, 2500);
   }
@@ -70,7 +60,7 @@
       </h1>
 
       <p class="hero-description">
-        El sistema operativo embebido, desacoplado y <strong>offline-first</strong> para cyberdecks, consolas portátiles y hardware táctico ESP32. Máximo rendimiento gráfico a 60 FPS con aceleración DMA2D, ecosistema Lua++ y radio Mesh.
+        Sistema operativo gráfico para cyberdecks y dispositivos portátiles basados en ESP32 (P4 y S3). Interfaz fluida con LVGL v9.5 acelerada por hardware, ecosistema de scripts Lua++ y herramientas integradas.
       </p>
 
       <div class="hero-cta">
@@ -102,7 +92,7 @@
 
       <div class="clone-box">
         <span class="clone-prompt">$</span>
-        <code class="clone-code">git clone https://github.com/kaber420/CBD-os.git</code>
+        <code class="clone-code">git clone https://github.com/kaber420/cbdos.git</code>
         <button class="btn-copy" onclick={copyInstallCmd} aria-label="Copiar comando">
           {#if copiedCommand}
             <span class="copied-feedback">✓ Copiado</span>
@@ -134,9 +124,6 @@
         </button>
         <button class="tab-btn" class:active={activeCliTab === 'badusb'} onclick={() => activeCliTab = 'badusb'}>
           hid.badusb
-        </button>
-        <button class="tab-btn" class:active={activeCliTab === 'mesh'} onclick={() => activeCliTab = 'mesh'}>
-          mesh.scan
         </button>
         <button class="tab-btn" class:active={activeCliTab === 'audio'} onclick={() => activeCliTab = 'audio'}>
           audio.stream
