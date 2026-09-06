@@ -28,7 +28,7 @@
       id: 'apps',
       title: 'Catálogo y Manual de Apps',
       file: 'manual/apps/overview.md',
-      desc: 'Detalles operativos de Flasher, FileManager, AudioPlayer, BadUSB, TextEditor y Doom.',
+      desc: 'Detalles operativos de Flasher, FileManager, AudioPlayer, BadUSB, TextEditor y Cartridge Manager.',
       icon: '🕹️',
       tag: 'Software'
     },

@@ -189,10 +189,6 @@
     margin-bottom: 2.2rem;
   }
 
-  .hero-description strong {
-    color: var(--cyan-core);
-  }
-
   .hero-cta {
     display: flex;
     flex-wrap: wrap;
