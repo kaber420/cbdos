@@ -15,13 +15,13 @@
   </div>
 
   <div style="display: flex; gap: 1.2rem; justify-content: center; flex-wrap: wrap;">
-    <a href="getting-started/flashing/" class="md-button md-button--primary" style="background: #00f0ff; color: #050b14; font-weight: 800; border-radius: 8px; padding: 0.75rem 1.8rem; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);">
+    <a href="getting-started/flashing.md" style="background: #00f0ff; color: #050b14; font-weight: 800; border-radius: 8px; padding: 0.75rem 1.8rem; text-decoration: none;">
       ⚡ Guía Rápida de Flasheo
     </a>
-    <a href="developers/luapp/" class="md-button" style="border: 1px solid #00f0ff; color: #00f0ff; border-radius: 8px; padding: 0.75rem 1.8rem; font-weight: 600;">
+    <a href="developers/luapp.md" style="border: 1px solid #00f0ff; color: #00f0ff; border-radius: 8px; padding: 0.75rem 1.8rem; font-weight: 600; text-decoration: none;">
       💻 Escribir Apps en Lua++
     </a>
-    <a href="hardware/supported-boards/" class="md-button" style="border: 1px solid #7000ff; color: #a855f7; border-radius: 8px; padding: 0.75rem 1.8rem; font-weight: 600;">
+    <a href="hardware/supported-boards.md" style="border: 1px solid #7000ff; color: #a855f7; border-radius: 8px; padding: 0.75rem 1.8rem; font-weight: 600; text-decoration: none;">
       🔌 Hardware Compatible
     </a>
   </div>
@@ -31,57 +31,29 @@
 
 ## ⚡ Pilares Tecnológicos
 
-<div class="grid cards" markdown>
+### 🖥️ UI Cyberpunk & 60 FPS
+Motor gráfico de alto rendimiento con **LVGL v9.5**, aceleración de hardware DMA2D / PPA en ESP32-P4, animaciones Lottie y widgets táctiles vectoriales.
+→ [Ver catálogo de aplicaciones](apps/overview.md)
 
--   :material-monitor-dashboard:{ .lg .middle } __UI Cyberpunk & 60 FPS__
+### 🔲 Multi-Target Desacoplado
+Arquitectura agnóstica (`core/`) en C++ estándar y contratos HAL. Corre simultáneamente en **ESP32-P4** (ESP-IDF 5.5 nativo) y **ESP32-S3** (PlatformIO).
+→ [Ver placas soportadas](hardware/supported-boards.md)
 
-    ---
+### 💻 Ecosistema Lua++ (.luapp)
+Ejecuta micro-aplicaciones dinámicas desde la tarjeta MicroSD sin necesidad de recompilar ni instalar toolchains. Máquina virtual segura en PSRAM con APIs completas.
+→ [Guía rápida de Lua++](developers/luapp.md)
 
-    Motor gráfico de alto rendimiento con **LVGL v9.5**, aceleración de hardware DMA2D / PPA en ESP32-P4, animaciones Lottie y widgets táctiles vectoriales.
+### 📡 Redes Mesh & Modo Sigilo
+Comunicaciones ad-hoc fuera de internet vía **ESP-NOW**, túneles de radio, paquetes TLV y tablas de ruteo dinámico con Short IDs.
+→ [Ver especificaciones RF](https://github.com/kaber420/CBD-os/tree/main/specs/network)
 
-    [:octicons-arrow-right-24: Ver catálogo de aplicaciones](apps/overview.md)
+### ⚡ Flasheador Autónomo de Campo
+Convierte tu CyBerDeck en un programador portátil: flashea microcontroladores externos (ESP32-C3, C6) por USB-C o UART directamente desde la MicroSD.
+→ [Ver detalles de Flasher](apps/overview.md#herramientas-de-sistema-y-campo)
 
--   :material-chip:{ .lg .middle } __Multi-Target Desacoplado__
-
-    ---
-
-    Arquitectura agnóstica (`core/`) en C++ estándar y contratos HAL. Corre simultáneamente en **ESP32-P4** (ESP-IDF 5.5 nativo) y **ESP32-S3** (PlatformIO).
-
-    [:octicons-arrow-right-24: Ver placas soportadas](hardware/supported-boards.md)
-
--   :material-code-braces:{ .lg .middle } __Ecosistema Lua++ (.luapp)__
-
-    ---
-
-    Ejecuta micro-aplicaciones dinámicas desde la tarjeta MicroSD sin necesidad de recompilar ni instalar toolchains. Máquina virtual segura en PSRAM con APIs completas.
-
-    [:octicons-arrow-right-24: Guía rápida de Lua++](developers/luapp.md)
-
--   :material-radio-handheld:{ .lg .middle } __Redes Mesh & Modo Sigilo__
-
-    ---
-
-    Comunicaciones ad-hoc fuera de internet vía **ESP-NOW**, túneles de radio, paquetes TLV y tablas de ruteo dinámico con Short IDs.
-
-    [:octicons-arrow-right-24: Ver especificaciones RF](https://github.com/kaber420/CBD-os/tree/main/specs/network)
-
--   :material-usb-port:{ .lg .middle } __Flasheador Autónomo de Campo__
-
-    ---
-
-    Convierte tu CyBerDeck en un programador portátil: flashea microcontroladores externos (ESP32-C3, C6) por USB-C o UART directamente desde la MicroSD.
-
-    [:octicons-arrow-right-24: Ver detalles de Flasher](apps/overview.md#herramientas-de-sistema-y-campo)
-
--   :material-shield-key:{ .lg .middle } __Seguridad Física FIDO2 / U2F__
-
-    ---
-
-    Autenticación mediante módulo Kerberos, cifrado simétrico/asimétrico de transmisiones inalámbricas y aislamiento estricto de credenciales.
-
-    [:octicons-arrow-right-24: Especificación de seguridad](https://github.com/kaber420/CBD-os/blob/main/specs/architecture/security_and_encryption_specification.md)
-
-</div>
+### 🛡️ Seguridad Física FIDO2 / U2F
+Autenticación mediante módulo Kerberos, cifrado simétrico/asimétrico de transmisiones inalámbricas y aislamiento estricto de credenciales.
+→ [Especificación de seguridad](https://github.com/kaber420/CBD-os/blob/main/specs/architecture/security_and_encryption_specification.md)
 
 ---
 

@@ -102,4 +102,9 @@ tools/meshcore_upstream/
 external/
 poseidon/
 
+# --- Svelte Web & Python Venv ---
+site/node_modules/
+site/dist/
+.venv/
+
 
