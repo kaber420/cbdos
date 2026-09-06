@@ -366,6 +366,55 @@ const std::vector<UartPinPreset>& getPinPresets();
 
 ---
 
+### 3.8. Text-to-Speech (TTS) Offline (`cbdos::tts::ITextToSpeechService`)
+Subsistema agnóstico de síntesis de voz natural y texto a voz 100% offline basado en **SVOX Pico TTS**. El servicio se desacopla a través de una interfaz abstracta y delega la emisión física de audio a la interfaz HAL `IAudioSink`.
+
+```cpp
+// core/include/cbdos/tts.hpp
+#pragma once
+#include <string>
+
+namespace cbdos {
+namespace tts {
+
+enum class TTSState {
+    Uninitialized,
+    Idle,
+    Speaking,
+    Paused,
+    Error
+};
+
+class ITextToSpeechService {
+public:
+    virtual ~ITextToSpeechService() = default;
+    virtual bool init() = 0;
+    virtual bool speak(const std::string& text) = 0;
+    virtual void stop() = 0;
+    virtual void pause() = 0;
+    virtual void resume() = 0;
+    virtual bool isSpeaking() const = 0;
+    virtual TTSState getState() const = 0;
+    virtual void setSpeed(int speedPercent) = 0;
+    virtual void setPitch(int pitchPercent) = 0;
+};
+
+ITextToSpeechService* getTextToSpeechService();
+void setTextToSpeechService(ITextToSpeechService* service);
+
+} // namespace tts
+} // namespace cbdos
+```
+
+#### Principios Arquitectónicos de TTS:
+1. **Aislamiento en Core 0:** La síntesis corre en una tarea FreeRTOS fijada en el Core 0 con prioridad baja/media (2), garantizando que el Core 1 mantenga la tasa de 60 FPS de LVGL 9.5 sin caídas de cuadros ni contención.
+2. **Síntesis Completa en PSRAM (Zero DMA Underflow):** Las muestras PCM de 16 kHz Mono se acumulan primero en memoria (`std::vector<int16_t>`), sintetizando una frase típica de 2 segundos en ~300 ms de CPU a 400 MHz.
+3. **Remuestreo Global Continuo a 44.1 kHz Estéreo:** Una sola pasada matemática lineal sobre el búfer completo elimina saltos de fase en los límites de bloques, evitando ruidos espurios y zumbidos.
+4. **Streaming DMA por Bloques Grandes:** El audio se transfiere al códec (ES8311 en P4, ES8388 / DAC en S3) en bloques estándar de 1024 frames (4096 bytes), llenando el pipeline DMA de I2S sin retardos.
+5. **Ciclo de Vida Limpio (Bajo Demanda):** El motor carga los diccionarios desde `/sdcard/tts/es/` solo al hablar y permite invocar `shutdown()` para liberar los ~1.95 MB de PSRAM al terminar.
+
+---
+
 ## 🔄 4. Flujo de Inicialización Multi-Target (Boot Flow)
 
 ```mermaid
@@ -389,6 +438,7 @@ sequenceDiagram
 
 | Subsistema / Módulo | Interfaz Core (`core/include/cbdos/`) | Implementación P4 (`bsp/esp32_p4_jc4880/hal/`) | Implementación S3 (`bsp/esp32_s3_jc3248/hal/`) |
 | :--- | :--- | :--- | :--- |
+| **Text-to-Speech (TTS)** | `tts.hpp` | `core/src/tts/PicoTTSService.cpp` (PicoTTS / IAudioSink) | `core/src/tts/PicoTTSService.cpp` (PicoTTS / IAudioSink) |
 | **Radio & Malla** | `radio.hpp`, `mesh/mesh_engine.hpp` | `hal_radio_p4.cpp` | `hal_radio_s3.cpp` |
 | **Flasheador Serial** | `flasher.hpp` | `hal_flasher_p4.cpp` | `hal_flasher_s3.cpp` |
 | **Terminal UART** | `uart.hpp` | `hal_uart_p4.cpp` | `hal_uart_s3.cpp` |

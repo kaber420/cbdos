@@ -384,3 +384,62 @@ radio.onReceive(function(sender, payload, rssi)
 end)
 ```
 
+---
+
+## 13. `cbdos::tts` - Text-to-Speech (TTS) Offline en Español
+Header: `#include "cbdos/tts.hpp"`
+
+Servicio de síntesis de voz natural y texto a voz 100% offline basado en **SVOX Pico TTS**. Diseñado para accesibilidad en el Cyberdeck, asistentes de voz locales, notificaciones audibles en campo y lectura de terminales o payloads.
+
+### Modelos de Voz Requeridos
+El motor carga los diccionarios lingüísticos y fonéticos dinámicamente desde la tarjeta MicroSD para no saturar la memoria Flash:
+* `/sdcard/tts/es/es-ES_ta.bin` (Diccionario de texto y análisis morfológico en español, ~250 KB).
+* `/sdcard/tts/es/es-ES_zl0_sg.bin` (Modelo acústico de síntesis de voz en español, ~591 KB).
+
+### Ejemplo en C++ (Aplicaciones y Vistas)
+```cpp
+#include "cbdos/tts.hpp"
+
+// Obtener la instancia del servicio TTS
+auto* tts = cbdos::tts::getTextToSpeechService();
+if (tts) {
+    // 1. Opcional: Configurar velocidad y tono (100 = velocidad/tono normal)
+    tts->setSpeed(105); // 105% velocidad
+    tts->setPitch(100); // 100% tono
+
+    // 2. Encolar frase para sintetizar y reproducir
+    tts->speak("Hola, bienvenido a CBDos");
+
+    // 3. Control de reproducción
+    if (tts->isSpeaking()) {
+        // tts->pause();  // Pausar
+        // tts->resume(); // Reanudar
+        // tts->stop();   // Detener y limpiar cola
+    }
+
+    // 4. Liberación de memoria (Opcional):
+    // Si la aplicación va a cerrar o se necesita toda la PSRAM para un emulador,
+    // se puede descargar el motor y liberar los ~1.95 MB de memoria de trabajo:
+    // tts->shutdown();
+}
+```
+
+### Prueba Rápida desde Consola Serial (`/dev/ttyACM0`)
+El firmware incluye un comando interactivo en caliente en la CLI serial para validar voz sin recompilar:
+```bash
+tts <texto a pronunciar>
+```
+*Ejemplo:*
+```text
+tts Hola mundo, saludos desde CBDos
+```
+*Telemetría esperada en consola:*
+```text
+[SERIAL_CLI_IN] tts Hola mundo, saludos desde CBDos
+[SERIAL_CLI_OUT] 🗣️ Sintetizando voz: "Hola mundo, saludos desde CBDos"...
+[SERIAL_CLI_OUT] ✅ Texto encolado en PicoTTS.
+Síntesis en memoria completada: 34560 muestras mono (16 kHz)
+Iniciando reproduccion DMA continua: 381024 bytes estéreo (44.1 kHz)
+```
+
+

@@ -1,26 +1,28 @@
-# 📖 Portal de Documentación Oficial de CBDos (CyBerDeck OS)
+# 🔬 Especificaciones Técnicas e Ingeniería de CBDos (CyBerDeck OS)
 
-Bienvenido al centro de documentación técnica y manuales de desarrollo de **CBDos**, un sistema operativo embebido multi-target desacoplado para microcontroladores ESP32-P4 y ESP32-S3.
+Bienvenido al repositorio de especificaciones de ingeniería, notas de arquitectura interna, bitácoras de investigación y protocolos de bajo nivel de **CBDos**.
+
+> 🌐 **¿Buscas el manual de usuario o la guía de primeros pasos?**  
+> Visita el portal oficial de documentación en **[kaber420.github.io/cbdos](https://kaber420.github.io/cbdos/)** (mantenido en la carpeta `docs/`).
 
 ---
 
-## 🗺️ Mapa de Navegación
+## 🗺️ Mapa de Navegación de Especificaciones
 
 ```
-docs/
-├── 📚 api/               -> Referencia de APIs del SDK y Guías de Desarrollo
-├── 🏛️ architecture/      -> Filosofía del Core agnóstico, HAL y patrones
-├── 🔌 hardware/          -> Mapas de pines GPIO, conectores y periféricos
-├── 📱 apps/              -> Especificaciones funcionales de cada aplicación
+specs/
+├── 📚 api/               -> Referencia técnica de APIs internas del SDK y Guías C++
+├── 🏛️ architecture/      -> Filosofía del Core agnóstico, HAL y patrones arquitectónicos
+├── 🔌 hardware/          -> Mapas de pines GPIO, conectores JP1 y periféricos
 ├── 💾 storage/           -> Almacenamiento SPIFFS, MicroSD y persistencia NVS
-├── 🌐 network/           -> Conectividad WiFi y coprocesadores de red
-├── 💡 proposals/         -> Propuestas de aplicaciones e implementaciones futuras
-└── 📝 drafts/            -> Borradores de trabajo e ideas de evolución
+├── 🌐 network/           -> Protocolos RF (ESP-NOW, TLV, Pseudo-ARP) y coprocesadores
+├── 💡 proposals/         -> Propuestas técnicas e implementaciones futuras
+└── 📝 drafts/            -> Borradores de trabajo, bitácoras e ideas de evolución
 ```
 
 ---
 
-### 1. 📚 [SDK y Guías de Desarrollo (`docs/api/`)](api/)
+### 1. 📚 [SDK y Guías de Desarrollo (`specs/api/`)](api/)
 * **[Guía para Desarrollar una App en C++](api/how_to_create_an_app.md):** Tutorial paso a paso con código de ejemplo para crear vistas nativas en LVGL 9.5.
 * **[Especificación de Lua++ y Formato `.luapp`](api/luapp_specification.md):** Guía de desarrollo de micro-aplicaciones dinámicas en Lua++ sin necesidad de compilar.
 * **[Referencia de APIs del Sistema (SDK)](api/core_apis_reference.md):** Documentación completa de `cbdos::system`, `storage`, `audio`, `uart`, `flasher`, `display`, `network` y `DefaultTheme`.

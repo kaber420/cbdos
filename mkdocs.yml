@@ -1,0 +1,64 @@
+site_name: CyBerDeck OS (CBDos)
+site_description: Documentación oficial de CyBerDeck OS - Sistema operativo embebido para ESP32-P4 y ESP32-S3
+site_author: kaber420
+site_url: https://kaber420.github.io/cbdos/
+repo_url: https://github.com/kaber420/CBD-os
+repo_name: kaber420/CBD-os
+
+theme:
+  name: material
+  language: es
+  palette:
+    # Modo oscuro cibernético por defecto
+    - scheme: slate
+      primary: cyan
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Cambiar a modo claro
+    # Modo claro opcional
+    - scheme: default
+      primary: cyan
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Cambiar a modo oscuro
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+
+nav:
+  - Inicio: index.md
+  - Primeros Pasos:
+      - Flasheo e Instalación: getting-started/flashing.md
+  - Hardware:
+      - Placas Oficiales: hardware/supported-boards.md
+  - Aplicaciones:
+      - Catálogo de Apps: apps/overview.md
+  - Desarrolladores:
+      - Apps en Lua++ (.luapp): developers/luapp.md
+  - Ingeniería e I+D:
+      - Repositorio specs/: https://github.com/kaber420/CBD-os/tree/main/specs

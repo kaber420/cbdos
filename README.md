@@ -148,7 +148,7 @@ CBDos incluye un formato de micro-aplicaciones `.luapp` con VM aislada por app y
 | `serial_beacon.luapp` | Beacon de transmision serial |
 
 
-> Ver [`docs/api/luapp_specification.md`](docs/api/luapp_specification.md) para el formato completo de Lua++.
+> Ver [`specs/api/luapp_specification.md`](specs/api/luapp_specification.md) para el formato completo de Lua++.
 
 ---
 
@@ -250,7 +250,7 @@ Un **Programador de Campo Autonomo** es una herramienta portatil e independiente
 ### 2. Flasheo por UART / Cabecera JP1 (Coprocesador Integrado ESP32-C6)
 - **Flasheo Simplificado con solo 3 Cables:** El coprocesador inalambrico ESP32-C6 ya recibe su alimentacion de forma interna en la PCB. Para programarlo mediante la app integrada **Flasher** o el puente UART, solo se requieren **3 conexiones temporales** en la cabecera **JP1 (2x13 pines)**:
 
-![Diagrama de Conexiones de Flasheo ESP32-C6 en JP1](docs/images/esp32_c6_flasher_diagram.png)
+![Diagrama de Conexiones de Flasheo ESP32-C6 en JP1](specs/images/esp32_c6_flasher_diagram.png)
 
 #### Conexiones Requeridas en la Cabecera JP1 para ESP32-C6 (3 Cables Unicamente)
 
@@ -264,7 +264,7 @@ Un **Programador de Campo Autonomo** es una herramienta portatil e independiente
 > - **Alimentacion (`ESP_3V3`):** El modulo C6 esta alimentado internamente por el regulador de la placa, por lo que **no se requiere ningun cable externo de 3.3V**.
 > - **Reset (`C6_CHIP_PU`):** La linea de Reset del C6 esta conectada internamente al **GPIO 54 del ESP32-P4**, permitiendo que CBDos reinicie el coprocesador automaticamente sin puentear pines de reset.
 
-> Ver [`docs/hardware/usb_c_field_flasher_milestone.md`](docs/hardware/usb_c_field_flasher_milestone.md) y [`docs/hardware/pinouts_and_ports.md`](docs/hardware/pinouts_and_ports.md)
+> Ver [`specs/hardware/usb_c_field_flasher_milestone.md`](specs/hardware/usb_c_field_flasher_milestone.md) y [`specs/hardware/pinouts_and_ports.md`](specs/hardware/pinouts_and_ports.md)
 
 ---
 
@@ -351,7 +351,8 @@ cbdos/
 │   ├── lua/                    # Demos: audio, graficos, HID, sistema
 │   └── games/                  # Juegos PICO-8: pong, space_invaders
 ├── wallpapers/                 # Recursos graficos RGB565 y JPG
-├── docs/                       # Documentacion tecnica completa
+├── docs/                       # Portal oficial de documentacion publica (GitHub Pages)
+├── specs/                      # Especificaciones tecnicas, I+D y notas de arquitectura
 └── notes/                      # Notas internas de laboratorio (gitignored)
 ```
 
@@ -424,33 +425,37 @@ pio run
 
 ---
 
-## Documentacion Tecnica y Arquitectura
+## Documentacion y Especificaciones de Ingenieria
+
+> 🌐 **Portal Web Oficial:** Documentacion limpia y guias paso a paso en [kaber420.github.io/cbdos](https://kaber420.github.io/cbdos/) (alojado en `docs/`).
+
+### Especificaciones Tecnicas de Arquitectura e I+D (`specs/`)
 
 | Documento | Descripcion |
 |:---|:---|
-| [`docs/README.md`](docs/README.md) | Portal y Mapa Maestro de Navegacion de Documentacion |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Estado de avance, changelog y fases del proyecto |
-| [`docs/hardware/pinouts_and_ports.md`](docs/hardware/pinouts_and_ports.md) | Referencia completa de GPIO, buses I2C, I2S y pines JP1 |
-| [`docs/hardware/usb_c_field_flasher_milestone.md`](docs/hardware/usb_c_field_flasher_milestone.md) | Hito de flasheo autonomo USB-C en campo con Auto-Bootloader |
-| [`docs/hardware/hardware_summary.md`](docs/hardware/hardware_summary.md) | Resumen de memoria Flash, PSRAM y perifericos |
-| [`docs/architecture/hal_and_core_architecture.md`](docs/architecture/hal_and_core_architecture.md) | Arquitectura agnostica de `core/`, Ley de Pureza y contratos HAL |
-| [`docs/architecture/lua_app_ecosystem_and_runtime_architecture.md`](docs/architecture/lua_app_ecosystem_and_runtime_architecture.md) | Ecosistema de Lua Apps, runtime sandboxed y APIs comunitarias |
-| [`docs/architecture/backpack_manager_and_dynamic_gpio_nfc_spec.md`](docs/architecture/backpack_manager_and_dynamic_gpio_nfc_spec.md) | Backpack Manager, auto-deteccion NFC y reconfiguracion dinamica de GPIOs |
-| [`docs/architecture/multi_radio_hub_router_design.md`](docs/architecture/multi_radio_hub_router_design.md) | Estacion Base y Router Multi-Antena con Hub USB y C3s |
-| [`docs/architecture/modular_lua_bridge_architecture.md`](docs/architecture/modular_lua_bridge_architecture.md) | Arquitectura modular de bindings Lua por dominios |
-| [`docs/architecture/usb_host_flasher_and_jtag_subsystem.md`](docs/architecture/usb_host_flasher_and_jtag_subsystem.md) | Expansion USB Host, Flasher y JTAG |
-| [`docs/architecture/security_and_encryption_specification.md`](docs/architecture/security_and_encryption_specification.md) | Seguridad, cifrado de paquetes de radio y autenticacion |
-| [`docs/architecture/gpio_resource_manager_spec.md`](docs/architecture/gpio_resource_manager_spec.md) | Gestor de recursos GPIO dinamico |
-| [`docs/architecture/especificacion_usb_device_manager_y_ecosistema_perifericos.md`](docs/architecture/especificacion_usb_device_manager_y_ecosistema_perifericos.md) | USB Device Manager y ecosistema de perifericos |
-| [`docs/network/plan_espnow_usb_bridge.md`](docs/network/plan_espnow_usb_bridge.md) | Firmware del modem USB ESP-NOW y protocolo de enmarcado |
-| [`docs/network/especificacion_enlace_modem_usb_y_meshcore.md`](docs/network/especificacion_enlace_modem_usb_y_meshcore.md) | Especificacion de enlace modem USB CDC-ACM y MeshCore |
-| [`docs/network/esp32_p4_c6_hosted_wifi.md`](docs/network/esp32_p4_c6_hosted_wifi.md) | Guia del coprocesador C6 Hosted WiFi 6 / BT |
-| [`docs/network/especificacion_direccionamiento_ipv4_mesh_y_pseudo_arp.md`](docs/network/especificacion_direccionamiento_ipv4_mesh_y_pseudo_arp.md) | Direccionamiento IPv4 Mesh y Pseudo-ARP |
-| [`docs/storage/spiffs_and_msgpack_spec.md`](docs/storage/spiffs_and_msgpack_spec.md) | Almacenamiento SPIFFS y serializacion MessagePack |
-| [`docs/storage/nvs_persistencia_fastboot.md`](docs/storage/nvs_persistencia_fastboot.md) | Persistencia NVS y FastBoot |
-| [`docs/api/core_apis_reference.md`](docs/api/core_apis_reference.md) | Referencia completa de APIs publicas del SDK |
-| [`docs/api/how_to_create_an_app.md`](docs/api/how_to_create_an_app.md) | Guia de creacion de aplicaciones nativas en C++ y LVGL 9.5 |
-| [`docs/api/luapp_specification.md`](docs/api/luapp_specification.md) | Especificacion de Lua++ y formato `.luapp` |
+| [`specs/README.md`](specs/README.md) | Portal y Mapa Maestro de Navegacion de Especificaciones |
+| [`specs/ROADMAP.md`](specs/ROADMAP.md) | Estado de avance, changelog y fases del proyecto |
+| [`specs/hardware/pinouts_and_ports.md`](specs/hardware/pinouts_and_ports.md) | Referencia completa de GPIO, buses I2C, I2S y pines JP1 |
+| [`specs/hardware/usb_c_field_flasher_milestone.md`](specs/hardware/usb_c_field_flasher_milestone.md) | Hito de flasheo autonomo USB-C en campo con Auto-Bootloader |
+| [`specs/hardware/hardware_summary.md`](specs/hardware/hardware_summary.md) | Resumen de memoria Flash, PSRAM y perifericos |
+| [`specs/architecture/hal_and_core_architecture.md`](specs/architecture/hal_and_core_architecture.md) | Arquitectura agnostica de `core/`, Ley de Pureza y contratos HAL |
+| [`specs/architecture/lua_app_ecosystem_and_runtime_architecture.md`](specs/architecture/lua_app_ecosystem_and_runtime_architecture.md) | Ecosistema de Lua Apps, runtime sandboxed y APIs comunitarias |
+| [`specs/architecture/backpack_manager_and_dynamic_gpio_nfc_spec.md`](specs/architecture/backpack_manager_and_dynamic_gpio_nfc_spec.md) | Backpack Manager, auto-deteccion NFC y reconfiguracion dinamica de GPIOs |
+| [`specs/architecture/multi_radio_hub_router_design.md`](specs/architecture/multi_radio_hub_router_design.md) | Estacion Base y Router Multi-Antena con Hub USB y C3s |
+| [`specs/architecture/modular_lua_bridge_architecture.md`](specs/architecture/modular_lua_bridge_architecture.md) | Arquitectura modular de bindings Lua por dominios |
+| [`specs/architecture/usb_host_flasher_and_jtag_subsystem.md`](specs/architecture/usb_host_flasher_and_jtag_subsystem.md) | Expansion USB Host, Flasher y JTAG |
+| [`specs/architecture/security_and_encryption_specification.md`](specs/architecture/security_and_encryption_specification.md) | Seguridad, cifrado de paquetes de radio y autenticacion |
+| [`specs/architecture/gpio_resource_manager_spec.md`](specs/architecture/gpio_resource_manager_spec.md) | Gestor de recursos GPIO dinamico |
+| [`specs/architecture/especificacion_usb_device_manager_y_ecosistema_perifericos.md`](specs/architecture/especificacion_usb_device_manager_y_ecosistema_perifericos.md) | USB Device Manager y ecosistema de perifericos |
+| [`specs/network/plan_espnow_usb_bridge.md`](specs/network/plan_espnow_usb_bridge.md) | Firmware del modem USB ESP-NOW y protocolo de enmarcado |
+| [`specs/network/especificacion_enlace_modem_usb_y_meshcore.md`](specs/network/especificacion_enlace_modem_usb_y_meshcore.md) | Especificacion de enlace modem USB CDC-ACM y MeshCore |
+| [`specs/network/esp32_p4_c6_hosted_wifi.md`](specs/network/esp32_p4_c6_hosted_wifi.md) | Guia del coprocesador C6 Hosted WiFi 6 / BT |
+| [`specs/network/especificacion_direccionamiento_ipv4_mesh_y_pseudo_arp.md`](specs/network/especificacion_direccionamiento_ipv4_mesh_y_pseudo_arp.md) | Direccionamiento IPv4 Mesh y Pseudo-ARP |
+| [`specs/storage/spiffs_and_msgpack_spec.md`](specs/storage/spiffs_and_msgpack_spec.md) | Almacenamiento SPIFFS y serializacion MessagePack |
+| [`specs/storage/nvs_persistencia_fastboot.md`](specs/storage/nvs_persistencia_fastboot.md) | Persistencia NVS y FastBoot |
+| [`specs/api/core_apis_reference.md`](specs/api/core_apis_reference.md) | Referencia completa de APIs publicas del SDK |
+| [`specs/api/how_to_create_an_app.md`](specs/api/how_to_create_an_app.md) | Guia de creacion de aplicaciones nativas en C++ y LVGL 9.5 |
+| [`specs/api/luapp_specification.md`](specs/api/luapp_specification.md) | Especificacion de Lua++ y formato `.luapp` |
 | [`tools/c6_flasher_bridge/README.md`](tools/c6_flasher_bridge/README.md) | Guia completa de flasheo del coprocesador C6 |
 
 ---
@@ -460,8 +465,8 @@ pio run
 - **Offline-First estricto:** El sistema es 100% funcional sin red. La inicializacion de Wi-Fi/BT es exclusivamente bajo demanda desde la UI.
 - **LVGL v9.5 estricto:** Prohibido usar macros o sintaxis de LVGL v8 (`lv_scr_act()`, `LV_MEM_CUSTOM`, etc.). Solo APIs v9.5 (`lv_screen_active()`, `lv_button_create()`, etc.).
 - **Verificacion dual-target:** Cada cambio en `core/` debe compilar en **ambos** entornos (`idf.py build` y `pio run`).
-- **Documentar hardware:** Cualquier pin, bus o registro descubierto se registra inmediatamente en `docs/hardware/pinouts_and_ports.md`.
-- **Lua++ y `.luapp`:** Las micro-aplicaciones se escriben en Lua++ con VM aislada. Ver `docs/api/luapp_specification.md` para el formato y APIs disponibles.
+- **Documentar hardware:** Cualquier pin, bus o registro descubierto se registra inmediatamente en `specs/hardware/pinouts_and_ports.md`.
+- **Lua++ y `.luapp`:** Las micro-aplicaciones se escriben en Lua++ con VM aislada. Ver `specs/api/luapp_specification.md` para el formato y APIs disponibles.
 - **Seguridad:** Nunca exponer ni registrar secrets y keys. No commitear credenciales al repositorio.
 
 ---

@@ -50,10 +50,11 @@ El proyecto opera bajo un modelo desacoplado:
 
 ## ⚠️ 3. Reglas Obligatorias de Desarrollo
 
-1. **Persistencia Obligatoria y Modularidad de Documentación (`docs/`):**
-   - **Hardware y Pines:** Toda información técnica (GPIOs, buses, LDOs, puertos UART) DEBE documentarse y actualizarse en `/home/kaber420/Documentos/proyectos/cbdos/docs/hardware/pinouts_and_ports.md`.
-   - **Arquitectura de Software y HAL:** Toda interfaz abstracta, módulo HAL o patrón arquitectónico DEBE documentarse en `/home/kaber420/Documentos/proyectos/cbdos/docs/architecture/hal_and_core_architecture.md`.
-   - **APIs para Desarrolladores y SDK:** Todo nuevo servicio o API accesible para aplicaciones DEBE documentarse con ejemplos en `/home/kaber420/Documentos/proyectos/cbdos/docs/api/core_apis_reference.md` y guías en `/home/kaber420/Documentos/proyectos/cbdos/docs/api/how_to_create_an_app.md`.
+1. **Persistencia Obligatoria y Modularidad de Especificaciones e Ingeniería (`specs/`):**
+   - **Hardware y Pines:** Toda información técnica (GPIOs, buses, LDOs, puertos UART) DEBE documentarse y actualizarse en `/home/kaber420/Documentos/proyectos/cbdos/specs/hardware/pinouts_and_ports.md`.
+   - **Arquitectura de Software y HAL:** Toda interfaz abstracta, módulo HAL o patrón arquitectónico DEBE documentarse en `/home/kaber420/Documentos/proyectos/cbdos/specs/architecture/hal_and_core_architecture.md`.
+   - **APIs para Desarrolladores y SDK:** Todo nuevo servicio o API accesible para aplicaciones DEBE documentarse con ejemplos en `/home/kaber420/Documentos/proyectos/cbdos/specs/api/core_apis_reference.md` y guías en `/home/kaber420/Documentos/proyectos/cbdos/specs/api/how_to_create_an_app.md`.
+   - **Portal Público (`docs/`):** La carpeta `docs/` queda reservada exclusivamente para el portal web limpio de GitHub Pages.
 
 2. **Verificación Multi-Target Obligatoria:**
    - Cada cambio en `core/` debe compilar limpiamente en **AMBOS** entornos:
@@ -90,8 +91,8 @@ El proyecto opera bajo un modelo desacoplado:
    - **PROHIBIDO** bifurcar la lógica de negocio mediante `#ifdef ARDUINO` o `#ifdef ESP_PLATFORM` dentro de `core/`.
    - **Patrón de Abstracción HAL / Interfaces:** Todo acceso a hardware, NVS, sistema de archivos o red DEBE realizarse mediante interfaces abstractas (`IStorageBackend`, `IAudioSink`, `INetworkAdapter`). Las implementaciones concretas residen ÚNICAMENTE en sus respectivos directorios `bsp/` y se inyectan en tiempo de inicialización.
 
-9. **Integridad Absoluta de Documentación e Historial (`docs/`):**
-   - **ESTRICTAMENTE PROHIBIDO** sobreescribir, borrar, truncar o reciclar archivos de documentación existentes en `docs/` o `docs/drafts/` a menos que el usuario lo ordene explícitamente indicando el archivo.
+9. **Integridad Absoluta de Documentación e Historial (`specs/`):**
+   - **ESTRICTAMENTE PROHIBIDO** sobreescribir, borrar, truncar o reciclar archivos de documentación existentes en `specs/` o `specs/drafts/` a menos que el usuario lo ordene explícitamente indicando el archivo.
    - Toda nueva investigación, borrador o análisis DEBE crearse en un archivo nuevo con nombre único y descriptivo.
 
 10. **Prohibición Universal de Resúmenes y Ediciones Destructivas (Aplica a TODO el Proyecto):**
