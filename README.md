@@ -429,34 +429,6 @@ pio run
 
 > 🌐 **Portal Web Oficial:** Documentacion limpia y guias paso a paso en [kaber420.github.io/cbdos](https://kaber420.github.io/cbdos/) (alojado en `docs/`).
 
-### Especificaciones Tecnicas de Arquitectura e I+D (`specs/`)
-
-| Documento | Descripcion |
-|:---|:---|
-| [`specs/README.md`](specs/README.md) | Portal y Mapa Maestro de Navegacion de Especificaciones |
-| [`specs/ROADMAP.md`](specs/ROADMAP.md) | Estado de avance, changelog y fases del proyecto |
-| [`specs/hardware/pinouts_and_ports.md`](specs/hardware/pinouts_and_ports.md) | Referencia completa de GPIO, buses I2C, I2S y pines JP1 |
-| [`specs/hardware/usb_c_field_flasher_milestone.md`](specs/hardware/usb_c_field_flasher_milestone.md) | Hito de flasheo autonomo USB-C en campo con Auto-Bootloader |
-| [`specs/hardware/hardware_summary.md`](specs/hardware/hardware_summary.md) | Resumen de memoria Flash, PSRAM y perifericos |
-| [`specs/architecture/hal_and_core_architecture.md`](specs/architecture/hal_and_core_architecture.md) | Arquitectura agnostica de `core/`, Ley de Pureza y contratos HAL |
-| [`specs/architecture/lua_app_ecosystem_and_runtime_architecture.md`](specs/architecture/lua_app_ecosystem_and_runtime_architecture.md) | Ecosistema de Lua Apps, runtime sandboxed y APIs comunitarias |
-| [`specs/architecture/backpack_manager_and_dynamic_gpio_nfc_spec.md`](specs/architecture/backpack_manager_and_dynamic_gpio_nfc_spec.md) | Backpack Manager, auto-deteccion NFC y reconfiguracion dinamica de GPIOs |
-| [`specs/architecture/multi_radio_hub_router_design.md`](specs/architecture/multi_radio_hub_router_design.md) | Estacion Base y Router Multi-Antena con Hub USB y C3s |
-| [`specs/architecture/modular_lua_bridge_architecture.md`](specs/architecture/modular_lua_bridge_architecture.md) | Arquitectura modular de bindings Lua por dominios |
-| [`specs/architecture/usb_host_flasher_and_jtag_subsystem.md`](specs/architecture/usb_host_flasher_and_jtag_subsystem.md) | Expansion USB Host, Flasher y JTAG |
-| [`specs/architecture/security_and_encryption_specification.md`](specs/architecture/security_and_encryption_specification.md) | Seguridad, cifrado de paquetes de radio y autenticacion |
-| [`specs/architecture/gpio_resource_manager_spec.md`](specs/architecture/gpio_resource_manager_spec.md) | Gestor de recursos GPIO dinamico |
-| [`specs/architecture/especificacion_usb_device_manager_y_ecosistema_perifericos.md`](specs/architecture/especificacion_usb_device_manager_y_ecosistema_perifericos.md) | USB Device Manager y ecosistema de perifericos |
-| [`specs/network/plan_espnow_usb_bridge.md`](specs/network/plan_espnow_usb_bridge.md) | Firmware del modem USB ESP-NOW y protocolo de enmarcado |
-| [`specs/network/especificacion_enlace_modem_usb_y_meshcore.md`](specs/network/especificacion_enlace_modem_usb_y_meshcore.md) | Especificacion de enlace modem USB CDC-ACM y MeshCore |
-| [`specs/network/esp32_p4_c6_hosted_wifi.md`](specs/network/esp32_p4_c6_hosted_wifi.md) | Guia del coprocesador C6 Hosted WiFi 6 / BT |
-| [`specs/network/especificacion_direccionamiento_ipv4_mesh_y_pseudo_arp.md`](specs/network/especificacion_direccionamiento_ipv4_mesh_y_pseudo_arp.md) | Direccionamiento IPv4 Mesh y Pseudo-ARP |
-| [`specs/storage/spiffs_and_msgpack_spec.md`](specs/storage/spiffs_and_msgpack_spec.md) | Almacenamiento SPIFFS y serializacion MessagePack |
-| [`specs/storage/nvs_persistencia_fastboot.md`](specs/storage/nvs_persistencia_fastboot.md) | Persistencia NVS y FastBoot |
-| [`specs/api/core_apis_reference.md`](specs/api/core_apis_reference.md) | Referencia completa de APIs publicas del SDK |
-| [`specs/api/how_to_create_an_app.md`](specs/api/how_to_create_an_app.md) | Guia de creacion de aplicaciones nativas en C++ y LVGL 9.5 |
-| [`specs/api/luapp_specification.md`](specs/api/luapp_specification.md) | Especificacion de Lua++ y formato `.luapp` |
-| [`tools/c6_flasher_bridge/README.md`](tools/c6_flasher_bridge/README.md) | Guia completa de flasheo del coprocesador C6 |
 
 ---
 
