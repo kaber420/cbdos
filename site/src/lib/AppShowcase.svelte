@@ -84,10 +84,10 @@
       hasLuaApi: false
     },
     {
-      id: 'fido2',
-      title: 'Token FIDO2 & Seguridad Kerberos',
+      id: 'Kerberos',
+      title: 'Kerberos Passkey  FIDO2 ',
       category: 'security',
-      catLabel: 'BadUSB & Seguridad',
+      catLabel: 'Seguridad',
       icon: '🛡️',
       desc: 'Módulo de autenticación criptográfica de dos factores (U2F/FIDO2) con almacenamiento seguro en partición NVS cifrada y confirmación física.',
       tech: ['FIDO2 / U2F', 'NVS Encryption', 'AES-256'],
@@ -95,7 +95,7 @@
       hasLuaApi: false
     },
     {
-      id: 'sniffer',
+      id: 'pendiente-sniffer',
       title: 'RF Packet Sniffer & Spectrum',
       category: 'radio',
       catLabel: 'Radio & Mesh',
