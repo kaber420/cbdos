@@ -4,7 +4,7 @@
       id: 'index',
       title: 'Visión del Sistema & Arquitectura',
       file: 'manual/index.md',
-      desc: 'Introducción a CBDos, arquitectura del sistema y estructura del proyecto.',
+      desc: 'Introducción a CBDos, arquitectura y capacidades del sistema (Vectores Lottie, TTS, Cartuchos OTA).',
       icon: '📖',
       tag: 'General'
     },

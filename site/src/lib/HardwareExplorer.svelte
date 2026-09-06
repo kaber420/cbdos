@@ -56,7 +56,6 @@
         class:active={selectedBoard === 'p4'} 
         onclick={() => selectedBoard = 'p4'}
       >
-        <span class="board-icon">⚡</span>
         <div class="board-btn-info">
           <span class="board-title">JC4880P443C (ESP32-P4)</span>
           <span class="board-badge">400MHz • 4.3" MIPI-DPI • 60 FPS</span>
@@ -68,7 +67,6 @@
         class:active={selectedBoard === 's3'} 
         onclick={() => selectedBoard = 's3'}
       >
-        <span class="board-icon">📟</span>
         <div class="board-btn-info">
           <span class="board-title">JC3248W535 (ESP32-S3)</span>
           <span class="board-badge">240MHz • 3.5" QSPI • 30 FPS</span>
@@ -195,10 +193,6 @@
     border-color: var(--cyan-core);
     background: rgba(0, 240, 255, 0.1);
     box-shadow: 0 0 25px rgba(0, 240, 255, 0.15);
-  }
-
-  .board-icon {
-    font-size: 1.8rem;
   }
 
   .board-btn-info {

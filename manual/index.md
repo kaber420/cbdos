@@ -3,7 +3,7 @@
     CyBerDeck OS
   </h1>
   <p style="font-size: 1.25rem; color: #cbd5e1; max-width: 680px; margin: 0 auto 1.6rem auto; line-height: 1.6;">
-    El sistema operativo embebido, desacoplado y <b>offline-first</b> para cyberdecks, consolas portátiles y hardware táctico ESP32.
+    El sistema operativo gráfico y modular para cyberdecks y consolas portátiles basadas en ESP32.
   </p>
   
   <div style="display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2.2rem;">
@@ -29,31 +29,28 @@
 
 ---
 
-## ⚡ Pilares Tecnológicos
+## ⚙️ Capacidades del Sistema Operativo
 
-### 🖥️ UI Cyberpunk & 60 FPS
-Motor gráfico de alto rendimiento con **LVGL v9.5**, aceleración de hardware DMA2D / PPA en ESP32-P4, animaciones Lottie y widgets táctiles vectoriales.
-→ [Ver catálogo de aplicaciones](apps/overview.md)
+### 🎨 Motor Vectorial & Animaciones Lottie
+Integración del motor vectorial **rlottie** sobre LVGL v9.5. Permite renderizar animaciones vectoriales JSON fluidas y escalables para widgets interactivos, efectos visuales y mascotas virtuales sin pixelado ni consumo excesivo de memoria.
 
-### 🔲 Multi-Target Desacoplado
-Arquitectura agnóstica (`core/`) en C++ estándar y contratos HAL. Corre simultáneamente en **ESP32-P4** (ESP-IDF 5.5 nativo) y **ESP32-S3** (PlatformIO).
-→ [Ver placas soportadas](hardware/supported-boards.md)
+### 🗣️ Síntesis de Voz Offline (PicoTTS)
+Motor TTS (Text-To-Speech) por software integrado en el núcleo. Permite que el sistema y las aplicaciones vocalicen alertas, textos y lecturas en voz alta a través del códec I2S Everest ES8311 sin necesidad de conexión a internet.
 
-### 💻 Ecosistema Lua++ (.luapp)
-Ejecuta micro-aplicaciones dinámicas desde la tarjeta MicroSD sin necesidad de recompilar ni instalar toolchains. Máquina virtual segura en PSRAM con APIs completas.
-→ [Guía rápida de Lua++](developers/luapp.md)
+### 🖥️ Aceleración Gráfica 2D en PSRAM (LVGL v9.5)
+Gestión avanzada de memoria gráfica: doble buffer ubicado en la memoria Hexal-PSRAM de alta velocidad con aceleración por hardware (DMA2D / PPA en ESP32-P4) a 60 FPS estables.
 
-### 📡 Redes Mesh & Modo Sigilo
-Comunicaciones ad-hoc fuera de internet vía **ESP-NOW**, túneles de radio, paquetes TLV y tablas de ruteo dinámico con Short IDs.
-→ [Ver especificaciones RF](https://github.com/kaber420/CBD-os/tree/main/specs/network)
+### 💾 Almacenamiento VFS en MicroSD (SDMMC 4-bit)
+Sistema de archivos virtual FAT32/exFAT de alta velocidad a través del bus SDMMC de 4 bits con alimentación regulada por LDO VO4 (3.3V), garantizando transferencias rápidas para logs, música, assets y cartuchos.
 
-### ⚡ Flasheador Autónomo de Campo
-Convierte tu CyBerDeck en un programador portátil: flashea microcontroladores externos (ESP32-C3, C6) por USB-C o UART directamente desde la MicroSD.
-→ [Ver detalles de Flasher](apps/overview.md#herramientas-de-sistema-y-campo)
+### 💻 Entorno de Scripting Lua++ (.luapp)
+Ejecuta micro-aplicaciones y herramientas dinámicas directamente desde la tarjeta MicroSD sin necesidad de recompilar el firmware. Máquina virtual aislada en PSRAM con bindings a pantalla, audio, archivos y USB.
 
-### 🛡️ Seguridad Física FIDO2 / U2F
-Autenticación mediante módulo Kerberos, cifrado simétrico/asimétrico de transmisiones inalámbricas y aislamiento estricto de credenciales.
-→ [Especificación de seguridad](https://github.com/kaber420/CBD-os/blob/main/specs/architecture/security_and_encryption_specification.md)
+### 🕹️ Gestor de Cartuchos en Particiones OTA
+Permite instalar, alternar y arrancar firmwares o cartuchos independientes (.bin) almacenados en la MicroSD directamente en las particiones OTA de la memoria Flash del dispositivo, facilitando el cambio a sistemas dedicados (como emuladores con soporte para gamepad).
+
+### ⌨️ Emulador HID USB Compuesto
+Control nativo del periférico USB-OTG mediante TinyUSB en modo teclado y ratón compuesto, habilitando la ejecución reactiva de secuencias DuckyScript v2.
 
 ---
 
@@ -66,9 +63,7 @@ Autenticación mediante módulo Kerberos, cifrado simétrico/asimétrico de tran
 
 ---
 
-## 🛠️ Filosofía "Zero-Poll & Offline-First"
+## 🛠️ Principios de Arquitectura
 
-CBDos está concebido desde su concepción bajo dos directrices de ingeniería innegociables:
-
-1. **Autonomía Total sin Internet:** El 100% de las funciones del sistema (pantalla, táctil, audio, emuladores retro, almacenamiento, terminales y flasheador) operan de forma inmediata al pulsar el botón de encendido, sin depender de Wi-Fi, routers o servidores externos.
-2. **Arquitectura 100% Reactiva:** Prohibido el gasto inútil de ciclos de CPU mediante bucles de sondeo (*polling*). Todos los periféricos (USB Hotplug, inserción de MicroSD, paquetes de radio, teclado) responden exclusivamente a interrupciones y eventos asíncronos nativos.
+1. **Autonomía Operativa:** El sistema arranca y funciona con total independencia; las utilidades locales, el audio, los gráficos y el almacenamiento operan sin requerir conexiones de red obligatorias para el funcionamiento base.
+2. **Arquitectura Basada en Eventos:** Los periféricos y buses responden a interrupciones y eventos asíncronos nativos del hardware, evitando bucles innecesarios de sondeo activo para optimizar el rendimiento y consumo de CPU.
