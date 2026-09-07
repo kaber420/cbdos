@@ -20,7 +20,10 @@ LuaRunnerView::LuaRunnerView(const std::string& initialScript)
       m_scriptLabel(nullptr),
       m_refreshTimer(nullptr),
       m_modalMask(nullptr),
-      m_activeScript(initialScript) {
+      m_modalTitle(nullptr),
+      m_modalBody(nullptr),
+      m_activeScript(initialScript),
+      m_currentFolderIdx(0) {
 }
 
 void LuaRunnerView::setScript(const std::string& path) {
@@ -98,7 +101,12 @@ void LuaRunnerView::timerCb(lv_timer_t* timer) {
 }
 
 void LuaRunnerView::scanLuaFilesSD() {
-    m_foundLuaFiles.clear();
+    m_folderCategories = {
+        {"Scripts", "/sdcard/scripts", {}},
+        {"Apps", "/sdcard/apps", {}},
+        {"Paquetes Luapp", "/sdcard/luapp", {}},
+        {"Raíz MicroSD", "/sdcard", {}}
+    };
 
     if (!cbdos::storage::isSdMounted()) {
         cbdos::storage::mountSd();
@@ -108,27 +116,22 @@ void LuaRunnerView::scanLuaFilesSD() {
         return;
     }
 
-    std::vector<std::string> dirsToScan = {"/sdcard"};
-
-    for (size_t d = 0; d < dirsToScan.size() && dirsToScan.size() < 50; d++) {
-        std::string currentDir = dirsToScan[d];
-        auto entries = cbdos::storage::listDir(currentDir.c_str());
+    for (auto& cat : m_folderCategories) {
+        auto entries = cbdos::storage::listDir(cat.path.c_str());
         for (const auto& f : entries) {
-            std::string fullPath = currentDir;
-            if (fullPath.back() != '/') fullPath += '/';
-            fullPath += f.name;
+            if (f.isDirectory) continue;
 
-            if (f.isDirectory) {
-                if (f.name != "System Volume Information" && f.name != ".Spotlight-V100" && 
-                    f.name != ".Trashes" && f.name[0] != '.') {
-                    dirsToScan.push_back(fullPath);
-                }
-            } else {
-                std::string nameLower = f.name;
-                std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
-                if (nameLower.size() >= 4 && nameLower.rfind(".lua") == nameLower.size() - 4) {
-                    m_foundLuaFiles.push_back(fullPath);
-                }
+            std::string nameLower = f.name;
+            std::transform(nameLower.begin(), nameLower.end(), nameLower.begin(), ::tolower);
+
+            bool isLua = (nameLower.size() >= 4 && nameLower.rfind(".lua") == nameLower.size() - 4);
+            bool isLuapp = (nameLower.size() >= 6 && nameLower.rfind(".luapp") == nameLower.size() - 6);
+
+            if (isLua || isLuapp) {
+                std::string fullPath = cat.path;
+                if (fullPath.back() != '/') fullPath += '/';
+                fullPath += f.name;
+                cat.files.push_back(fullPath);
             }
         }
     }
@@ -276,11 +279,8 @@ void LuaRunnerView::btnCreateDemoCb(lv_event_t* e) {
     self->createDemoScripts();
     UIManager::showToast("Scripts demo creados en SD");
 
-    if (self->m_modalMask && lv_obj_is_valid(self->m_modalMask)) {
-        lv_obj_delete_async(self->m_modalMask);
-        self->m_modalMask = nullptr;
-    }
-    self->showFilePickerModal();
+    self->scanLuaFilesSD();
+    self->renderFolderListView();
 }
 
 void LuaRunnerView::btnRunCb(lv_event_t* e) {
@@ -288,13 +288,8 @@ void LuaRunnerView::btnRunCb(lv_event_t* e) {
     if (!self) return;
 
     if (self->m_activeScript.empty()) {
-        self->scanLuaFilesSD();
-        if (!self->m_foundLuaFiles.empty()) {
-            self->setScript(self->m_foundLuaFiles[0]);
-        } else {
-            UIManager::showToast("Selecciona un script primero (📁)");
-            return;
-        }
+        UIManager::showToast("Selecciona un script primero (📁)");
+        return;
     }
 
     if (LuaRunner::getInstance().getState() == LuaRunnerState::RUNNING) {
@@ -352,7 +347,25 @@ void LuaRunnerView::modalCloseCb(lv_event_t* e) {
     if (self && self->m_modalMask && lv_obj_is_valid(self->m_modalMask)) {
         lv_obj_delete_async(self->m_modalMask);
         self->m_modalMask = nullptr;
+        self->m_modalTitle = nullptr;
+        self->m_modalBody = nullptr;
     }
+}
+
+void LuaRunnerView::folderSelectCb(lv_event_t* e) {
+    LuaRunnerView* self = static_cast<LuaRunnerView*>(lv_event_get_user_data(e));
+    lv_obj_t* btn = static_cast<lv_obj_t*>(lv_event_get_target(e));
+    if (!self || !btn) return;
+
+    size_t idx = (size_t)(intptr_t)lv_obj_get_user_data(btn);
+    self->renderFileListView(idx);
+}
+
+void LuaRunnerView::folderBackCb(lv_event_t* e) {
+    LuaRunnerView* self = static_cast<LuaRunnerView*>(lv_event_get_user_data(e));
+    if (!self) return;
+
+    self->renderFolderListView();
 }
 
 void LuaRunnerView::fileSelectCb(lv_event_t* e) {
@@ -360,15 +373,20 @@ void LuaRunnerView::fileSelectCb(lv_event_t* e) {
     lv_obj_t* btn = static_cast<lv_obj_t*>(lv_event_get_target(e));
     if (!self || !btn) return;
 
-    int idx = (int)(intptr_t)lv_obj_get_user_data(btn);
-    if (idx >= 0 && idx < (int)self->m_foundLuaFiles.size()) {
-        self->setScript(self->m_foundLuaFiles[idx]);
-        UIManager::showToast("Script seleccionado");
+    size_t idx = (size_t)(intptr_t)lv_obj_get_user_data(btn);
+    if (self->m_currentFolderIdx < self->m_folderCategories.size()) {
+        const auto& files = self->m_folderCategories[self->m_currentFolderIdx].files;
+        if (idx < files.size()) {
+            self->setScript(files[idx]);
+            UIManager::showToast("Script seleccionado");
+        }
     }
 
     if (self->m_modalMask && lv_obj_is_valid(self->m_modalMask)) {
         lv_obj_delete_async(self->m_modalMask);
         self->m_modalMask = nullptr;
+        self->m_modalTitle = nullptr;
+        self->m_modalBody = nullptr;
     }
 }
 
@@ -376,6 +394,8 @@ void LuaRunnerView::showFilePickerModal() {
     if (m_modalMask && lv_obj_is_valid(m_modalMask)) {
         lv_obj_delete(m_modalMask);
         m_modalMask = nullptr;
+        m_modalTitle = nullptr;
+        m_modalBody = nullptr;
     }
 
     scanLuaFilesSD();
@@ -403,7 +423,7 @@ void LuaRunnerView::showFilePickerModal() {
     lv_obj_set_style_pad_all(modal, 12, 0);
     lv_obj_set_style_pad_row(modal, 8, 0);
 
-    // Título Modal
+    // Cabecera Modal
     lv_obj_t* header = lv_obj_create(modal);
     lv_obj_set_size(header, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(header, 0, 0);
@@ -413,10 +433,10 @@ void LuaRunnerView::showFilePickerModal() {
     lv_obj_set_style_pad_all(header, 0, 0);
     DefaultTheme::disableScroll(header);
 
-    lv_obj_t* title = lv_label_create(header);
-    lv_label_set_text(title, "Scripts en MicroSD (.lua)");
-    lv_obj_set_style_text_color(title, DefaultTheme::getTextColor(), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    m_modalTitle = lv_label_create(header);
+    lv_label_set_text(m_modalTitle, "Explorador de Scripts");
+    lv_obj_set_style_text_color(m_modalTitle, DefaultTheme::getTextColor(), 0);
+    lv_obj_set_style_text_font(m_modalTitle, &lv_font_montserrat_14, 0);
 
     lv_obj_t* btnClose = lv_button_create(header);
     lv_obj_set_size(btnClose, 30, 30);
@@ -426,35 +446,163 @@ void LuaRunnerView::showFilePickerModal() {
     lv_obj_center(lblX);
     lv_obj_add_event_cb(btnClose, modalCloseCb, LV_EVENT_CLICKED, this);
 
-    // Lista de archivos
-    lv_obj_t* list = lv_obj_create(modal);
-    lv_obj_set_size(list, LV_PCT(100), LV_PCT(82));
-    DefaultTheme::applySunkenCard(list, 10);
-    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_all(list, 6, 0);
-    lv_obj_set_style_pad_row(list, 4, 0);
-    lv_obj_set_scroll_dir(list, LV_DIR_VER);
+    // Cuerpo con scroll
+    m_modalBody = lv_obj_create(modal);
+    lv_obj_set_size(m_modalBody, LV_PCT(100), LV_PCT(82));
+    DefaultTheme::applySunkenCard(m_modalBody, 10);
+    lv_obj_set_flex_flow(m_modalBody, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(m_modalBody, 8, 0);
+    lv_obj_set_style_pad_row(m_modalBody, 6, 0);
+    lv_obj_set_scroll_dir(m_modalBody, LV_DIR_VER);
 
-    if (m_foundLuaFiles.empty()) {
-        lv_obj_t* emptyLbl = lv_label_create(list);
-        lv_label_set_text(emptyLbl, "No se encontraron archivos .lua\nen la tarjeta MicroSD.");
-        lv_obj_set_style_text_color(emptyLbl, DefaultTheme::getMutedTextColor(), 0);
-        lv_obj_set_style_text_align(emptyLbl, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_margin_top(emptyLbl, 20, 0);
+    renderFolderListView();
+}
 
-        lv_obj_t* btnDemo = lv_button_create(list);
+void LuaRunnerView::renderFolderListView() {
+    if (!m_modalBody || !lv_obj_is_valid(m_modalBody)) return;
+    lv_obj_clean(m_modalBody);
+
+    if (m_modalTitle && lv_obj_is_valid(m_modalTitle)) {
+        lv_label_set_text(m_modalTitle, "Explorador de Scripts");
+    }
+
+    size_t totalScripts = 0;
+    for (const auto& cat : m_folderCategories) {
+        totalScripts += cat.files.size();
+    }
+
+    lv_obj_t* hint = lv_label_create(m_modalBody);
+    lv_label_set_text(hint, "Selecciona una carpeta para explorar:");
+    lv_obj_set_style_text_color(hint, DefaultTheme::getMutedTextColor(), 0);
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_margin_ver(hint, 2, 0);
+
+    for (size_t i = 0; i < m_folderCategories.size(); i++) {
+        const auto& cat = m_folderCategories[i];
+
+        lv_obj_t* item = lv_button_create(m_modalBody);
+        lv_obj_set_size(item, LV_PCT(100), 50);
+        DefaultTheme::applyButton(item, 8);
+        lv_obj_set_user_data(item, (void*)(intptr_t)i);
+        lv_obj_set_flex_flow(item, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(item, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_hor(item, 10, 0);
+        lv_obj_set_style_pad_ver(item, 4, 0);
+        lv_obj_add_event_cb(item, folderSelectCb, LV_EVENT_CLICKED, this);
+
+        // Lado izquierdo: Icono + Título + Ruta
+        lv_obj_t* leftBox = lv_obj_create(item);
+        lv_obj_set_size(leftBox, LV_PCT(70), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(leftBox, 0, 0);
+        lv_obj_set_style_border_width(leftBox, 0, 0);
+        lv_obj_set_style_pad_all(leftBox, 0, 0);
+        lv_obj_set_flex_flow(leftBox, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(leftBox, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        DefaultTheme::disableScroll(leftBox);
+
+        lv_obj_t* icon = lv_label_create(leftBox);
+        lv_label_set_text(icon, LV_SYMBOL_DIRECTORY);
+        lv_obj_set_style_text_color(icon, DefaultTheme::getPrimaryAccent(), 0);
+
+        lv_obj_t* textBox = lv_obj_create(leftBox);
+        lv_obj_set_size(textBox, LV_PCT(80), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(textBox, 0, 0);
+        lv_obj_set_style_border_width(textBox, 0, 0);
+        lv_obj_set_style_pad_all(textBox, 0, 0);
+        lv_obj_set_style_margin_left(textBox, 6, 0);
+        lv_obj_set_flex_flow(textBox, LV_FLEX_FLOW_COLUMN);
+        DefaultTheme::disableScroll(textBox);
+
+        lv_obj_t* lblTitle = lv_label_create(textBox);
+        lv_label_set_text(lblTitle, cat.title.c_str());
+        lv_obj_set_style_text_color(lblTitle, DefaultTheme::getTextColor(), 0);
+        lv_obj_set_style_text_font(lblTitle, &lv_font_montserrat_12, 0);
+
+        lv_obj_t* lblPath = lv_label_create(textBox);
+        lv_label_set_text(lblPath, cat.path.c_str());
+        lv_obj_set_style_text_color(lblPath, DefaultTheme::getMutedTextColor(), 0);
+        lv_obj_set_style_text_font(lblPath, &lv_font_montserrat_12, 0);
+
+        // Lado derecho: Badge contador [ N ] + Flecha
+        lv_obj_t* rightBox = lv_obj_create(item);
+        lv_obj_set_size(rightBox, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(rightBox, 0, 0);
+        lv_obj_set_style_border_width(rightBox, 0, 0);
+        lv_obj_set_style_pad_all(rightBox, 0, 0);
+        lv_obj_set_flex_flow(rightBox, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(rightBox, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        DefaultTheme::disableScroll(rightBox);
+
+        char badgeBuf[16];
+        snprintf(badgeBuf, sizeof(badgeBuf), "[ %d ]", (int)cat.files.size());
+        lv_obj_t* lblBadge = lv_label_create(rightBox);
+        lv_label_set_text(lblBadge, badgeBuf);
+        uint32_t badgeColor = cat.files.empty() ? 0x90A4AE : 0x00E676;
+        lv_obj_set_style_text_color(lblBadge, lv_color_hex(badgeColor), 0);
+        lv_obj_set_style_text_font(lblBadge, &lv_font_montserrat_12, 0);
+
+        lv_obj_t* arrow = lv_label_create(rightBox);
+        lv_label_set_text(arrow, " " LV_SYMBOL_RIGHT);
+        lv_obj_set_style_text_color(arrow, DefaultTheme::getMutedTextColor(), 0);
+    }
+
+    if (totalScripts == 0) {
+        lv_obj_t* btnDemo = lv_button_create(m_modalBody);
         lv_obj_set_size(btnDemo, LV_PCT(100), 42);
         DefaultTheme::applyButton(btnDemo, 8);
-        lv_obj_set_style_margin_top(btnDemo, 16, 0);
+        lv_obj_set_style_margin_top(btnDemo, 12, 0);
         lv_obj_add_event_cb(btnDemo, btnCreateDemoCb, LV_EVENT_CLICKED, this);
 
         lv_obj_t* lblDemo = lv_label_create(btnDemo);
         lv_label_set_text(lblDemo, LV_SYMBOL_PLUS " Generar Scripts Demo");
         lv_obj_set_style_text_color(lblDemo, DefaultTheme::getPrimaryAccent(), 0);
         lv_obj_center(lblDemo);
+    }
+}
+
+void LuaRunnerView::renderFileListView(size_t folderIdx) {
+    if (folderIdx >= m_folderCategories.size()) return;
+    m_currentFolderIdx = folderIdx;
+
+    if (!m_modalBody || !lv_obj_is_valid(m_modalBody)) return;
+    lv_obj_clean(m_modalBody);
+
+    const auto& cat = m_folderCategories[folderIdx];
+
+    if (m_modalTitle && lv_obj_is_valid(m_modalTitle)) {
+        char titleBuf[64];
+        snprintf(titleBuf, sizeof(titleBuf), "%s (%d)", cat.title.c_str(), (int)cat.files.size());
+        lv_label_set_text(m_modalTitle, titleBuf);
+    }
+
+    // Botón de Volver
+    lv_obj_t* btnBack = lv_button_create(m_modalBody);
+    lv_obj_set_size(btnBack, LV_PCT(100), 38);
+    DefaultTheme::applyButton(btnBack, 8);
+    lv_obj_set_flex_flow(btnBack, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btnBack, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_hor(btnBack, 10, 0);
+    lv_obj_add_event_cb(btnBack, folderBackCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* lblBack = lv_label_create(btnBack);
+    lv_label_set_text(lblBack, LV_SYMBOL_LEFT " Volver a Carpetas");
+    lv_obj_set_style_text_color(lblBack, DefaultTheme::getPrimaryAccent(), 0);
+    lv_obj_set_style_text_font(lblBack, &lv_font_montserrat_12, 0);
+
+    if (cat.files.empty()) {
+        lv_obj_t* emptyLbl = lv_label_create(m_modalBody);
+        lv_label_set_text(emptyLbl, "No se encontraron scripts (.lua / .luapp)\nen este directorio.");
+        lv_obj_set_style_text_color(emptyLbl, DefaultTheme::getMutedTextColor(), 0);
+        lv_obj_set_style_text_align(emptyLbl, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_margin_top(emptyLbl, 20, 0);
+        lv_obj_set_width(emptyLbl, LV_PCT(100));
     } else {
-        for (size_t i = 0; i < m_foundLuaFiles.size(); i++) {
-            lv_obj_t* item = lv_button_create(list);
+        for (size_t i = 0; i < cat.files.size(); i++) {
+            const std::string& fullPath = cat.files[i];
+            size_t slashPos = fullPath.find_last_of('/');
+            std::string fileName = (slashPos != std::string::npos) ? fullPath.substr(slashPos + 1) : fullPath;
+
+            lv_obj_t* item = lv_button_create(m_modalBody);
             lv_obj_set_size(item, LV_PCT(100), 40);
             DefaultTheme::applyButton(item, 8);
             lv_obj_set_user_data(item, (void*)(intptr_t)i);
@@ -467,7 +615,7 @@ void LuaRunnerView::showFilePickerModal() {
             lv_obj_set_style_text_color(icon, DefaultTheme::getPrimaryAccent(), 0);
 
             lv_obj_t* name = lv_label_create(item);
-            lv_label_set_text(name, m_foundLuaFiles[i].c_str());
+            lv_label_set_text(name, fileName.c_str());
             lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
             lv_obj_set_flex_grow(name, 1);
             lv_obj_set_style_text_color(name, DefaultTheme::getTextColor(), 0);
@@ -482,11 +630,7 @@ void LuaRunnerView::showFilePickerModal() {
 bool LuaRunnerView::onCreate(lv_obj_t* parent) {
     if (!parent) return false;
 
-    // Escanear scripts en SD al abrir
-    scanLuaFilesSD();
-    if (m_activeScript.empty() && !m_foundLuaFiles.empty()) {
-        m_activeScript = m_foundLuaFiles[0];
-    }
+    // Apertura instantánea: el escaneo de SD se realiza bajo demanda al abrir el selector (📁)
 
     // Configurar HeaderBar para esta app
     UIManager::getInstance().getHeaderBar().showWifi(false);
@@ -619,6 +763,8 @@ void LuaRunnerView::onDestroy() {
         lv_obj_delete(m_modalMask);
         m_modalMask = nullptr;
     }
+    m_modalTitle = nullptr;
+    m_modalBody = nullptr;
     m_logContainer = nullptr;
     m_statusBadge = nullptr;
     m_scriptLabel = nullptr;
