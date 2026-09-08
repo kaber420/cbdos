@@ -895,16 +895,22 @@ bool MeshCoreClient::queryContacts(uint32_t since, bool withSince) {
 
 bool MeshCoreClient::sendDM(const uint8_t pubkey[PUBKEY_LEN], const std::string& text) {
     if (pubkey == nullptr || text.empty() || !isConnected()) return false;
-    std::string clipped = truncateUtf8(text, 133, FRAME_MAX_PAYLOAD - 37);
+    std::string clipped = truncateUtf8(text, 133, FRAME_MAX_PAYLOAD - 13);
     if (clipped.empty()) return false;
     uint32_t ts = static_cast<uint32_t>(time(nullptr));
+    // Layout exigido por el firmware (MyMesh::handleCmdFrame CMD_SEND_TXT_MSG):
+    // [txt_type=PLAIN][attempt=0][timestamp LE32][pubkey prefix 6B][texto UTF-8].
+    // El dongle busca el contacto por prefijo de 6 bytes; mandar la pubkey
+    // completa desplazaba todo y siempre devolvía NOT_FOUND.
     std::vector<uint8_t> payload;
-    payload.reserve(36 + clipped.size());
+    payload.reserve(9 + clipped.size());
+    payload.push_back(static_cast<uint8_t>(TxtType::PLAIN));
+    payload.push_back(0x00);  // attempt: primer intento, el dongle elige ruta
     payload.push_back(static_cast<uint8_t>(ts & 0xFF));
     payload.push_back(static_cast<uint8_t>((ts >> 8) & 0xFF));
     payload.push_back(static_cast<uint8_t>((ts >> 16) & 0xFF));
     payload.push_back(static_cast<uint8_t>((ts >> 24) & 0xFF));
-    payload.insert(payload.end(), pubkey, pubkey + PUBKEY_LEN);
+    payload.insert(payload.end(), pubkey, pubkey + PUBKEY_PREFIX_LEN);
     payload.insert(payload.end(), clipped.begin(), clipped.end());
     if (!sendFrame(Cmd::SEND_DM, payload.data(), payload.size())) return false;
     // Guardar para enlazar con MSG_SENT.tag; eco optimista en el hilo.
@@ -1072,13 +1078,16 @@ bool MeshCoreClient::retryPendingDm(uint32_t tag, uint32_t nowMs) {
         p.flood = true;
     }
     uint32_t ts = static_cast<uint32_t>(time(nullptr));
+    // Mismo layout que sendDM: [txt_type][attempt][ts LE32][prefix 6B][texto].
     std::vector<uint8_t> payload;
-    payload.reserve(36 + p.text.size());
+    payload.reserve(9 + p.text.size());
+    payload.push_back(static_cast<uint8_t>(TxtType::PLAIN));
+    payload.push_back(0x00);
     payload.push_back(static_cast<uint8_t>(ts & 0xFF));
     payload.push_back(static_cast<uint8_t>((ts >> 8) & 0xFF));
     payload.push_back(static_cast<uint8_t>((ts >> 16) & 0xFF));
     payload.push_back(static_cast<uint8_t>((ts >> 24) & 0xFF));
-    payload.insert(payload.end(), p.destPubkey, p.destPubkey + PUBKEY_LEN);
+    payload.insert(payload.end(), p.destPubkey, p.destPubkey + PUBKEY_PREFIX_LEN);
     payload.insert(payload.end(), p.text.begin(), p.text.end());
     // Reenvío con el mismo tag esperado: el dongle emitirá nuevo MSG_SENT;
     // conservamos el tag original para la UI y re-mapeamos al llegar.

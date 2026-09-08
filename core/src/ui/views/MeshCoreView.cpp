@@ -267,6 +267,10 @@ void MeshCoreView::onDestroy() {
     m_chatContainer = nullptr;
     m_taInput = nullptr;
     m_keyboard = nullptr;
+    m_taDmInput = nullptr;
+    m_btnDmKb = nullptr;
+    m_keyboardDm = nullptr;
+    m_keyboardDmVisible = false;
     m_channelsContainer = nullptr;
 
     UIManager::getInstance().getHeaderBar().showWifi(true);
@@ -350,6 +354,9 @@ void MeshCoreView::buildChatsTab(lv_obj_t* tab) {
     lv_textarea_set_one_line(m_taInput, true);
     lv_textarea_set_placeholder_text(m_taInput, "Mensaje al canal...");
     lv_obj_set_style_text_font(m_taInput, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(m_taInput, lv_color_hex(0xF0F4F8), 0);
+    lv_obj_set_style_text_color(m_taInput, lv_color_hex(0x94A3B8), LV_PART_TEXTAREA_PLACEHOLDER);
+    lv_obj_set_style_bg_color(m_taInput, lv_color_hex(0x00F5D4), LV_PART_CURSOR);
     lv_obj_add_event_cb(m_taInput, taInputEventCb, LV_EVENT_ALL, this);
 
     m_btnSend = lv_button_create(inputRow);
@@ -554,6 +561,7 @@ void MeshCoreView::buildChannelsTab(lv_obj_t* tab) {
     lv_textarea_set_one_line(m_taNewName, true);
     lv_textarea_set_placeholder_text(m_taNewName, "Nombre (vacio = borrar)");
     lv_obj_set_style_text_font(m_taNewName, &lv_font_montserrat_12, 0);
+    UIManager::attachKeyboard(m_taNewName);
 
     m_taNewSecret = lv_textarea_create(form);
     lv_obj_set_size(m_taNewSecret, LV_PCT(100), 32);
@@ -561,6 +569,7 @@ void MeshCoreView::buildChannelsTab(lv_obj_t* tab) {
     lv_textarea_set_one_line(m_taNewSecret, true);
     lv_textarea_set_placeholder_text(m_taNewSecret, "Secreto hex 32 chars (vacio + #nombre = hashtag)");
     lv_obj_set_style_text_font(m_taNewSecret, &lv_font_montserrat_12, 0);
+    UIManager::attachKeyboard(m_taNewSecret);
 
     lv_obj_t* rowBtns = lv_obj_create(form);
     lv_obj_set_size(rowBtns, LV_PCT(100), 32);
@@ -769,6 +778,7 @@ void MeshCoreView::buildRadioTab(lv_obj_t* tab) {
     lv_textarea_set_one_line(m_taAlias, true);
     lv_textarea_set_placeholder_text(m_taAlias, "Alias del nodo");
     lv_obj_set_style_text_font(m_taAlias, &lv_font_montserrat_12, 0);
+    UIManager::attachKeyboard(m_taAlias);
 
     lv_obj_t* btnAlias = lv_button_create(rowAlias);
     lv_obj_set_size(btnAlias, 90, 32);
@@ -873,6 +883,7 @@ void MeshCoreView::buildRadioTab(lv_obj_t* tab) {
         lv_textarea_set_one_line(ta, true);
         lv_textarea_set_placeholder_text(ta, hint);
         lv_obj_set_style_text_font(ta, &lv_font_montserrat_12, 0);
+        UIManager::attachKeyboard(ta);
         return ta;
     };
     m_taFreq = makeField("Frecuencia MHz (ej. 910.525)");
@@ -1373,6 +1384,7 @@ void MeshCoreView::buildContactsTab(lv_obj_t* tab) {
     lv_textarea_set_placeholder_text(m_taSearch, "Buscar por nombre o pubkey...");
     lv_obj_set_style_text_font(m_taSearch, &lv_font_montserrat_12, 0);
     lv_obj_add_event_cb(m_taSearch, searchTaCb, LV_EVENT_VALUE_CHANGED, this);
+    UIManager::attachKeyboard(m_taSearch);
 
     m_lblContactsCount = lv_label_create(m_listPane);
     lv_label_set_text(m_lblContactsCount, "0 contactos");
@@ -1449,11 +1461,31 @@ void MeshCoreView::buildContactsTab(lv_obj_t* tab) {
     lv_textarea_set_one_line(m_taDmInput, true);
     lv_textarea_set_placeholder_text(m_taDmInput, "Mensaje directo...");
     lv_obj_set_style_text_font(m_taDmInput, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(m_taDmInput, lv_color_hex(0xF0F4F8), 0);
+    lv_obj_set_style_text_color(m_taDmInput, lv_color_hex(0x94A3B8), LV_PART_TEXTAREA_PLACEHOLDER);
+    lv_obj_set_style_bg_color(m_taDmInput, lv_color_hex(0x00F5D4), LV_PART_CURSOR);
+    lv_obj_add_event_cb(m_taDmInput, dmInputEventCb, LV_EVENT_ALL, this);
+
+    m_btnDmKb = makeButton(dmRow, LV_SYMBOL_KEYBOARD, 40, 36, 0);
+    lv_obj_add_event_cb(m_btnDmKb, toggleDmKbBtnCb, LV_EVENT_CLICKED, this);
 
     lv_obj_t* btnDmSend = makeButton(dmRow, LV_SYMBOL_OK " Enviar", 90, 36, 0x1B5E20);
     lv_obj_add_event_cb(btnDmSend, convSendCb, LV_EVENT_CLICKED, this);
     lv_obj_t* btnRetry = makeButton(dmRow, LV_SYMBOL_REFRESH, 40, 36, 0);
     lv_obj_add_event_cb(btnRetry, convRetryCb, LV_EVENT_CLICKED, this);
+
+    // Teclado virtual del chat privado (paridad con el tab Chat de canal).
+    {
+        auto caps = cbdos::display::getCapabilities();
+        m_keyboardDm = lv_keyboard_create(m_convPane);
+        int32_t kbHeight = (caps.height >= 800) ? 280 : 190;
+        lv_obj_set_size(m_keyboardDm, LV_PCT(100), kbHeight);
+        lv_obj_set_style_bg_color(m_keyboardDm, lv_color_hex(0x1A1E29), 0);
+        lv_keyboard_set_textarea(m_keyboardDm, m_taDmInput);
+        lv_obj_add_event_cb(m_keyboardDm, dmKbEventCb, LV_EVENT_ALL, this);
+        lv_obj_add_flag(m_keyboardDm, LV_OBJ_FLAG_HIDDEN);
+        m_keyboardDmVisible = false;
+    }
 
     // — Detalles —
     m_detailsPane = lv_obj_create(tab);
@@ -1493,6 +1525,7 @@ void MeshCoreView::buildContactsTab(lv_obj_t* tab) {
     lv_textarea_set_one_line(m_taDetailName, true);
     lv_textarea_set_placeholder_text(m_taDetailName, "Nombre del contacto");
     lv_obj_set_style_text_font(m_taDetailName, &lv_font_montserrat_12, 0);
+    UIManager::attachKeyboard(m_taDetailName);
     lv_obj_t* btnSaveName = makeButton(m_detailsPane, "Guardar nombre", 160, 32, 0x1B5E20);
     lv_obj_add_event_cb(btnSaveName, detailsSaveNameCb, LV_EVENT_CLICKED, this);
 
@@ -1502,6 +1535,7 @@ void MeshCoreView::buildContactsTab(lv_obj_t* tab) {
     lv_textarea_set_one_line(m_taDetailPath, true);
     lv_textarea_set_placeholder_text(m_taDetailPath, "Ruta hex (vacio = flood)");
     lv_obj_set_style_text_font(m_taDetailPath, &lv_font_montserrat_12, 0);
+    UIManager::attachKeyboard(m_taDetailPath);
     lv_obj_t* btnSavePath = makeButton(m_detailsPane, "Guardar ruta", 160, 32, 0x1B5E20);
     lv_obj_add_event_cb(btnSavePath, detailsSavePathCb, LV_EVENT_CLICKED, this);
 
@@ -1728,8 +1762,11 @@ void MeshCoreView::refreshConversation() {
                 snprintf(meta, sizeof(meta), "%s · %.1f dB · %u saltos", fmtTime(msg.timestamp).c_str(),
                          (double)msg.snrDb, (unsigned)msg.pathLength);
             } else {
-                snprintf(meta, sizeof(meta), "%s%s", fmtTime(msg.timestamp).c_str(),
-                         msg.outgoing ? " · enviado" : "");
+                const char* outState = "";
+                if (msg.outgoing) {
+                    outState = (nPending > 0) ? " · pendiente de ACK" : " · en dongle";
+                }
+                snprintf(meta, sizeof(meta), "%s%s", fmtTime(msg.timestamp).c_str(), outState);
             }
             lv_label_set_text(lblMeta, meta);
             lv_obj_set_style_text_color(lblMeta, DefaultTheme::getMutedTextColor(), 0);
@@ -1891,12 +1928,14 @@ void MeshCoreView::showOverlayManualAdd() {
     lv_textarea_set_one_line(m_taManualKey, true);
     lv_textarea_set_placeholder_text(m_taManualKey, "Pubkey hex 64 chars");
     lv_obj_set_style_text_font(m_taManualKey, &lv_font_montserrat_12, 0);
+    UIManager::attachKeyboard(m_taManualKey);
     m_taManualName = lv_textarea_create(m_overlayCard);
     lv_obj_set_size(m_taManualName, LV_PCT(100), 36);
     DefaultTheme::applySunkenCard(m_taManualName, 6);
     lv_textarea_set_one_line(m_taManualName, true);
     lv_textarea_set_placeholder_text(m_taManualName, "Nombre");
     lv_obj_set_style_text_font(m_taManualName, &lv_font_montserrat_12, 0);
+    UIManager::attachKeyboard(m_taManualName);
     m_ddManualType = lv_dropdown_create(m_overlayCard);
     lv_dropdown_set_options(m_ddManualType, "Chat\nRepetidor\nSala\nSensor");
     lv_obj_t* bSave = makeButton(m_overlayCard, "Guardar", 220, 40, 0x1B5E20);
@@ -1917,6 +1956,7 @@ void MeshCoreView::showOverlayImportCard() {
     lv_obj_set_size(m_taImportCard, LV_PCT(100), 80);
     lv_textarea_set_placeholder_text(m_taImportCard, "Pega la tarjeta en hex...");
     lv_obj_set_style_text_font(m_taImportCard, &lv_font_montserrat_12, 0);
+    UIManager::attachKeyboard(m_taImportCard);
     lv_obj_t* bSave = makeButton(m_overlayCard, "Importar", 220, 40, 0x1B5E20);
     lv_obj_add_event_cb(bSave, importSaveCb, LV_EVENT_CLICKED, this);
     lv_obj_t* bClose = makeButton(m_overlayCard, "Cerrar", 220, 36, 0);
@@ -2095,6 +2135,50 @@ void MeshCoreView::convRetryCb(lv_event_t* e) {
         }
     }
     UIManager::showToast(n > 0 ? "Reintentando DM..." : "Sin pendientes.");
+}
+
+void MeshCoreView::dmInputEventCb(lv_event_t* e) {
+    auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
+    if (!self) return;
+
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_READY) {
+        self->sendDirectMessage();
+    } else if (code == LV_EVENT_CLICKED || code == LV_EVENT_FOCUSED) {
+        if (self->m_keyboardDm && lv_obj_is_valid(self->m_keyboardDm)) {
+            lv_keyboard_set_textarea(self->m_keyboardDm, self->m_taDmInput);
+            lv_obj_remove_flag(self->m_keyboardDm, LV_OBJ_FLAG_HIDDEN);
+            self->m_keyboardDmVisible = true;
+        }
+    }
+}
+
+void MeshCoreView::toggleDmKbBtnCb(lv_event_t* e) {
+    auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
+    if (!self || !self->m_keyboardDm || !lv_obj_is_valid(self->m_keyboardDm)) return;
+
+    self->m_keyboardDmVisible = !self->m_keyboardDmVisible;
+    if (self->m_keyboardDmVisible) {
+        lv_keyboard_set_textarea(self->m_keyboardDm, self->m_taDmInput);
+        lv_obj_remove_flag(self->m_keyboardDm, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(self->m_keyboardDm, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+void MeshCoreView::dmKbEventCb(lv_event_t* e) {
+    auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
+    if (!self) return;
+
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_READY) {
+        self->sendDirectMessage();
+    } else if (code == LV_EVENT_CANCEL) {
+        if (self->m_keyboardDm && lv_obj_is_valid(self->m_keyboardDm)) {
+            lv_obj_add_flag(self->m_keyboardDm, LV_OBJ_FLAG_HIDDEN);
+            self->m_keyboardDmVisible = false;
+        }
+    }
 }
 
 void MeshCoreView::detailsBackCb(lv_event_t* e) {

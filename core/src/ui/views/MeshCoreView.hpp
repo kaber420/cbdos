@@ -93,6 +93,9 @@ private:
     static void convDetailsCb(lv_event_t* e);
     static void convSendCb(lv_event_t* e);
     static void convRetryCb(lv_event_t* e);
+    static void dmInputEventCb(lv_event_t* e);
+    static void toggleDmKbBtnCb(lv_event_t* e);
+    static void dmKbEventCb(lv_event_t* e);
     static void detailsBackCb(lv_event_t* e);
     static void detailsSaveNameCb(lv_event_t* e);
     static void detailsSavePathCb(lv_event_t* e);
@@ -128,6 +131,9 @@ private:
     lv_obj_t* m_convContainer = nullptr;
     lv_obj_t* m_lblConvStatus = nullptr;
     lv_obj_t* m_taDmInput = nullptr;
+    lv_obj_t* m_btnDmKb = nullptr;
+    lv_obj_t* m_keyboardDm = nullptr;
+    bool m_keyboardDmVisible = false;
     // Tab Contactos: detalles
     lv_obj_t* m_detailsPane = nullptr;
     lv_obj_t* m_lblDetailsTitle = nullptr;
