@@ -15,6 +15,8 @@
       "-I src/ui/views/utilities",
       "-I src/tlv",
       "-I src/mesh",
+      "-I src/meshcore",
+      "-I include/cbdos/meshcore",
       "-I src/audio",
       "-I src/audio/libhelix/src",
       "-I src/audio/libhelix/src/utils",
