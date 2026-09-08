@@ -1688,6 +1688,7 @@ void MeshCoreView::refreshContactsList() {
 void MeshCoreView::openConversation(const std::string& prefixHex12) {
     m_activePrefix = prefixHex12;
     m_lastRenderedConvMsgs = (size_t)-1;  // forzar render
+    m_lastRenderedConvPending = (size_t)-1;
     showContactsPane(ContactsPane::Conversation);
     refreshConversation();
 }
@@ -1715,11 +1716,12 @@ void MeshCoreView::refreshConversation() {
         if (kv.second.destPrefix == m_activePrefix) ++nPending;
     }
     if (th && nMsgs == m_lastRenderedConvMsgs && m_lastRenderedConvPrefix == m_activePrefix &&
-        nPending == 0) {
+        nPending == m_lastRenderedConvPending) {
         return;
     }
     m_lastRenderedConvMsgs = nMsgs;
     m_lastRenderedConvPrefix = m_activePrefix;
+    m_lastRenderedConvPending = nPending;
 
     lv_obj_clean(m_convContainer);
     if (!th || th->msgs.empty()) {
@@ -1861,6 +1863,7 @@ void MeshCoreView::sendDirectMessage() {
     if (client.sendDMByPrefix(m_activePrefix, txt)) {
         lv_textarea_set_text(m_taDmInput, "");
         m_lastRenderedConvMsgs = (size_t)-1;
+        m_lastRenderedConvPending = (size_t)-1;
         refreshConversation();
     } else {
         UIManager::showToast("No se pudo enviar. Revisa el enlace Radio.");

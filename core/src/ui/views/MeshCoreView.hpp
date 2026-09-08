@@ -206,6 +206,7 @@ private:
     size_t m_lastRenderedContactsSig = 0;
     size_t m_lastRenderedConvMsgs = 0;
     std::string m_lastRenderedConvPrefix;
+    size_t m_lastRenderedConvPending = 0;
     std::string m_pendingError;
 };
 
