@@ -22,7 +22,6 @@ idf_component_register(
         "src/ui/UIManager.cpp"
         "src/ui/WallpaperManager.cpp"
         "src/ui/themes/DefaultTheme.cpp"
-        "src/ui/assets/default_wallpaper.c"
         "src/ui/assets/SystemIcons.cpp"
         "src/ui/components/HeaderBar.cpp"
         "src/ui/components/QuickSettingsPanel.cpp"

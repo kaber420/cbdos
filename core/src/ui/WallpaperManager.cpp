@@ -1,5 +1,4 @@
 #include "WallpaperManager.h"
-#include "assets/default_wallpaper.h"
 #include "components/AnimatedWallpaper.hpp"
 #include "cbdos/memory.hpp"
 #include "cbdos/log.hpp"
@@ -23,7 +22,7 @@ static const size_t WALLPAPER_HEIGHT = 480;
 static const size_t WALLPAPER_BUFFER_SIZE = WALLPAPER_WIDTH * WALLPAPER_HEIGHT * 2; // 307200 bytes
 
 WallpaperManager::WallpaperManager() 
-    : currentPath("default"), hasCustomWallpaper(false), customBuffer(nullptr) {
+    : currentPath("animated_constellation"), hasCustomWallpaper(false), customBuffer(nullptr) {
     memset(&customDsc, 0, sizeof(customDsc));
 }
 
@@ -88,19 +87,26 @@ bool WallpaperManager::loadFromFlash() {
 void WallpaperManager::init() {
     auto* backend = cbdos::persistence::getBackend();
     bool isCustom = false;
-    currentPath = "default";
+    // Sin RGB embebido en firmware: el fondo por defecto es animado.
+    // El RGB solo vive en /wallpaper.bin (SPIFFS) copiado desde MicroSD.
+    currentPath = "animated_constellation";
     hasCustomWallpaper = false;
 
     if (backend && backend->begin("wallpaper", true)) {
         isCustom = backend->getBool("custom", false);
-        currentPath = backend->getString("path", "default");
+        currentPath = backend->getString("path", "animated_constellation");
         backend->end();
+    }
+
+    // Migracion: instalaciones antiguas guardaban "default" (RGB embebido ya eliminado)
+    if (currentPath == "default" || currentPath.empty()) {
+        currentPath = "animated_constellation";
     }
 
     if (isCustom) {
         if (!loadFromFlash()) {
             hasCustomWallpaper = false;
-            currentPath = "default";
+            currentPath = "animated_constellation";
         }
     }
 }
@@ -134,9 +140,9 @@ void WallpaperManager::applyWallpaper(lv_obj_t* parent) {
         lv_obj_set_style_bg_image_src(parent, &customDsc, 0);
         lv_obj_set_style_bg_image_opa(parent, LV_OPA_COVER, 0);
     } else {
-        cbdos::ui::AnimatedWallpaper::getInstance().destroy();
-        lv_obj_set_style_bg_image_src(parent, &default_wallpaper, 0);
-        lv_obj_set_style_bg_image_opa(parent, LV_OPA_COVER, 0);
+        // Fallback sin RGB embebido: animado Constellation (cero bytes en particion app)
+        cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::Constellation);
+        cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     }
 }
 
@@ -159,11 +165,12 @@ bool WallpaperManager::setWallpaper(const std::string& path) {
         setAnimatedMode(nullptr, path);
         return true;
     }
-#if defined(ARDUINO)
     if (path == "default" || path.empty()) {
+        // Compat: "default" ahora equivale al animado por defecto (sin RGB embebido)
         restoreDefault();
         return true;
     }
+#if defined(ARDUINO)
 
     std::string sdPath = path;
     if (sdPath.rfind("A:/", 0) == 0) {
@@ -270,8 +277,10 @@ bool WallpaperManager::setWallpaper(const std::string& path) {
 }
 
 void WallpaperManager::restoreDefault() {
+    // "Default" = animado Constellation. Borra el RGB de SPIFFS (/wallpaper.bin)
+    // para no ocupar flash con imagenes; el usuario puede recargarla desde SD.
     hasCustomWallpaper = false;
-    currentPath = "default";
+    currentPath = "animated_constellation";
 #if defined(ARDUINO)
     if (LittleFS.exists("/wallpaper.bin")) {
         LittleFS.remove("/wallpaper.bin");
@@ -280,7 +289,7 @@ void WallpaperManager::restoreDefault() {
     auto* backend = cbdos::persistence::getBackend();
     if (backend && backend->begin("wallpaper", false)) {
         backend->setBool("custom", false);
-        backend->setString("path", "default");
+        backend->setString("path", "animated_constellation");
         backend->end();
     }
 }

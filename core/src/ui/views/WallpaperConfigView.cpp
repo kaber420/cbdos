@@ -17,8 +17,9 @@ WallpaperConfigView::WallpaperConfigView()
 void WallpaperConfigView::default_btn_cb(lv_event_t* e) {
     lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_CLICKED) {
+        // Sin RGB embebido: "predeterminado" = animado Constellation + borra /wallpaper.bin
         WallpaperManager::getInstance().restoreDefault();
-        UIManager::showToast("Fondo predeterminado aplicado");
+        UIManager::showToast("Fondo animado por defecto aplicado");
         UIManager::getInstance().popView();
     }
 }
@@ -210,7 +211,7 @@ bool WallpaperConfigView::onCreate(lv_obj_t* parent) {
     lv_label_set_text(lblMatrix, "Animado: Matrix Code Rain");
     lv_obj_set_style_text_color(lblMatrix, DefaultTheme::getTextColor(), 0);
 
-    // 8. Botón Fondo Predeterminado de Fábrica
+    // 8. Boton Restaurar animado por defecto (borra RGB de SPIFFS si existia)
     lv_obj_t* defaultCard = lv_button_create(m_container);
     lv_obj_set_width(defaultCard, lv_pct(100));
     lv_obj_set_height(defaultCard, 54);
@@ -227,7 +228,7 @@ bool WallpaperConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_margin_right(iconDef, 12, 0);
 
     lv_obj_t* lblDef = lv_label_create(defaultCard);
-    lv_label_set_text(lblDef, "Fondo Predeterminado (Flash)");
+    lv_label_set_text(lblDef, "Restaurar animado por defecto");
     lv_obj_set_style_text_color(lblDef, DefaultTheme::getTextColor(), 0);
 
     // 2. Separador de sección
