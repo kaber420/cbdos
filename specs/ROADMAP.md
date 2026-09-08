@@ -38,6 +38,7 @@ El sistema utiliza una arquitectura **Dual-Target desacoplada**:
 | **Gateway-Router & Proxy**| Servidor dual (TCP/Serial), transcodificador Proxy Web y persistencia SQLite | ✅ 100% | ✅ | ✅ |
 | **Lua Script Engine** | Intérprete Lua embebido para scripts y micro-apps | ✅ 80% | ✅ | ✅ |
 | **Cartridge Engine** | Ejecutor de juegos/cartuchos retro | ✅ 80% | ✅ | ✅ |
+| **MeshCore Full (USB)** | Companion LoRa paridad Android: Contactos/DM/Advert (F1 ✅), Canales/Mapa/Settings (F2-F4) — `RFC-CBDOS-MESHCORE-FULL` | 🔄 Fase 1 OK | ✅ | ✅ |
 | **USB HID & StreamDeck**| Emulación teclado/mouse, BadUSB dual y panel MacroPad OBS | 🔄 En Plan | ⏳ | ⏳ |
 | **Multi-Touch Engine** | Negociación dinámica hasta 5 puntos táctiles para Gamepad/Doom | 🔄 En Plan | ⏳ | ⏳ |
 | **Synth Sound Engine** | Motor de síntesis y generador de ondas sonoras | 🔄 En Plan | ⏳ | ⏳ |

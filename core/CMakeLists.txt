@@ -55,6 +55,7 @@ idf_component_register(
         "src/ui/views/SerialTerminalView.cpp"
         "src/ui/views/MeshCoreView.cpp"
         "src/meshcore/meshcore_client.cpp"
+        "src/meshcore/meshcore_store.cpp"
         "src/ui/views/UtilitiesView.cpp"
         "src/ui/views/LottieTestView.cpp"
         "src/ui/views/TlvBrowserView.cpp"

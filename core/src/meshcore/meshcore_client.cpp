@@ -294,6 +294,7 @@ void MeshCoreClient::process() {
         queryDeviceInfo();
         queryBattery();
         queryAllChannels();
+        queryContacts();
         m_drainPending = true;
     }
 
@@ -312,6 +313,9 @@ void MeshCoreClient::process() {
         m_drainPending = false;
         sendFrame(Cmd::GET_MESSAGE);
     }
+
+    // Reintentos DM (Fase 1): 1 s de resolución basta para timeouts de ACK.
+    if (!m_pendingDms.empty()) tick(nowMsFallback());
 }
 
 void MeshCoreClient::processByte(uint8_t byte) {
@@ -373,14 +377,31 @@ void MeshCoreClient::handleFrame(const std::vector<uint8_t>& payload) {
             if (m_onMessagesWaiting) m_onMessagesWaiting();
             break;
         case PacketType::CURRENT_TIME:
+            handleCurrentTime(payload);
+            break;
+        case PacketType::EXPORT_CONTACT:
+            handleExportContact(payload);
+            break;
         case PacketType::CHANNEL_DATA_RECV:
-        case PacketType::CONTACT_START:
-        case PacketType::CONTACT:
-        case PacketType::CONTACT_END:
-        case PacketType::ADVERTISEMENT:
-        case PacketType::ACK:
+        case PacketType::TELEMETRY:
         case PacketType::LOG_DATA:
             m_drainPending = true;  // la cola puede contener más mensajes
+            break;
+        case PacketType::CONTACT_START:
+            handleContactStart(payload);
+            break;
+        case PacketType::CONTACT:
+            handleContact(payload);
+            break;
+        case PacketType::CONTACT_END:
+            handleContactEnd(payload);
+            break;
+        case PacketType::ADVERTISEMENT:
+        case PacketType::NEW_ADVERTISEMENT:
+            handleAdvert(payload);
+            break;
+        case PacketType::ACK:
+            handleAck(payload);
             break;
     }
 }
@@ -513,6 +534,15 @@ void MeshCoreClient::handleContactMsg(const std::vector<uint8_t>& d, bool v3) {
     }
     m_contactHistory.push_back(msg);
     if (m_contactHistory.size() > 200) m_contactHistory.erase(m_contactHistory.begin());
+    // Fase 1: hilo por prefijo + unread + snr en agenda.
+    appendThreadMessage(msg.pubkeyPrefix, msg, true);
+    for (auto& c : m_contacts) {
+        if (c.prefixHex12 == msg.pubkeyPrefix) {
+            if (msg.hasSnr) { c.lastSnr = msg.snrDb; c.hasSnr = true; }
+            c.hops = msg.pathLength;
+            break;
+        }
+    }
     m_drainPending = true;
     if (m_onContactMsg) m_onContactMsg(msg);
 }
@@ -552,6 +582,24 @@ void MeshCoreClient::handleMsgSent(const std::vector<uint8_t>& d) {
     m_lastMsgSent.tag = rdU32(d, 2);
     m_lastMsgSent.timeoutMs = rdU32(d, 6);
     m_hasMsgSent = true;
+    // Enlazar con el último sendDM pendiente de tag (DM fiable Fase 1).
+    if (m_hasAwaitingTag) {
+        PendingDM p = m_awaitingTag;
+        uint32_t replaceTag = 0;
+        bool isRetry = p.hasTag;
+        if (isRetry) replaceTag = p.tag;
+        p.hasTag = true;
+        p.tag = m_lastMsgSent.tag;
+        p.flood = m_lastMsgSent.flood;
+        p.maxAttempts = p.flood ? 3 : 5;
+        if (!isRetry) p.attempts = 1;
+        uint32_t timeout = m_lastMsgSent.timeoutMs ? m_lastMsgSent.timeoutMs : 15000;
+        p.deadlineMs = nowMsFallback() + timeout;
+        p.status = DmStatus::Sending;
+        if (isRetry && replaceTag != p.tag) m_pendingDms.erase(replaceTag);
+        m_pendingDms[p.tag] = p;
+        m_hasAwaitingTag = false;
+    }
     if (m_onMsgSent) m_onMsgSent(m_lastMsgSent);
 }
 
@@ -567,6 +615,139 @@ void MeshCoreClient::handleError(const std::vector<uint8_t>& d) {
     m_lastError = code;
     m_hasError = true;
     if (m_onError) m_onError(code);
+}
+
+// ────────────────────────────────────────────────────────────────
+// Fase 1: CONTACT / ADVERT / ACK
+// ────────────────────────────────────────────────────────────────
+
+std::string MeshCoreClient::pubkeyPrefixHex(const uint8_t pubkey[PUBKEY_LEN]) {
+    char hex[13];
+    snprintf(hex, sizeof(hex), "%02x%02x%02x%02x%02x%02x",
+             pubkey[0], pubkey[1], pubkey[2], pubkey[3], pubkey[4], pubkey[5]);
+    return std::string(hex);
+}
+
+bool MeshCoreClient::parseContactBody(const std::vector<uint8_t>& d, size_t off,
+                                      MeshContact& out) {
+    // d[0] = tipo de paquete; cuerpo desde off (normalmente 1).
+    if (d.size() < off + CONTACT_BODY_LEN) return false;
+    MeshContact c;
+    memcpy(c.pubkey, &d[off], PUBKEY_LEN);
+    c.hasPubkey = true;
+    c.prefixHex12 = pubkeyPrefixHex(c.pubkey);
+    c.type = d[off + 32];
+    c.flags = d[off + 33];
+    c.outPathLen = static_cast<int8_t>(d[off + 34]);
+    memcpy(c.outPath, &d[off + 35], CONTACT_OUTPATH_LEN);
+    c.name.assign(reinterpret_cast<const char*>(&d[off + 99]),
+                  boundedStrLen(&d[off + 99], CONTACT_NAME_LEN));
+    c.lastAdvert = rdU32(d, off + 131);
+    int32_t lat = static_cast<int32_t>(rdU32(d, off + 135));
+    int32_t lon = static_cast<int32_t>(rdU32(d, off + 139));
+    c.lat = static_cast<double>(lat) / 1e6;
+    c.lon = static_cast<double>(lon) / 1e6;
+    c.lastmod = rdU32(d, off + 143);
+    c.hops = (c.outPathLen < 0) ? 0 : static_cast<uint8_t>(c.outPathLen);
+    c.valid = true;
+    out = c;
+    return true;
+}
+
+void MeshCoreClient::upsertContact(const MeshContact& c) {
+    for (auto& e : m_contacts) {
+        if (e.prefixHex12 == c.prefixHex12) {
+            // Preservar estado local (fav/unread/snr) que el dongle no envía.
+            MeshContact merged = c;
+            merged.favourite = e.favourite;
+            merged.unread = e.unread;
+            merged.lastSnr = e.lastSnr;
+            merged.hasSnr = e.hasSnr;
+            e = merged;
+            m_contactsDirty = true;
+            if (m_onContactsChanged) m_onContactsChanged();
+            return;
+        }
+    }
+    m_contacts.push_back(c);
+    m_contactsDirty = true;
+    if (m_onContactsChanged) m_onContactsChanged();
+}
+
+void MeshCoreClient::appendThreadMessage(const std::string& prefix,
+                                         const ContactMessage& msg, bool markUnread) {
+    DMThread& th = m_threads[prefix];  // crea si no existe
+    th.prefixHex12 = prefix;
+    th.msgs.push_back(msg);
+    if (th.msgs.size() > 200) th.msgs.erase(th.msgs.begin());
+    if (markUnread) {
+        for (auto& c : m_contacts) {
+            if (c.prefixHex12 == prefix) { c.unread++; break; }
+        }
+        m_contactsDirty = true;
+    }
+    m_chatDirty = true;
+}
+
+uint32_t MeshCoreClient::nowMsFallback() const {
+    return static_cast<uint32_t>(static_cast<uint64_t>(time(nullptr)) * 1000u);
+}
+
+void MeshCoreClient::handleContactStart(const std::vector<uint8_t>& d) {
+    m_expectedContacts = (d.size() >= 5) ? rdU32(d, 1) : 0;
+    m_contactSyncActive = true;
+}
+
+void MeshCoreClient::handleContact(const std::vector<uint8_t>& d) {
+    MeshContact c;
+    if (!parseContactBody(d, 1, c)) return;
+    upsertContact(c);
+}
+
+void MeshCoreClient::handleContactEnd(const std::vector<uint8_t>& d) {
+    (void)d;
+    m_contactSyncActive = false;
+    m_contactsDirty = true;
+    if (m_onContactsChanged) m_onContactsChanged();
+}
+
+void MeshCoreClient::handleAdvert(const std::vector<uint8_t>& d) {
+    MeshContact c;
+    if (!parseContactBody(d, 1, c)) return;
+    c.lastAdvert = c.lastAdvert ? c.lastAdvert
+                                : static_cast<uint32_t>(time(nullptr));
+    upsertContact(c);
+    if (m_onAdvert) m_onAdvert(c);
+}
+
+void MeshCoreClient::handleAck(const std::vector<uint8_t>& d) {
+    if (d.size() < 5) return;
+    // Tolerante: tag u32 LE en bytes 1..4 (algunos firmwares añaden resto).
+    uint32_t tag = rdU32(d, 1);
+    auto it = m_pendingDms.find(tag);
+    if (it == m_pendingDms.end()) return;
+    it->second.status = DmStatus::Delivered;
+    // Limpiar unread propio del hilo y marcar dirty para la UI.
+    for (auto& c : m_contacts) {
+        if (c.prefixHex12 == it->second.destPrefix) { c.unread = 0; break; }
+    }
+    m_contactsDirty = true;
+    m_chatDirty = true;
+    if (m_onAck) m_onAck(tag, true);
+    m_pendingDms.erase(it);
+    if (m_onContactsChanged) m_onContactsChanged();
+}
+
+void MeshCoreClient::handleCurrentTime(const std::vector<uint8_t>& d) {
+    if (d.size() < 5) return;
+    m_deviceTime = rdU32(d, 1);
+    m_hasDeviceTime = true;
+}
+
+void MeshCoreClient::handleExportContact(const std::vector<uint8_t>& d) {
+    if (d.size() <= 1) return;
+    m_lastExportCard.assign(d.begin() + 1, d.end());
+    m_hasExportCard = true;
 }
 
 void MeshCoreClient::pushHistory(const ChannelMessage& msg) {
@@ -697,6 +878,235 @@ void MeshCoreClient::setAutoDrain(bool enabled) {
 }
 
 // ────────────────────────────────────────────────────────────────
+// Fase 1: Contactos + DM + Advert
+// ────────────────────────────────────────────────────────────────
+
+bool MeshCoreClient::queryContacts(uint32_t since, bool withSince) {
+    if (!isConnected()) return false;
+    if (!withSince) return sendFrame(Cmd::GET_CONTACTS);
+    uint8_t payload[4] = {
+        static_cast<uint8_t>(since & 0xFF),
+        static_cast<uint8_t>((since >> 8) & 0xFF),
+        static_cast<uint8_t>((since >> 16) & 0xFF),
+        static_cast<uint8_t>((since >> 24) & 0xFF),
+    };
+    return sendFrame(Cmd::GET_CONTACTS, payload, sizeof(payload));
+}
+
+bool MeshCoreClient::sendDM(const uint8_t pubkey[PUBKEY_LEN], const std::string& text) {
+    if (pubkey == nullptr || text.empty() || !isConnected()) return false;
+    std::string clipped = truncateUtf8(text, 133, FRAME_MAX_PAYLOAD - 37);
+    if (clipped.empty()) return false;
+    uint32_t ts = static_cast<uint32_t>(time(nullptr));
+    std::vector<uint8_t> payload;
+    payload.reserve(36 + clipped.size());
+    payload.push_back(static_cast<uint8_t>(ts & 0xFF));
+    payload.push_back(static_cast<uint8_t>((ts >> 8) & 0xFF));
+    payload.push_back(static_cast<uint8_t>((ts >> 16) & 0xFF));
+    payload.push_back(static_cast<uint8_t>((ts >> 24) & 0xFF));
+    payload.insert(payload.end(), pubkey, pubkey + PUBKEY_LEN);
+    payload.insert(payload.end(), clipped.begin(), clipped.end());
+    if (!sendFrame(Cmd::SEND_DM, payload.data(), payload.size())) return false;
+    // Guardar para enlazar con MSG_SENT.tag; eco optimista en el hilo.
+    m_awaitingTag = PendingDM();
+    memcpy(m_awaitingTag.destPubkey, pubkey, PUBKEY_LEN);
+    m_awaitingTag.destPrefix = pubkeyPrefixHex(pubkey);
+    m_awaitingTag.text = clipped;
+    m_awaitingTag.timestamp = ts;
+    m_hasAwaitingTag = true;
+    ContactMessage echo;
+    echo.pubkeyPrefix = m_awaitingTag.destPrefix;
+    echo.timestamp = ts;
+    echo.text = clipped;
+    echo.outgoing = true;
+    appendThreadMessage(echo.pubkeyPrefix, echo, false);
+    return true;
+}
+
+bool MeshCoreClient::sendDMByPrefix(const std::string& prefixHex12, const std::string& text) {
+    const MeshContact* c = findContact(prefixHex12);
+    if (c == nullptr || !c->hasPubkey) return false;
+    return sendDM(c->pubkey, text);
+}
+
+bool MeshCoreClient::resetPath(const uint8_t pubkey[PUBKEY_LEN]) {
+    if (pubkey == nullptr || !isConnected()) return false;
+    return sendFrame(Cmd::RESET_PATH, pubkey, PUBKEY_LEN);
+}
+
+bool MeshCoreClient::resetPathByPrefix(const std::string& prefixHex12) {
+    const MeshContact* c = findContact(prefixHex12);
+    if (c == nullptr || !c->hasPubkey) return false;
+    return resetPath(c->pubkey);
+}
+
+bool MeshCoreClient::removeContact(const uint8_t pubkey[PUBKEY_LEN]) {
+    if (pubkey == nullptr || !isConnected()) return false;
+    std::string prefix = pubkeyPrefixHex(pubkey);
+    bool ok = sendFrame(Cmd::REMOVE_CONTACT, pubkey, PUBKEY_LEN);
+    if (ok) {
+        m_contacts.erase(
+            std::remove_if(m_contacts.begin(), m_contacts.end(),
+                           [&](const MeshContact& e) { return e.prefixHex12 == prefix; }),
+            m_contacts.end());
+        m_threads.erase(prefix);
+        m_contactsDirty = true;
+        m_chatDirty = true;
+        if (m_onContactsChanged) m_onContactsChanged();
+    }
+    return ok;
+}
+
+bool MeshCoreClient::shareContact(const uint8_t pubkey[PUBKEY_LEN]) {
+    if (pubkey == nullptr || !isConnected()) return false;
+    return sendFrame(Cmd::SHARE_CONTACT, pubkey, PUBKEY_LEN);
+}
+
+bool MeshCoreClient::sendAdvert(bool flood) {
+    return sendAdvertType(flood ? AdvertType::Flood : AdvertType::ZeroHop);
+}
+
+bool MeshCoreClient::sendAdvertType(AdvertType type) {
+    if (!isConnected()) return false;
+    uint8_t t = static_cast<uint8_t>(type);
+    return sendFrame(Cmd::SEND_ADVERT, &t, 1);
+}
+
+bool MeshCoreClient::setAdvertName(const std::string& name) {
+    if (name.empty() || !isConnected()) return false;
+    std::string clipped = truncateUtf8(name, 64, FRAME_MAX_PAYLOAD - 1);
+    return sendFrame(Cmd::SET_ADVERT_NAME,
+                     reinterpret_cast<const uint8_t*>(clipped.data()), clipped.size());
+}
+
+bool MeshCoreClient::setAdvertLatLon(double lat, double lon) {
+    if (!isConnected()) return false;
+    int32_t la = static_cast<int32_t>(lat * 1e6);
+    int32_t lo = static_cast<int32_t>(lon * 1e6);
+    uint8_t payload[8];
+    payload[0] = static_cast<uint8_t>(la & 0xFF);
+    payload[1] = static_cast<uint8_t>((la >> 8) & 0xFF);
+    payload[2] = static_cast<uint8_t>((la >> 16) & 0xFF);
+    payload[3] = static_cast<uint8_t>((la >> 24) & 0xFF);
+    payload[4] = static_cast<uint8_t>(lo & 0xFF);
+    payload[5] = static_cast<uint8_t>((lo >> 8) & 0xFF);
+    payload[6] = static_cast<uint8_t>((lo >> 16) & 0xFF);
+    payload[7] = static_cast<uint8_t>((lo >> 24) & 0xFF);
+    return sendFrame(Cmd::SET_ADVERT_LATLON, payload, sizeof(payload));
+}
+
+bool MeshCoreClient::addOrUpdateContact(const MeshContact& c) {
+    if (!c.hasPubkey || !isConnected()) return false;
+    // [pubkey32][type][flags][out_path_len][out_path64][...nombre+lastmod opcionales]
+    // El firmware acepta el prefijo mínimo; enviamos layout completo básico.
+    std::vector<uint8_t> payload;
+    payload.reserve(99 + c.name.size());
+    payload.insert(payload.end(), c.pubkey, c.pubkey + PUBKEY_LEN);
+    payload.push_back(c.type);
+    payload.push_back(c.flags);
+    payload.push_back(static_cast<uint8_t>(c.outPathLen));
+    payload.insert(payload.end(), c.outPath, c.outPath + CONTACT_OUTPATH_LEN);
+    if (!c.name.empty()) {
+        std::string clipped = truncateUtf8(c.name, 64, CONTACT_NAME_LEN);
+        payload.insert(payload.end(), clipped.begin(), clipped.end());
+    }
+    bool ok = sendFrame(Cmd::ADD_UPDATE_CONTACT, payload.data(), payload.size());
+    if (ok) upsertContact(c);
+    return ok;
+}
+
+bool MeshCoreClient::setDeviceTime(uint32_t epoch) {
+    if (!isConnected()) return false;
+    uint8_t payload[4] = {
+        static_cast<uint8_t>(epoch & 0xFF),
+        static_cast<uint8_t>((epoch >> 8) & 0xFF),
+        static_cast<uint8_t>((epoch >> 16) & 0xFF),
+        static_cast<uint8_t>((epoch >> 24) & 0xFF),
+    };
+    return sendFrame(Cmd::SET_TIME, payload, sizeof(payload));
+}
+
+bool MeshCoreClient::exportContact(const uint8_t pubkey[PUBKEY_LEN]) {
+    if (!isConnected()) return false;
+    if (pubkey == nullptr) return sendFrame(Cmd::EXPORT_CONTACT);
+    return sendFrame(Cmd::EXPORT_CONTACT, pubkey, PUBKEY_LEN);
+}
+
+bool MeshCoreClient::exportSelf() {
+    return exportContact(nullptr);
+}
+
+bool MeshCoreClient::importContact(const uint8_t* cardBytes, size_t cardLen) {
+    if (cardBytes == nullptr || cardLen == 0 || !isConnected()) return false;
+    return sendFrame(Cmd::IMPORT_CONTACT, cardBytes, cardLen);
+}
+
+void MeshCoreClient::tick(uint32_t nowMs) {
+    // Reintentos con deadline por tag (llamado desde process() y tests).
+    std::vector<uint32_t> timedOut;
+    for (const auto& kv : m_pendingDms) {
+        if (kv.second.status == DmStatus::Sending &&
+            static_cast<int32_t>(nowMs - kv.second.deadlineMs) >= 0) {
+            timedOut.push_back(kv.first);
+        }
+    }
+    for (uint32_t tag : timedOut) retryPendingDm(tag, nowMs);
+}
+
+bool MeshCoreClient::retryPendingDm(uint32_t tag, uint32_t nowMs) {
+    auto it = m_pendingDms.find(tag);
+    if (it == m_pendingDms.end()) return false;
+    PendingDM& p = it->second;
+    if (p.status != DmStatus::Sending) return false;
+    if (p.attempts >= p.maxAttempts) {
+        p.status = DmStatus::Failed;
+        if (m_onAck) m_onAck(tag, false);
+        m_pendingDms.erase(it);
+        m_chatDirty = true;
+        return false;
+    }
+    bool isLast = (p.attempts + 1 >= p.maxAttempts);
+    // Último intento: auto-reset a flood (plan Fase 1 §lógica DM).
+    if (isLast && !p.flood) {
+        resetPath(p.destPubkey);
+        p.flood = true;
+    }
+    uint32_t ts = static_cast<uint32_t>(time(nullptr));
+    std::vector<uint8_t> payload;
+    payload.reserve(36 + p.text.size());
+    payload.push_back(static_cast<uint8_t>(ts & 0xFF));
+    payload.push_back(static_cast<uint8_t>((ts >> 8) & 0xFF));
+    payload.push_back(static_cast<uint8_t>((ts >> 16) & 0xFF));
+    payload.push_back(static_cast<uint8_t>((ts >> 24) & 0xFF));
+    payload.insert(payload.end(), p.destPubkey, p.destPubkey + PUBKEY_LEN);
+    payload.insert(payload.end(), p.text.begin(), p.text.end());
+    // Reenvío con el mismo tag esperado: el dongle emitirá nuevo MSG_SENT;
+    // conservamos el tag original para la UI y re-mapeamos al llegar.
+    uint32_t oldTag = tag;
+    p.attempts++;
+    // Actualizar el mapa ya (por si el dongle no emite MSG_SENT).
+    {
+        auto it2 = m_pendingDms.find(oldTag);
+        if (it2 != m_pendingDms.end()) {
+            it2->second.attempts = p.attempts;
+            it2->second.deadlineMs = nowMs + 15000;
+            it2->second.flood = p.flood;
+        }
+    }
+    // Dejar awaiting armado: cuando llegue el MSG_SENT del reintento,
+    // handleMsgSent migra oldTag → newTag conservando attempts.
+    m_awaitingTag = p;  // p.hasTag==true → handleMsgSent migra oldTag→newTag
+    m_awaitingTag.hasTag = true;
+    m_awaitingTag.tag = oldTag;
+    m_hasAwaitingTag = true;
+    if (!sendFrame(Cmd::SEND_DM, payload.data(), payload.size())) {
+        m_hasAwaitingTag = false;
+        return false;
+    }
+    return true;
+}
+
+// ────────────────────────────────────────────────────────────────
 // Canales
 // ────────────────────────────────────────────────────────────────
 
@@ -767,6 +1177,16 @@ bool MeshCoreClient::setRadio(uint32_t freqMhz, uint32_t bwKhz, uint8_t sf, uint
     return sendText(buf);
 }
 
+bool MeshCoreClient::setRadioStr(const std::string& freqMhz, const std::string& bwKhz,
+                                 uint8_t sf, uint8_t cr) {
+    if (freqMhz.empty() || bwKhz.empty() || sf < 5 || sf > 12 || cr < 5 || cr > 8) {
+        return false;
+    }
+    std::string cmd = "set radio " + freqMhz + "," + bwKhz + "," + std::to_string((int)sf) +
+                      "," + std::to_string((int)cr);
+    return sendText(cmd);
+}
+
 bool MeshCoreClient::setTxPower(int txPowerDbm) {
     char buf[32];
     snprintf(buf, sizeof(buf), "set tx %d", txPowerDbm);
@@ -777,6 +1197,11 @@ bool MeshCoreClient::setFrequency(uint32_t freqMhz) {
     char buf[32];
     snprintf(buf, sizeof(buf), "set freq %u", (unsigned)freqMhz);
     return sendText(buf);
+}
+
+bool MeshCoreClient::setFrequencyStr(const std::string& freqMhz) {
+    if (freqMhz.empty()) return false;
+    return sendText("set freq " + freqMhz);
 }
 
 bool MeshCoreClient::reboot() {
@@ -816,6 +1241,66 @@ void MeshCoreClient::clearHistory() {
     m_contactHistory.clear();
 }
 
+const std::vector<MeshContact>& MeshCoreClient::getContacts() const { return m_contacts; }
+
+const MeshContact* MeshCoreClient::findContact(const std::string& prefixHex12) const {
+    for (const auto& c : m_contacts) {
+        if (c.prefixHex12 == prefixHex12) return &c;
+    }
+    return nullptr;
+}
+
+const MeshContact* MeshCoreClient::findContactByPubkey(const uint8_t pubkey[PUBKEY_LEN]) const {
+    if (pubkey == nullptr) return nullptr;
+    return findContact(pubkeyPrefixHex(pubkey));
+}
+
+const DMThread* MeshCoreClient::getThread(const std::string& prefixHex12) const {
+    auto it = m_threads.find(prefixHex12);
+    if (it == m_threads.end()) return nullptr;
+    return &it->second;
+}
+
+std::vector<DMThread> MeshCoreClient::getAllThreads() const {
+    std::vector<DMThread> out;
+    out.reserve(m_threads.size());
+    for (const auto& kv : m_threads) out.push_back(kv.second);
+    return out;
+}
+
+const std::map<uint32_t, PendingDM>& MeshCoreClient::getPendingDMs() const {
+    return m_pendingDms;
+}
+
+const PendingDM* MeshCoreClient::getPendingDm(uint32_t tag) const {
+    auto it = m_pendingDms.find(tag);
+    if (it == m_pendingDms.end()) return nullptr;
+    return &it->second;
+}
+
+uint32_t MeshCoreClient::getExpectedContactCount() const { return m_expectedContacts; }
+bool MeshCoreClient::isContactSyncInProgress() const { return m_contactSyncActive; }
+bool MeshCoreClient::isContactsDirty() const { return m_contactsDirty; }
+bool MeshCoreClient::isChatDirty() const { return m_chatDirty; }
+void MeshCoreClient::clearContactsDirty() { m_contactsDirty = false; }
+void MeshCoreClient::clearChatDirty() { m_chatDirty = false; }
+uint32_t MeshCoreClient::getDeviceTime() const { return m_deviceTime; }
+bool MeshCoreClient::hasDeviceTime() const { return m_hasDeviceTime; }
+const std::vector<uint8_t>& MeshCoreClient::getLastExportCard() const {
+    return m_lastExportCard;
+}
+bool MeshCoreClient::hasExportCard() const { return m_hasExportCard; }
+
+void MeshCoreClient::setContactsForTest(const std::vector<MeshContact>& contacts) {
+    m_contacts = contacts;
+    m_contactsDirty = true;
+}
+
+void MeshCoreClient::setThreadsForTest(const std::map<std::string, DMThread>& threads) {
+    m_threads = threads;
+    m_chatDirty = true;
+}
+
 bool MeshCoreClient::parseSecretHex(const std::string& hex, uint8_t out[CHANNEL_SECRET_LEN]) {
     if (hex.size() != CHANNEL_SECRET_LEN * 2 || out == nullptr) return false;
     auto nibble = [](char c, uint8_t& v) -> bool {
@@ -851,6 +1336,45 @@ const char* MeshCoreClient::channelKindName(ChannelKind kind) {
     }
 }
 
+const char* MeshCoreClient::contactTypeName(uint8_t type) {
+    switch (static_cast<ContactType>(type)) {
+        case ContactType::Chat:     return "Chat";
+        case ContactType::Repeater: return "Repetidor";
+        case ContactType::Room:     return "Sala";
+        case ContactType::Sensor:   return "Sensor";
+        default:                    return "Desconocido";
+    }
+}
+
+bool MeshCoreClient::parsePubkeyHex64(const std::string& hex, uint8_t out[PUBKEY_LEN]) {
+    if (hex.size() != PUBKEY_LEN * 2 || out == nullptr) return false;
+    auto nibble = [](char c, uint8_t& v) -> bool {
+        if (c >= '0' && c <= '9') v = static_cast<uint8_t>(c - '0');
+        else if (c >= 'a' && c <= 'f') v = static_cast<uint8_t>(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') v = static_cast<uint8_t>(c - 'A' + 10);
+        else return false;
+        return true;
+    };
+    for (size_t i = 0; i < PUBKEY_LEN; ++i) {
+        uint8_t hi, lo;
+        if (!nibble(hex[i * 2], hi) || !nibble(hex[i * 2 + 1], lo)) return false;
+        out[i] = static_cast<uint8_t>((hi << 4) | lo);
+    }
+    return true;
+}
+
+std::string MeshCoreClient::pubkeyToHex64(const uint8_t pubkey[PUBKEY_LEN]) {
+    if (pubkey == nullptr) return "";
+    std::string out;
+    out.reserve(PUBKEY_LEN * 2);
+    char buf[3];
+    for (size_t i = 0; i < PUBKEY_LEN; ++i) {
+        snprintf(buf, sizeof(buf), "%02x", pubkey[i]);
+        out += buf;
+    }
+    return out;
+}
+
 // ────────────────────────────────────────────────────────────────
 // Setters de callbacks
 // ────────────────────────────────────────────────────────────────
@@ -884,6 +1408,15 @@ void MeshCoreClient::setOnMessagesWaiting(std::function<void()> cb) {
 }
 void MeshCoreClient::setOnConnectionState(std::function<void(bool connected)> cb) {
     m_onConnState = cb;
+}
+void MeshCoreClient::setOnContactsChanged(std::function<void()> cb) {
+    m_onContactsChanged = cb;
+}
+void MeshCoreClient::setOnAck(std::function<void(uint32_t tag, bool delivered)> cb) {
+    m_onAck = cb;
+}
+void MeshCoreClient::setOnAdvert(std::function<void(const MeshContact&)> cb) {
+    m_onAdvert = cb;
 }
 
 } // namespace meshcore

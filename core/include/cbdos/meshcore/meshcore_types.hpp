@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace cbdos {
 namespace meshcore {
@@ -34,8 +35,20 @@ static constexpr uint8_t PUBLIC_CHANNEL_SECRET[CHANNEL_SECRET_LEN] = {
 // Comandos (App → Radio)
 enum class Cmd : uint8_t {
     APP_START            = 0x01,
+    SEND_DM              = 0x02,
     SEND_CHANNEL_MESSAGE = 0x03,
+    GET_CONTACTS         = 0x04,
+    SET_TIME             = 0x06,
+    SEND_ADVERT          = 0x07,
+    SET_ADVERT_NAME      = 0x08,
+    ADD_UPDATE_CONTACT   = 0x09,
     GET_MESSAGE          = 0x0A,  // aka CMD_SYNC_NEXT_MESSAGE
+    RESET_PATH           = 0x0D,
+    SET_ADVERT_LATLON    = 0x0E,
+    REMOVE_CONTACT       = 0x0F,
+    SHARE_CONTACT        = 0x10,
+    EXPORT_CONTACT       = 0x11,
+    IMPORT_CONTACT       = 0x12,
     GET_BATTERY          = 0x14,
     DEVICE_QUERY         = 0x16,
     GET_CHANNEL          = 0x1F,
@@ -56,6 +69,7 @@ enum class PacketType : uint8_t {
     CHANNEL_MSG_RECV     = 0x08,
     CURRENT_TIME         = 0x09,
     NO_MORE_MSGS         = 0x0A,
+    EXPORT_CONTACT       = 0x0B,
     BATTERY              = 0x0C,
     DEVICE_INFO          = 0x0D,
     CONTACT_MSG_RECV_V3  = 0x10,
@@ -66,6 +80,8 @@ enum class PacketType : uint8_t {
     ACK                  = 0x82,
     MESSAGES_WAITING     = 0x83,
     LOG_DATA             = 0x88,
+    NEW_ADVERTISEMENT    = 0x8A,
+    TELEMETRY            = 0x8B,
 };
 
 // Códigos de error (PACKET_ERROR, byte 1)
@@ -167,6 +183,7 @@ struct ContactMessage {
     std::string text;
     float snrDb = 0.0f;  // solo V3
     bool hasSnr = false;
+    bool outgoing = false;  // true si es eco local de un DM propio
 };
 
 // Confirmación PACKET_MSG_SENT (0x06)
@@ -174,6 +191,78 @@ struct MsgSentInfo {
     bool flood = false;      // route flag: 0=direct, 1=flood
     uint32_t tag = 0;        // expected ACK tag
     uint32_t timeoutMs = 0;  // timeout sugerido
+};
+
+// ──────────────────────────────────────────────────────────────
+// Fase 1 (RFC-CBDOS-MESHCORE-FULL): agenda, DM fiable y adverts.
+// Layout CONTACT/ADVERT (Radio→App, tras byte de tipo):
+//  [pubkey32][type u8][flags u8][out_path_len i8][out_path 64B]
+//  [name 32B null-pad][last_advert u32 LE][lat i32 LE][lon i32 LE]
+//  [lastmod u32 LE] = 147 bytes (+1 de tipo = 148).
+// ──────────────────────────────────────────────────────────────
+static constexpr size_t CONTACT_NAME_LEN = 32;
+static constexpr size_t CONTACT_OUTPATH_LEN = 64;
+static constexpr size_t CONTACT_BODY_LEN = 147;
+
+enum class ContactType : uint8_t {
+    Unknown  = 0,
+    Chat     = 1,
+    Repeater = 2,
+    Room     = 3,
+    Sensor   = 4,
+};
+
+enum class AdvertType : uint8_t {
+    ZeroHop = 0,
+    Flood   = 1,
+};
+
+struct MeshContact {
+    uint8_t pubkey[PUBKEY_LEN] = {0};
+    bool hasPubkey = false;
+    std::string prefixHex12;  // 6 primeros bytes en hex (para DM por prefijo)
+    std::string name;
+    uint8_t type = 0;   // ContactType
+    uint8_t flags = 0;
+    int8_t outPathLen = -1;  // -1 = flood
+    uint8_t outPath[CONTACT_OUTPATH_LEN] = {0};
+    uint32_t lastAdvert = 0;  // epoch u32
+    double lat = 0.0;
+    double lon = 0.0;
+    uint32_t lastmod = 0;
+    float lastSnr = 0.0f;
+    bool hasSnr = false;
+    uint8_t hops = 0;
+    bool favourite = false;
+    uint32_t unread = 0;
+    bool valid = false;
+};
+
+// Hilo DM 1-1 indexado por prefixHex12 (12 hex del pubkey).
+struct DMThread {
+    std::string prefixHex12;
+    std::vector<ContactMessage> msgs;
+};
+
+enum class DmStatus : uint8_t {
+    Sending,
+    Delivered,
+    Failed,
+};
+
+// DM pendiente de ACK (retry 5x direct / 3x flood, último fuerza flood).
+struct PendingDM {
+    uint32_t tag = 0;
+    bool hasTag = false;  // false = esperando MSG_SENT que asigne tag
+    uint8_t destPubkey[PUBKEY_LEN] = {0};
+    std::string destPrefix;
+    std::string text;
+    uint32_t timestamp = 0;
+    uint8_t attempts = 0;
+    uint8_t maxAttempts = 5;
+    bool flood = false;
+    uint32_t deadlineMs = 0;
+    DmStatus status = DmStatus::Sending;
 };
 
 } // namespace meshcore
