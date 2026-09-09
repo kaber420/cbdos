@@ -156,7 +156,7 @@ bool ConfigView::onCreate(lv_obj_t* parent) {
         {"Almacenamiento", "Gestion de MicroSD, Flash y USB", 2},
         {"Fondo de Pantalla", "Elegir wallpaper de SD o Flash", 5},
         {"Sistema", "Diagnostico de hardware y memoria", 6},
-        {"Acerca de CBDos", "v0.2.1, Licencia GPLv3 y Repo", 8},
+        {"Acerca de CBDos", "v0.2.3-dev, Licencia GPLv3 y Repo", 8},
         {"Resetear NVS", "Manten presionado 3s para borrar", 7}
     };
 

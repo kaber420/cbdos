@@ -69,4 +69,4 @@ end
 | **`radio.*`** | Malla y comunicación inalámbrica| `broadcast_packet`, `on_packet_received` |
 
 > 🔬 **Especificación Completa:**  
-> Para consultar la especificación exhaustiva del formato `.luapp`, tipos de datos y sandbox de seguridad, revisa [`specs/api/luapp_specification.md`](https://github.com/kaber420/CBD-os/blob/main/specs/api/luapp_specification.md).
+> Para consultar la especificación exhaustiva del formato `.luapp`, tipos de datos y sandbox de seguridad, revisa [`specs/api/luapp_specification.md`](https://github.com/kaber420/cbdos/blob/main/specs/api/luapp_specification.md).

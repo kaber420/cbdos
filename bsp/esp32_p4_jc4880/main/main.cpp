@@ -50,7 +50,7 @@ extern "C" void app_main(void) {
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "%s",
         cbdos::board_identity::bannerFor(
             *cbdos::board_identity::findBoard("jc4880p443")).c_str());
-    cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "=== Iniciando CyBerDeck OS (CBDos v0.2.1) ===");
+    cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "=== Iniciando CyBerDeck OS (CBDos v0.2.3-dev) ===");
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "Soporte Flasheador Coprocesador C6: %s", 
                        cbdos::flasher::isSupported() ? "HABILITADO" : "DESHABILITADO");
 

@@ -1,6 +1,6 @@
 # Plan futuro: firmwares sin depender de la API de GitHub
 
-> Estado: PROPUESTA (v1 usa `api.github.com/repos/kaber420/CBD-os/releases` con cache de 30 min).
+> Estado: PROPUESTA (v1 usa `api.github.com/repos/kaber420/cbdos/releases` con cache de 30 min).
 > Motivo del cambio: la API anónima se limita a 60 peticiones/hora por IP y un bug
 > de re-fetch puede quemar la cuota y bloquear el instalador con 403.
 
@@ -18,7 +18,7 @@ en `site/public/firmware.json` (se publica con el sitio, sin rate-limit jamás):
       "soc": "esp32-p4",
       "version": "0.2.4",
       "file": "cbdos-jc4880p443-esp32-p4-v0.2.4-merged.bin",
-      "url": "https://github.com/kaber420/CBD-os/releases/download/v0.2.4/cbdos-jc4880p443-esp32-p4-v0.2.4-merged.bin",
+      "url": "https://github.com/kaber420/cbdos/releases/download/v0.2.4/cbdos-jc4880p443-esp32-p4-v0.2.4-merged.bin",
       "sha256": "<...>",
       "size": 3478848,
       "flash_offset": "0x0"

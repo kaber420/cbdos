@@ -73,7 +73,7 @@ void AboutModal::show(lv_obj_t* parent) {
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
 
     lv_obj_t* verLbl = lv_label_create(card);
-    lv_label_set_text(verLbl, "Version 0.2.1 (Universal Core)");
+    lv_label_set_text(verLbl, "Version 0.2.3-dev (Universal Core)");
     lv_obj_set_style_text_color(verLbl, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_set_style_text_font(verLbl, &lv_font_montserrat_14, 0);
     lv_obj_set_style_margin_bottom(verLbl, 6, 0);
@@ -108,7 +108,8 @@ void AboutModal::show(lv_obj_t* parent) {
 
     // 3. Cajas de Información
     addInfoBox(card, "Autor / Mantenedor", "kaber420");
-    addInfoBox(card, "Repositorio Oficial", "https://github.com/kaber420/CBD-os", "url");
+    addInfoBox(card, "Repositorio Oficial", "https://github.com/kaber420/cbdos", "url");
+    addInfoBox(card, "Sitio Web", "https://kaber420.github.io/cbdos/", "url");
     addInfoBox(card, "Licencia de Software", "GNU General Public License v3.0 (GPLv3)");
     addInfoBox(card, "Enlace de la Licencia", "https://www.gnu.org/licenses/gpl-3.0.html", "url");
 

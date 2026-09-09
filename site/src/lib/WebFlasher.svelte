@@ -432,7 +432,7 @@
     <span class="lbl">// FIRMWARES EN RELEASES PARA {board.boardId.toUpperCase()} ({board.soc.toUpperCase()})</span>
     {#if cacheInfo}<span class="cache-note">{cacheInfo}</span>{/if}
     {#if loading}
-      <p class="muted">Consultando api.github.com/repos/kaber420/CBD-os/releases…</p>
+      <p class="muted">Consultando api.github.com/repos/kaber420/cbdos/releases…</p>
     {:else if listError}
       <p class="err">{listError}</p>
     {:else}

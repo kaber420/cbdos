@@ -446,6 +446,6 @@ pio run
 ## Licencia
 
 Este proyecto esta bajo la Licencia **GNU General Public License v3.0 (GPLv3)**.
-Copyright (C) 2026 **kaber420** (<https://github.com/kaber420/CBD-os>).
+Copyright (C) 2026 **kaber420** (<https://github.com/kaber420/cbdos>).
 
 Consulta el archivo [`LICENSE`](LICENSE) para obtener los terminos y condiciones completos, o visita <https://www.gnu.org/licenses/gpl-3.0.html>.

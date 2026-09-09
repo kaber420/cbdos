@@ -85,7 +85,7 @@ void setup() {
     // Identidad v1 para el flasheador web (banner + comando CBDOS:VERSION?).
     Serial.println(cbdos::board_identity::bannerFor(
         *cbdos::board_identity::findBoard("jc3248w535")).c_str());
-    cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "=== Iniciando CyBerDeck OS (CBDos v0.2.1) [Target: ESP32-S3] ===");
+    cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "=== Iniciando CyBerDeck OS (CBDos v0.2.3-dev) [Target: ESP32-S3] ===");
     
     // Inyectar el backend de persistencia NVS, Almacenamiento, Audio, UART, GPIO, Radio, Red, Sockets, Transporte de Malla, Cliente HTTP y USB HID
     cbdos::bsp::initPersistenceBackend();

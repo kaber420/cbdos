@@ -32,7 +32,7 @@ Es la plataforma insigne para el desarrollo de CBDos, basada en el módulo **JC-
 * **Almacenamiento:** MicroSD en bus SDMMC de alta velocidad a 4 bits con control LDO VO4 (3.3V).
 
 > 💡 **Detalles Técnicos:**  
-> Para consultar el mapa de pines completo de la cabecera JP1 y periféricos, revisa el documento de ingeniería [`specs/hardware/pinouts_and_ports.md`](https://github.com/kaber420/CBD-os/blob/main/specs/hardware/pinouts_and_ports.md).
+> Para consultar el mapa de pines completo de la cabecera JP1 y periféricos, revisa el documento de ingeniería [`specs/hardware/pinouts_and_ports.md`](https://github.com/kaber420/cbdos/blob/main/specs/hardware/pinouts_and_ports.md).
 
 ---
 

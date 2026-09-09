@@ -5,7 +5,7 @@
 // Filtro: el asset debe contener el soc y, si existe, el board_id.
 import type { Board } from './boards';
 
-export const GH_REPO = 'kaber420/CBD-os';
+export const GH_REPO = 'kaber420/cbdos';
 export const GH_API = `https://api.github.com/repos/${GH_REPO}/releases?per_page=20`;
 
 export interface FirmwareFile {

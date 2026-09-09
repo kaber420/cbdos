@@ -69,7 +69,7 @@
               <code>{m.file}</code>
             </div>
             <a 
-              href={`https://github.com/kaber420/CBD-os/blob/main/${m.file}`} 
+              href={`https://github.com/kaber420/cbdos/blob/main/${m.file}`} 
               target="_blank" 
               rel="noopener noreferrer" 
               class="manual-action"
