@@ -19,12 +19,12 @@
       <div class="footer-links-col">
         <h4>Navegación</h4>
         <ul>
-          <li><a href="#hero">Inicio</a></li>
-          <li><a href="#hardware">Hardware & Placas</a></li>
-          <li><a href="#apps">Catálogo de Apps</a></li>
-          <li><a href="#luapp">Ecosistema Lua++</a></li>
-          <li><a href="#flashing">Guía de Flasheo</a></li>
-          <li><a href="#manuales">Manuales</a></li>
+          <li><a href="#/">Inicio</a></li>
+          <li><a href="#/hardware">Hardware & Placas</a></li>
+          <li><a href="#/apps">Catálogo de Apps</a></li>
+          <li><a href="#/luapp">Ecosistema Lua++</a></li>
+          <li><a href="#/flasheo">Guía de Flasheo</a></li>
+          <li><a href="#/manuales">Manuales</a></li>
         </ul>
       </div>
 

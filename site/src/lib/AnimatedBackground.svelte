@@ -149,14 +149,19 @@
     swarm = Array.from({ length: SWARM_COUNT }, () => ({
       x: Math.random() * W,
       y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
+      vx: (Math.random() - 0.5) * 1.2,
+      vy: (Math.random() - 0.5) * 1.2,
       radius: 3 + Math.random() * 5,
       alpha: 0.5 + Math.random() * 0.4,
       phase: Math.random() * Math.PI * 2,
       pulseSpeed: 0.02 + Math.random() * 0.03,
     }));
   }
+
+  // Velocidad base tipo luciérnaga: deriva continua + límites para que
+  // nunca se queden fijas ni se peguen en un solo punto.
+  const SWARM_MIN_SPEED = 0.35;
+  const SWARM_MAX_SPEED = 2.0;
 
   function renderSwarm(c: CanvasRenderingContext2D) {
     if (mouseActive) {
@@ -181,20 +186,54 @@
       }
     }
 
+    // 1. Repulsión entre partículas cercanas para que no se peguen en un punto
+    for (let i = 0; i < swarm.length; i++) {
+      for (let j = i + 1; j < swarm.length; j++) {
+        const a = swarm[i], b = swarm[j];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const distSq = dx * dx + dy * dy;
+        const minDist = 42;
+        if (distSq > 0.01 && distSq < minDist * minDist) {
+          const dist = Math.sqrt(distSq);
+          const push = ((minDist - dist) / minDist) * 0.12;
+          const nx = dx / dist, ny = dy / dist;
+          a.vx += nx * push; a.vy += ny * push;
+          b.vx -= nx * push; b.vy -= ny * push;
+        }
+      }
+    }
+
     for (const p of swarm) {
+      // 2. Deriva errante permanente (como luciérnagas) aunque no haya mouse
+      p.vx += Math.cos(tick * 0.012 + p.phase) * 0.015;
+      p.vy += Math.sin(tick * 0.014 + p.phase * 1.7) * 0.015;
+
       if (mouseActive) {
         const dx = mouseX - p.x;
         const dy = mouseY - p.y;
         const distSq = dx * dx + dy * dy;
-        if (distSq > 1) {
+        if (distSq > 1 && distSq < 260 * 260) {
           const dist = Math.sqrt(distSq);
           const force = 1.2 / (dist + 15);
-          p.vx += (dx / dist) * force * 18;
-          p.vy += (dy / dist) * force * 18;
+          p.vx += (dx / dist) * force * 6;
+          p.vy += (dy / dist) * force * 6;
         }
       }
-      p.vx *= 0.97;
-      p.vy *= 0.97;
+      // Fricción suave (antes 0.97 las mataba en ~100 frames y quedaban fijas)
+      p.vx *= 0.995;
+      p.vy *= 0.995;
+
+      // 3. Clamp de velocidad: ni fijas ni disparadas
+      const speed = Math.hypot(p.vx, p.vy) || 0.0001;
+      if (speed < SWARM_MIN_SPEED) {
+        p.vx = (p.vx / speed) * SWARM_MIN_SPEED;
+        p.vy = (p.vy / speed) * SWARM_MIN_SPEED;
+      } else if (speed > SWARM_MAX_SPEED) {
+        p.vx = (p.vx / speed) * SWARM_MAX_SPEED;
+        p.vy = (p.vy / speed) * SWARM_MAX_SPEED;
+      }
+
       p.x += p.vx; p.y += p.vy; p.phase += p.pulseSpeed;
       if (p.x < 0 || p.x > W) p.vx *= -1;
       if (p.y < 0 || p.y > H) p.vy *= -1;

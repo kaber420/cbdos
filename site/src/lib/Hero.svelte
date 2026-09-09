@@ -64,13 +64,13 @@
       </p>
 
       <div class="hero-cta">
-        <a href="#flashing" class="btn btn-primary">
+        <a href="#/flasheo" class="btn btn-primary">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
           Guía de Flasheo
         </a>
-        <a href="#hardware" class="btn btn-secondary">
+        <a href="#/hardware" class="btn btn-secondary">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="4" y="4" width="16" height="16" rx="2"/>
             <rect x="9" y="9" width="6" height="6"/>
@@ -81,7 +81,7 @@
           </svg>
           Explorar Hardware
         </a>
-        <a href="#manuales" class="btn btn-secondary">
+        <a href="#/manuales" class="btn btn-secondary">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>

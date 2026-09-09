@@ -5,42 +5,42 @@
       title: 'UI Cyberpunk & 60 FPS',
       tag: 'LVGL v9.5 + DMA2D',
       desc: 'Motor gráfico de alta tasa de refresco, aceleración por hardware 2D (PPA / DMA2D) en ESP32-P4, widgets vectoriales táctiles y animaciones Lottie fluidas.',
-      link: '#apps'
+      link: '#/apps'
     },
     {
       icon: '🔲',
       title: 'Multi-Target Desacoplado',
       tag: 'ESP32-P4 & ESP32-S3',
       desc: 'Arquitectura pura en C++ agnóstico (core/) sin contaminación de frameworks. Compilación simultánea y limpia para ESP-IDF 5.5 y PlatformIO Arduino.',
-      link: '#hardware'
+      link: '#/hardware'
     },
     {
       icon: '💻',
       title: 'Ecosistema Lua++ (.luapp)',
       tag: 'Sandboxed Micro-Apps',
       desc: 'Carga y ejecuta micro-aplicaciones dinámicas desde la tarjeta MicroSD sin recompilar firmware. Acceso seguro a pantalla, táctil, audio y radio.',
-      link: '#luapp'
+      link: '#/luapp'
     },
     {
       icon: '📡',
       title: 'Redes Mesh & Modo Sigilo',
       tag: 'ESP-NOW + Paquetes TLV',
       desc: 'Comunicaciones directas P2P fuera de internet, descubrimiento de nodos con Short IDs dinámicos y cifrado de transmisiones de radio.',
-      link: '#apps'
+      link: '#/apps'
     },
     {
       icon: '⚡',
       title: 'Flasheador de Campo Autónomo',
       tag: 'USB-OTG & UART Programmer',
       desc: 'Convierte el cyberdeck en un programador físico: flashea microcontroladores externos (ESP32-C3, C6, RP2040) desde la MicroSD sin ordenador.',
-      link: '#flashing'
+      link: '#/flasheo'
     },
     {
       icon: '🛡️',
       title: 'Seguridad FIDO2 & BadUSB',
       tag: 'Hardware Security Module',
       desc: 'Emulador HID USB para payloads DuckyScript, autenticación con token de seguridad, cifrado simétrico y aislamiento de secretos.',
-      link: '#apps'
+      link: '#/apps'
     }
   ];
 </script>

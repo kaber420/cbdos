@@ -1,14 +1,20 @@
 <script lang="ts">
+  import type { Route } from './router';
+  let { route = '/' as Route }: { route?: Route } = $props();
   let mobileMenuOpen = $state(false);
 
   function toggleMobile() {
     mobileMenuOpen = !mobileMenuOpen;
   }
+
+  function isActive(path: Route) {
+    return route === path;
+  }
 </script>
 
 <header class="navbar-wrapper">
   <div class="container navbar-inner">
-    <a href="#hero" class="brand">
+    <a href="#/" class="brand">
       <div class="brand-icon">
         <svg viewBox="0 0 24 24" fill="none" class="icon-svg">
           <path d="M4 6h16M4 12h10M4 18h16" stroke="var(--cyan-core)" stroke-width="2.5" stroke-linecap="round"/>
@@ -22,11 +28,11 @@
     </a>
 
     <nav class="nav-links" class:active={mobileMenuOpen}>
-      <a href="#hardware" onclick={() => mobileMenuOpen = false}>Hardware</a>
-      <a href="#apps" onclick={() => mobileMenuOpen = false}>Apps</a>
-      <a href="#luapp" onclick={() => mobileMenuOpen = false}>Lua++</a>
-      <a href="#flashing" onclick={() => mobileMenuOpen = false}>Flasheo</a>
-      <a href="#manuales" onclick={() => mobileMenuOpen = false}>Manuales</a>
+      <a href="#/hardware" class:active={isActive('/hardware')} onclick={() => mobileMenuOpen = false}>Hardware</a>
+      <a href="#/apps" class:active={isActive('/apps')} onclick={() => mobileMenuOpen = false}>Apps</a>
+      <a href="#/luapp" class:active={isActive('/luapp')} onclick={() => mobileMenuOpen = false}>Lua++</a>
+      <a href="#/flasheo" class:active={isActive('/flasheo')} onclick={() => mobileMenuOpen = false}>Flasheo</a>
+      <a href="#/manuales" class:active={isActive('/manuales')} onclick={() => mobileMenuOpen = false}>Manuales</a>
     </nav>
 
     <div class="navbar-actions">
@@ -126,6 +132,11 @@
   }
 
   .nav-links a:hover {
+    color: var(--cyan-core);
+    text-shadow: 0 0 8px var(--cyan-glow);
+  }
+
+  .nav-links a.active {
     color: var(--cyan-core);
     text-shadow: 0 0 8px var(--cyan-glow);
   }
