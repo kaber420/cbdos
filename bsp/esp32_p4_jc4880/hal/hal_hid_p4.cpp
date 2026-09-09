@@ -1,5 +1,6 @@
 #include "cbdos/hid.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/board_identity.hpp"
 #include "cbdos/tts.hpp"
 #include <esp_log.h>
 #include <tinyusb.h>
@@ -350,6 +351,10 @@ static void serial_interactive_cli_task(void* arg) {
                         } else {
                             printf("[SERIAL_CLI_ERR] ❌ Error al iniciar síntesis TTS (¿MicroSD insertada con diccionarios?).\n");
                         }
+                    } else if (::cbdos::board_identity::isVersionQuery(line_buf)) {
+                        // Identidad v1 para el flasheador web (antes de que Lua vea la línea).
+                        printf("%s\n", ::cbdos::board_identity::bannerFor(
+                            *::cbdos::board_identity::findBoard("jc4880p443")).c_str());
                     } else {
                         std::string outRes;
                         bool ok = ::LuaEngine::getInstance().executeString(line_buf, &outRes);

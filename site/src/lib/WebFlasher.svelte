@@ -20,10 +20,17 @@
   let selectedIdx = $state(0);
   const selected = $derived(files[selectedIdx] ?? null);
 
-  // Firma instalada (banner CBDos) + chip detectado (ROM bootloader, aun sin CBDos).
+  // Firma instalada (banner CBDos) + ficha del chip (ROM bootloader, aun sin CBDos).
   interface Installed { board: string; soc: string; ver: string; raw: string }
+  interface ChipInfo {
+    desc: string; // "ESP32-P4 (revision v1.3)"
+    mac: string;
+    features: string;
+    crystal: string;
+    flashSize: string;
+  }
   let installed = $state<Installed | null>(null);
-  let chipFound = $state<string | null>(null);
+  let chipFound = $state<ChipInfo | null>(null);
   let detecting = $state(false);
   let detectError = $state<string | null>(null);
 
@@ -90,7 +97,10 @@
     }
   }
 
-  onMount(() => { refreshReleases(false); });
+  onMount(() => {
+    log('WebFlasher v2.0 listo.');
+    refreshReleases(false);
+  });
 
   function selectBoard(id: string) {
     if (id === boardId) return;
@@ -107,33 +117,107 @@
     flashError = null;
   }
 
-  // --- Detección: banner CBDos (con auto-reset) + chip vía ROM (placa nueva) ---
+  // --- Detección v2: sin tocar líneas DTR/RTS (el reset re-enumera el USB y el
+  // navegador pierde el puerto). Fase 1 = query en caliente; Fase 2 = bootloader.
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  /** Pulso de reset por DTR/RTS: reinicia la placa a la app para que imprima el banner. */
-  async function pulseReset(port: any) {
+  async function closeQuiet(port: any) {
+    try { await port?.close(); } catch { /* noop */ }
+  }
+
+  /** Puerto ya autorizado (sin diálogo) si hay exactamente uno; si no, diálogo. */
+  async function pickPort(): Promise<any> {
     try {
-      await port.setSignals({ dataTerminalReady: false, requestToSend: true });
-      await sleep(150);
-      await port.setSignals({ dataTerminalReady: false, requestToSend: false });
-      await sleep(400);
-      log('Reset por serial enviado.');
-    } catch {
-      log('Reset por serial no soportado; pulsa el botón RST de la placa.');
+      const ports = await (navigator as any).serial.getPorts();
+      if (ports.length === 1) return ports[0];
+    } catch { /* getPorts no disponible: sigue a diálogo */ }
+    return await (navigator as any).serial.requestPort();
+  }
+
+  /** Lee el banner CBDos respondiendo a CBDOS:VERSION? (reintento dentro del loop). */
+  async function readBanner(port: any, ms: number): Promise<RegExpMatchArray | null> {
+    const decoder = new TextDecoder();
+    let buf = '';
+    let bytes = 0;
+    let sent = 0;
+    const start = Date.now();
+    let reader: any = null;
+    let writer: any = null;
+    try {
+      if (!port.readable || !port.writable) {
+        log('El puerto no expone lectura/escritura.');
+        return null;
+      }
+      reader = port.readable.getReader();
+      writer = port.writable.getWriter();
+      const sendQuery = async () => {
+        try {
+          await writer.write(new TextEncoder().encode('CBDOS:VERSION?\n'));
+          sent++;
+          log(`→ CBDOS:VERSION? enviado (intento ${sent})…`);
+        } catch (e) {
+          log(`No se pudo escribir al puerto: ${e}`);
+        }
+      };
+      await sendQuery();
+      while (Date.now() - start < ms) {
+        let value: Uint8Array | undefined;
+        try {
+          const r = await Promise.race([
+            reader.read(),
+            sleep(500).then(() => ({ value: undefined, done: false })),
+          ]);
+          if ((r as { done: boolean }).done) break;
+          value = (r as { value: Uint8Array | undefined }).value;
+        } catch (e) {
+          log(`Lectura cortada: ${e}`);
+          break;
+        }
+        if (value) {
+          bytes += value.length;
+          buf += decoder.decode(value, { stream: true });
+          const m = buf.match(BANNER_RE);
+          if (m) {
+            log(`Banner tras ${bytes} bytes.`);
+            return m;
+          }
+        }
+        if (sent < 2 && Date.now() - start > 2500) await sendQuery();
+      }
+      log(`Escucha completa: ${bytes} bytes, ${sent} queries, sin banner.`);
+      return null;
+    } finally {
+      try { reader?.releaseLock(); } catch { /* noop */ }
+      try { writer?.releaseLock(); } catch { /* noop */ }
     }
   }
 
-  /** Pregunta al ROM bootloader qué chip es (funciona con flash vacía/sin CBDos). */
-  async function detectChip(port: any): Promise<string | null> {
+  /** Pregunta al ROM bootloader la ficha del chip (funciona con flash vacía/sin CBDos).
+   *  Cada dato es independiente: si uno falla, los demás igual se muestran. */
+  async function detectChip(port: any): Promise<ChipInfo | null> {
     let transport: any = null;
     try {
       const { Transport, ESPLoader } = await import('esptool-js');
       transport = new Transport(port, true);
       const quiet = { clean: () => {}, writeLine: () => {}, write: () => {} };
       const loader = new ESPLoader({ transport, baudrate: 115200, terminal: quiet, enableTracing: false });
-      const chip = await loader.main();
-      await loader.after('hard_reset'); // devuelve la placa a modo normal
-      return chip;
+      log('Hablando con el ROM bootloader…');
+      const desc = await loader.main();
+      log(`Bootloader OK: ${desc}`);
+      const safe = async (label: string, fn: () => Promise<unknown>): Promise<string> => {
+        try {
+          return String(await fn());
+        } catch (e) {
+          log(`${label} no respondió (${e}). Sigo con el resto.`);
+          return '—';
+        }
+      };
+      const mac = await safe('MAC', () => loader.chip.readMac(loader));
+      const features = await safe('Features', () => loader.chip.getChipFeatures(loader));
+      const crystal = await safe('Cristal', () => loader.chip.getCrystalFreq(loader));
+      const flashSize = await safe('Flash', () => loader.detectFlashSize());
+      await loader.after('hard_reset'); // devuelve la placa a modo normal (corre la app)
+      return { desc, mac, features, crystal, flashSize };
     } catch (e) {
       log(`Sin respuesta del bootloader: ${e}`);
       return null;
@@ -143,83 +227,60 @@
   }
 
   async function detectInstalled() {
-    if (!serialOK) return;
+    if (!serialOK || detecting) return; // anti doble-clic
     detecting = true;
     detectError = null;
     installed = null;
     chipFound = null;
     let port: any = null;
     try {
-      port = await (navigator as any).serial.requestPort();
-      await port.open({ baudRate: 115200 });
-      await pulseReset(port); // la placa rebooteará e imprimirá el banner si trae CBDos
-      log('Puerto abierto @115200, escuchando banner…');
-      const decoder = new TextDecoder();
-      let buf = '';
-      let queried = false;
-      const start = Date.now();
-
-      const writer = port.writable?.getWriter();
-      const reader = port.readable.getReader();
-
-      const timeout = setTimeout(async () => {
-        if (!queried && writer) {
-          queried = true;
-          try {
-            await writer.write(new TextEncoder().encode('CBDOS:VERSION?\n'));
-            log('→ CBDOS:VERSION? enviado, esperando respuesta…');
-          } catch { /* noop */ }
-        }
-      }, 2500);
-
+      // Fase 1 — CBDos en caliente. Cero resets, cero señales: el puerto no se pierde.
       try {
-        while (Date.now() - start < 9000) {
-          const { value, done: rdDone } = await Promise.race([
-            reader.read(),
-            new Promise<{ value: undefined; done: boolean }>((res) =>
-              setTimeout(() => res({ value: undefined, done: false }), 500),
-            ),
-          ]);
-          if (value) {
-            buf += decoder.decode(value, { stream: true });
-            const m = buf.match(BANNER_RE);
-            if (m) {
-              installed = { board: m[1], soc: m[2], ver: m[3], raw: m[0] };
-              log(`Instalado detectado: ${m[0]}`);
-              break;
-            }
-          }
-          if (rdDone) break;
+        log('Abriendo puerto…');
+        port = await pickPort();
+        await port.open({ baudRate: 115200 });
+        log('Puerto @115200. Leyendo firmware en caliente…');
+        const m = await readBanner(port, 5000);
+        if (m) {
+          installed = { board: m[1], soc: m[2], ver: m[3], raw: m[0] };
+          log(`Instalado: ${m[0]}`);
         }
+      } catch (e: any) {
+        if (e?.name === 'NotFoundError') {
+          log('Selección de puerto cancelada.');
+          return;
+        }
+        log(`Fase firmware falló (${e}). Paso al bootloader…`);
       } finally {
-        clearTimeout(timeout);
-        try { reader.releaseLock(); } catch { /* noop */ }
-        try { writer?.releaseLock(); } catch { /* noop */ }
+        await closeQuiet(port);
+        port = null;
       }
-      try { await port.close(); } catch { /* noop */ }
 
+      // Fase 2 — ROM bootloader (placa nueva, vacía o sin banner).
       if (!installed) {
-        // Plan B: ¿al menos qué chip hay? (placa nueva o sin CBDos)
-        log('Sin banner CBDos. Preguntando al bootloader qué chip es…');
-        const chip = await detectChip(port);
-        try { await port.close(); } catch { /* noop */ }
-        if (chip) {
-          chipFound = chip;
-          log(`Chip detectado: ${chip} (sin CBDos instalado o versión sin banner).`);
-          // Preselección de placa según chip
-          const up = chip.toUpperCase();
-          if (up.includes('P4')) selectBoard('jc4880p443');
-          else if (up.includes('S3')) selectBoard('jc3248w535');
-        } else {
-          detectError = 'No responde ni CBDos ni el bootloader. Revisa cable (debe ser de datos), puerto USB-Serial/JTAG y alimentación.';
+        try {
+          log('Preguntando al bootloader qué chip es…');
+          port = await pickPort();
+          const chip = await detectChip(port);
+          if (chip) {
+            chipFound = chip;
+            log(`Chip: ${chip.desc} · MAC ${chip.mac} · Flash ${chip.flashSize} · XTAL ${chip.crystal}MHz.`);
+            const up = chip.desc.toUpperCase();
+            if (up.includes('P4')) selectBoard('jc4880p443');
+            else if (up.includes('S3')) selectBoard('jc3248w535');
+            log('Placa devuelta a modo app. Pulsa Detectar de nuevo para leer el firmware.');
+          } else {
+            detectError = 'Ni CBDos ni el bootloader responden. Revisa cable de datos, puerto USB-Serial/JTAG y alimentación.';
+          }
+        } catch (e: any) {
+          if (e?.name === 'NotFoundError') log('Selección de puerto cancelada.');
+          else detectError = `Bootloader inaccesible: ${e?.message ?? e}`;
+        } finally {
+          await closeQuiet(port);
+          port = null;
         }
-      }
-    } catch (e: any) {
-      if (e?.name !== 'NotFoundError') {
-        detectError = `No se pudo abrir el puerto: ${e?.message ?? e}`;
       }
     } finally {
-      try { await port?.close(); } catch { /* noop */ }
       detecting = false;
     }
   }
@@ -302,7 +363,7 @@
 <div class="webflasher cyber-card">
   <div class="wf-head">
     <div>
-      <span class="badge badge-green">● Instalador Web v1</span>
+      <span class="badge badge-green">● Instalador Web v2.0</span>
       <h3>Flashea CBDos desde el navegador</h3>
       <p>
         Lee los <code>Releases</code> de GitHub, filtra por
@@ -346,7 +407,14 @@
           <span class="hint">{versionHint()}</span>
         {/if}
       {:else if chipFound}
-        <code class="banner">CHIP={chipFound} (sin CBDos — placa nueva o firmware sin banner)</code>
+        <div class="chip-grid">
+          <div><span>CHIP</span><strong>{chipFound.desc}</strong></div>
+          <div><span>MAC</span><strong>{chipFound.mac}</strong></div>
+          <div><span>FLASH</span><strong>{chipFound.flashSize}</strong></div>
+          <div><span>XTAL</span><strong>{chipFound.crystal} MHz</strong></div>
+          <div class="span2"><span>FEATURES</span><strong>{chipFound.features}</strong></div>
+          <div class="span2"><span>CBDOS</span><strong class="no">no instalado / sin banner</strong></div>
+        </div>
         <span class="hint">Placa preseleccionada por chip. Elige el firmware y flashea.</span>
       {:else if detectError}
         <span class="err">{detectError}</span>
@@ -453,6 +521,12 @@
   .ok { color: var(--green-matrix); font-size: 0.9rem; }
   .hint { display: block; font-size: 0.8rem; color: var(--amber-core); margin-top: 0.3rem; }
   .banner { display: block; margin: 0.3rem 0; word-break: break-all; }
+  .chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1.2rem; margin: 0.4rem 0; }
+  .chip-grid div { display: flex; flex-direction: column; }
+  .chip-grid .span2 { grid-column: span 2; }
+  .chip-grid span { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-dim); }
+  .chip-grid strong { font-family: var(--font-mono); font-size: 0.82rem; color: var(--cyan-core); font-weight: 600; }
+  .chip-grid strong.no { color: var(--amber-core); }
   .fw-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.2rem; }
   .cache-note { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); }
   .fw-item { text-align: left; background: rgba(14,20,32,.6); border: 1px solid var(--border-subtle);
