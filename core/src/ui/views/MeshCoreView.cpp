@@ -6,6 +6,8 @@
 #include "cbdos/storage.hpp"
 #include "cbdos/persistence.hpp"
 #include "cbdos/meshcore/meshcore_store.hpp"
+#include "cbdos/meshcore/mesh_emoji.hpp"
+#include "../../assets/lottie_sample.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -246,6 +248,14 @@ void MeshCoreView::onDestroy() {
         lv_timer_delete(m_pumpTimer);
         m_pumpTimer = nullptr;
     }
+    m_winkLottie = nullptr;
+    if (m_winkDrawBuf) {
+#if LV_USE_LOTTIE
+        lv_draw_buf_destroy(m_winkDrawBuf);
+#endif
+        m_winkDrawBuf = nullptr;
+    }
+    m_winkJson.clear();
 
     auto& client = meshcore::MeshCoreClient::getInstance();
     client.setOnChannelMessage(nullptr);
@@ -346,6 +356,16 @@ void MeshCoreView::buildChatsTab(lv_obj_t* tab) {
     lv_label_set_text(lblKb, LV_SYMBOL_KEYBOARD);
     lv_obj_center(lblKb);
     lv_obj_add_event_cb(m_btnKb, toggleKbBtnCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* btnEmoji = lv_button_create(inputRow);
+    lv_obj_set_size(btnEmoji, 40, 36);
+    DefaultTheme::applyButton(btnEmoji, 6);
+    lv_obj_t* lblEmoji = lv_label_create(btnEmoji);
+    lv_label_set_text(lblEmoji, ":)");
+    lv_obj_set_style_text_font(lblEmoji, &lv_font_montserrat_12, 0);
+    lv_obj_center(lblEmoji);
+    lv_obj_set_user_data(btnEmoji, (void*)(uintptr_t)0);  // target 0 = canal
+    lv_obj_add_event_cb(btnEmoji, emojiBtnCb, LV_EVENT_CLICKED, this);
 
     m_taInput = lv_textarea_create(inputRow);
     lv_obj_set_flex_grow(m_taInput, 1);
@@ -461,12 +481,80 @@ void MeshCoreView::refreshChatLog() {
             lv_obj_set_width(lblSender, LV_PCT(100));
         }
 
-        lv_obj_t* lblText = lv_label_create(bubble);
-        lv_label_set_text(lblText, msg.text.c_str());
-        lv_label_set_long_mode(lblText, LV_LABEL_LONG_WRAP);
-        lv_obj_set_width(lblText, LV_PCT(100));
-        lv_obj_set_style_text_color(lblText, lv_color_hex(0xF0F4F8), 0);
-        lv_obj_set_style_text_font(lblText, &lv_font_montserrat_12, 0);
+        // POC Emoji + Winks: token de 5-6 B -> animacion, 1 emoji -> carita.
+        int winkId = meshcore::emoji::winkIdForText(msg.text);
+        int faceIdx = (winkId < 0) ? meshcore::emoji::singleEmojiIndex(msg.text) : -1;
+        if (winkId >= 0) {
+            lv_obj_t* lblW = lv_label_create(bubble);
+            char wbuf[64];
+            snprintf(wbuf, sizeof(wbuf), "%s Animacion: %s (%s)",
+                     winkId == 1 ? "[GATO]" : "[ESTRELLA]",
+                     meshcore::emoji::winkNameForId(winkId),
+                     meshcore::emoji::winkTokenForId(winkId));
+            lv_label_set_text(lblW, wbuf);
+            lv_obj_set_style_text_color(lblW, lv_color_hex(0xFFD93B), 0);
+            lv_obj_set_style_text_font(lblW, &lv_font_montserrat_12, 0);
+            lv_obj_set_width(lblW, LV_PCT(100));
+            lv_label_set_long_mode(lblW, LV_LABEL_LONG_WRAP);
+            lv_obj_t* btnView = lv_button_create(bubble);
+            lv_obj_set_size(btnView, 120, 32);
+            DefaultTheme::applyButton(btnView, 6);
+            lv_obj_t* lblV = lv_label_create(btnView);
+            lv_label_set_text(lblV, "Ver " LV_SYMBOL_PLAY);
+            lv_obj_set_style_text_font(lblV, &lv_font_montserrat_12, 0);
+            lv_obj_center(lblV);
+            lv_obj_set_user_data(btnView, (void*)(uintptr_t)winkId);
+            lv_obj_add_event_cb(btnView, winkViewCb, LV_EVENT_CLICKED, this);
+        } else if (faceIdx >= 0) {
+            size_t nFaces = 0;
+            const auto* faces = meshcore::emoji::emojiTable(nFaces);
+            // Carita amarilla vectorial (sin fuente emoji): circulo + ojos + boca.
+            lv_obj_t* faceRow = lv_obj_create(bubble);
+            lv_obj_set_size(faceRow, LV_PCT(100), 56);
+            lv_obj_set_style_bg_opa(faceRow, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(faceRow, 0, 0);
+            lv_obj_set_style_pad_all(faceRow, 0, 0);
+            lv_obj_set_flex_flow(faceRow, LV_FLEX_FLOW_ROW);
+            lv_obj_set_flex_align(faceRow, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+            lv_obj_set_style_pad_column(faceRow, 8, 0);
+            DefaultTheme::disableScroll(faceRow);
+            lv_obj_t* face = lv_obj_create(faceRow);
+            lv_obj_set_size(face, 48, 48);
+            lv_obj_set_style_radius(face, 24, 0);
+            lv_obj_set_style_bg_color(face, lv_color_hex(0xFFD93B), 0);
+            lv_obj_set_style_bg_opa(face, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(face, 0, 0);
+            DefaultTheme::disableScroll(face);
+            lv_obj_t* eyeL = lv_obj_create(face);
+            lv_obj_set_size(eyeL, 7, 9);
+            lv_obj_set_style_radius(eyeL, 3, 0);
+            lv_obj_set_style_bg_color(eyeL, lv_color_hex(0x111111), 0);
+            lv_obj_set_style_border_width(eyeL, 0, 0);
+            lv_obj_set_pos(eyeL, 11, 13);
+            lv_obj_t* eyeR = lv_obj_create(face);
+            lv_obj_set_size(eyeR, 7, 9);
+            lv_obj_set_style_radius(eyeR, 3, 0);
+            lv_obj_set_style_bg_color(eyeR, lv_color_hex(0x111111), 0);
+            lv_obj_set_style_border_width(eyeR, 0, 0);
+            lv_obj_set_pos(eyeR, 30, 13);
+            lv_obj_t* mouth = lv_obj_create(face);
+            lv_obj_set_size(mouth, 22, 7);
+            lv_obj_set_style_radius(mouth, 3, 0);
+            lv_obj_set_style_bg_color(mouth, lv_color_hex(0x111111), 0);
+            lv_obj_set_style_border_width(mouth, 0, 0);
+            lv_obj_set_pos(mouth, 13, 30);
+            lv_obj_t* lblFace = lv_label_create(faceRow);
+            lv_label_set_text(lblFace, faces[(size_t)faceIdx].name);
+            lv_obj_set_style_text_color(lblFace, lv_color_hex(0xF0F4F8), 0);
+            lv_obj_set_style_text_font(lblFace, &lv_font_montserrat_12, 0);
+        } else {
+            lv_obj_t* lblText = lv_label_create(bubble);
+            lv_label_set_text(lblText, msg.text.c_str());
+            lv_label_set_long_mode(lblText, LV_LABEL_LONG_WRAP);
+            lv_obj_set_width(lblText, LV_PCT(100));
+            lv_obj_set_style_text_color(lblText, lv_color_hex(0xF0F4F8), 0);
+            lv_obj_set_style_text_font(lblText, &lv_font_montserrat_12, 0);
+        }
         if (msg.hasSnr) {
             lv_obj_t* lblMeta = lv_label_create(bubble);
             char meta[48];
@@ -1469,7 +1557,11 @@ void MeshCoreView::buildContactsTab(lv_obj_t* tab) {
     m_btnDmKb = makeButton(dmRow, LV_SYMBOL_KEYBOARD, 40, 36, 0);
     lv_obj_add_event_cb(m_btnDmKb, toggleDmKbBtnCb, LV_EVENT_CLICKED, this);
 
-    lv_obj_t* btnDmSend = makeButton(dmRow, LV_SYMBOL_OK " Enviar", 90, 36, 0x1B5E20);
+    lv_obj_t* btnDmEmoji = makeButton(dmRow, ":)", 40, 36, 0);
+    lv_obj_set_user_data(btnDmEmoji, (void*)(uintptr_t)1);  // target 1 = DM
+    lv_obj_add_event_cb(btnDmEmoji, emojiBtnCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* btnDmSend = makeButton(dmRow, LV_SYMBOL_OK " Enviar", 80, 36, 0x1B5E20);
     lv_obj_add_event_cb(btnDmSend, convSendCb, LV_EVENT_CLICKED, this);
     lv_obj_t* btnRetry = makeButton(dmRow, LV_SYMBOL_REFRESH, 40, 36, 0);
     lv_obj_add_event_cb(btnRetry, convRetryCb, LV_EVENT_CLICKED, this);
@@ -1689,6 +1781,7 @@ void MeshCoreView::openConversation(const std::string& prefixHex12) {
     m_activePrefix = prefixHex12;
     m_lastRenderedConvMsgs = (size_t)-1;  // forzar render
     m_lastRenderedConvPending = (size_t)-1;
+    m_lastRenderedConvFirstTs = 0;
     showContactsPane(ContactsPane::Conversation);
     refreshConversation();
 }
@@ -1715,77 +1808,199 @@ void MeshCoreView::refreshConversation() {
     for (const auto& kv : client.getPendingDMs()) {
         if (kv.second.destPrefix == m_activePrefix) ++nPending;
     }
-    if (th && nMsgs == m_lastRenderedConvMsgs && m_lastRenderedConvPrefix == m_activePrefix &&
-        nPending == m_lastRenderedConvPending) {
+    // Vía delta: mismo hilo, solo anexiones al final (sin poda por tope) y
+    // mismos hijos ya creados. Sin clean, sin flicker, sin releer historial.
+    bool sameThread = th && (m_lastRenderedConvPrefix == m_activePrefix);
+    bool noShift = (nMsgs == 0) || (!th->msgs.empty() &&
+                    th->msgs[0].timestamp == m_lastRenderedConvFirstTs);
+    if (sameThread && noShift && nMsgs >= m_lastRenderedConvMsgs &&
+        lv_obj_get_child_cnt(m_convContainer) == (uint32_t)m_lastRenderedConvMsgs) {
+        if (nPending != m_lastRenderedConvPending) {
+            m_lastRenderedConvPending = nPending;
+            updateConvPendingLabels(nPending);
+            updateConvStatusLabel(nPending);
+        }
+        if (nMsgs > m_lastRenderedConvMsgs) {
+            for (size_t i = m_lastRenderedConvMsgs; i < nMsgs; ++i) {
+                createDmBubble(th->msgs[i], nPending);
+            }
+            m_lastRenderedConvMsgs = nMsgs;
+            lv_obj_scroll_to_view(lv_obj_get_child(m_convContainer, -1), LV_ANIM_OFF);
+        }
         return;
     }
     m_lastRenderedConvMsgs = nMsgs;
     m_lastRenderedConvPrefix = m_activePrefix;
     m_lastRenderedConvPending = nPending;
+    m_lastRenderedConvFirstTs = (nMsgs > 0 && th) ? th->msgs[0].timestamp : 0;
 
     lv_obj_clean(m_convContainer);
     if (!th || th->msgs.empty()) {
-        lv_obj_t* lbl = lv_label_create(m_convContainer);
-        lv_label_set_text(lbl, "Sin mensajes. Escribe abajo para enviar un DM cifrado.");
-        lv_obj_set_style_text_color(lbl, DefaultTheme::getMutedTextColor(), 0);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
-        lv_obj_center(lbl);
+        lv_obj_t* emptyLbl = lv_label_create(m_convContainer);
+        lv_label_set_text(emptyLbl, "Sin mensajes. Escribe abajo para enviar un DM cifrado.");
+        lv_obj_set_style_text_color(emptyLbl, DefaultTheme::getMutedTextColor(), 0);
+        lv_obj_set_style_text_font(emptyLbl, &lv_font_montserrat_12, 0);
+        lv_obj_center(emptyLbl);
     } else {
         for (const auto& msg : th->msgs) {
-            lv_obj_t* bubble = lv_obj_create(m_convContainer);
-            lv_obj_set_width(bubble, LV_PCT(85));
-            lv_obj_set_height(bubble, LV_SIZE_CONTENT);
-            lv_obj_set_style_radius(bubble, 8, 0);
-            lv_obj_set_style_pad_all(bubble, 6, 0);
-            lv_obj_set_flex_flow(bubble, LV_FLEX_FLOW_COLUMN);
-            lv_obj_set_style_pad_row(bubble, 2, 0);
-            DefaultTheme::disableScroll(bubble);
-            if (msg.outgoing) {
-                lv_obj_set_align(bubble, LV_ALIGN_TOP_RIGHT);
-                lv_obj_set_style_bg_color(bubble, lv_color_hex(0x13382C), 0);
-                lv_obj_set_style_border_color(bubble, lv_color_hex(0x1F6B52), 0);
-            } else {
-                lv_obj_set_align(bubble, LV_ALIGN_TOP_LEFT);
-                lv_obj_set_style_bg_color(bubble, lv_color_hex(0x2A1A34), 0);
-                lv_obj_set_style_border_color(bubble, lv_color_hex(0x5A3A6A), 0);
-            }
-            lv_obj_set_style_border_width(bubble, 1, 0);
-
-            lv_obj_t* lblText = lv_label_create(bubble);
-            lv_label_set_text(lblText, msg.text.c_str());
-            lv_label_set_long_mode(lblText, LV_LABEL_LONG_WRAP);
-            lv_obj_set_width(lblText, LV_PCT(100));
-            lv_obj_set_style_text_color(lblText, lv_color_hex(0xF0F4F8), 0);
-            lv_obj_set_style_text_font(lblText, &lv_font_montserrat_12, 0);
-
-            lv_obj_t* lblMeta = lv_label_create(bubble);
-            char meta[64];
-            if (msg.hasSnr) {
-                snprintf(meta, sizeof(meta), "%s · %.1f dB · %u saltos", fmtTime(msg.timestamp).c_str(),
-                         (double)msg.snrDb, (unsigned)msg.pathLength);
-            } else {
-                const char* outState = "";
-                if (msg.outgoing) {
-                    outState = (nPending > 0) ? " · pendiente de ACK" : " · en dongle";
-                }
-                snprintf(meta, sizeof(meta), "%s%s", fmtTime(msg.timestamp).c_str(), outState);
-            }
-            lv_label_set_text(lblMeta, meta);
-            lv_obj_set_style_text_color(lblMeta, DefaultTheme::getMutedTextColor(), 0);
-            lv_obj_set_style_text_font(lblMeta, &lv_font_montserrat_12, 0);
-            lv_obj_set_width(lblMeta, LV_PCT(100));
+            createDmBubble(msg, nPending);
         }
         lv_obj_scroll_to_view(lv_obj_get_child(m_convContainer, -1), LV_ANIM_OFF);
     }
 
     if (m_lblConvStatus && lv_obj_is_valid(m_lblConvStatus)) {
-        if (nPending > 0) {
-            char buf[64];
-            snprintf(buf, sizeof(buf), "Enviando... %u pendiente(s) de ACK", (unsigned)nPending);
-            lv_label_set_text(m_lblConvStatus, buf);
-        } else {
-            lv_label_set_text(m_lblConvStatus, "");
+        updateConvStatusLabel(nPending);
+    }
+}
+
+lv_obj_t* MeshCoreView::createDmBubble(const meshcore::ContactMessage& msg, size_t nPending) {
+    lv_obj_t* bubble = lv_obj_create(m_convContainer);
+    lv_obj_set_width(bubble, LV_PCT(85));
+    lv_obj_set_height(bubble, LV_SIZE_CONTENT);
+    lv_obj_set_style_radius(bubble, 8, 0);
+    lv_obj_set_style_pad_all(bubble, 6, 0);
+    lv_obj_set_flex_flow(bubble, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(bubble, 2, 0);
+    DefaultTheme::disableScroll(bubble);
+    if (msg.outgoing) {
+        lv_obj_set_align(bubble, LV_ALIGN_TOP_RIGHT);
+        lv_obj_set_style_bg_color(bubble, lv_color_hex(0x13382C), 0);
+        lv_obj_set_style_border_color(bubble, lv_color_hex(0x1F6B52), 0);
+    } else {
+        lv_obj_set_align(bubble, LV_ALIGN_TOP_LEFT);
+        lv_obj_set_style_bg_color(bubble, lv_color_hex(0x2A1A34), 0);
+        lv_obj_set_style_border_color(bubble, lv_color_hex(0x5A3A6A), 0);
+    }
+    lv_obj_set_style_border_width(bubble, 1, 0);
+
+    // POC Emoji + Winks (misma logica que el chat de canal).
+    int winkId = meshcore::emoji::winkIdForText(msg.text);
+    int faceIdx = (winkId < 0) ? meshcore::emoji::singleEmojiIndex(msg.text) : -1;
+    if (winkId >= 0) {
+        lv_obj_t* lblW = lv_label_create(bubble);
+        char wbuf[64];
+        snprintf(wbuf, sizeof(wbuf), "%s Animacion: %s (%s)",
+                 winkId == 1 ? "[GATO]" : "[ESTRELLA]",
+                 meshcore::emoji::winkNameForId(winkId),
+                 meshcore::emoji::winkTokenForId(winkId));
+        lv_label_set_text(lblW, wbuf);
+        lv_obj_set_style_text_color(lblW, lv_color_hex(0xFFD93B), 0);
+        lv_obj_set_style_text_font(lblW, &lv_font_montserrat_12, 0);
+        lv_obj_set_width(lblW, LV_PCT(100));
+        lv_label_set_long_mode(lblW, LV_LABEL_LONG_WRAP);
+        lv_obj_t* btnView = lv_button_create(bubble);
+        lv_obj_set_size(btnView, 120, 32);
+        DefaultTheme::applyButton(btnView, 6);
+        lv_obj_t* lblV = lv_label_create(btnView);
+        lv_label_set_text(lblV, "Ver " LV_SYMBOL_PLAY);
+        lv_obj_set_style_text_font(lblV, &lv_font_montserrat_12, 0);
+        lv_obj_center(lblV);
+        lv_obj_set_user_data(btnView, (void*)(uintptr_t)winkId);
+        lv_obj_add_event_cb(btnView, winkViewCb, LV_EVENT_CLICKED, this);
+    } else if (faceIdx >= 0) {
+        size_t nFaces = 0;
+        const auto* faces = meshcore::emoji::emojiTable(nFaces);
+        lv_obj_t* face = lv_obj_create(bubble);
+        lv_obj_set_size(face, 48, 48);
+        lv_obj_set_style_radius(face, 24, 0);
+        lv_obj_set_style_bg_color(face, lv_color_hex(0xFFD93B), 0);
+        lv_obj_set_style_bg_opa(face, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(face, 0, 0);
+        DefaultTheme::disableScroll(face);
+        lv_obj_t* eyeL = lv_obj_create(face);
+        lv_obj_set_size(eyeL, 7, 9);
+        lv_obj_set_style_radius(eyeL, 3, 0);
+        lv_obj_set_style_bg_color(eyeL, lv_color_hex(0x111111), 0);
+        lv_obj_set_style_border_width(eyeL, 0, 0);
+        lv_obj_set_pos(eyeL, 11, 13);
+        lv_obj_t* eyeR = lv_obj_create(face);
+        lv_obj_set_size(eyeR, 7, 9);
+        lv_obj_set_style_radius(eyeR, 3, 0);
+        lv_obj_set_style_bg_color(eyeR, lv_color_hex(0x111111), 0);
+        lv_obj_set_style_border_width(eyeR, 0, 0);
+        lv_obj_set_pos(eyeR, 30, 13);
+        lv_obj_t* mouth = lv_obj_create(face);
+        lv_obj_set_size(mouth, 22, 7);
+        lv_obj_set_style_radius(mouth, 3, 0);
+        lv_obj_set_style_bg_color(mouth, lv_color_hex(0x111111), 0);
+        lv_obj_set_style_border_width(mouth, 0, 0);
+        lv_obj_set_pos(mouth, 13, 30);
+        lv_obj_t* lblFace = lv_label_create(bubble);
+        lv_label_set_text(lblFace, faces[(size_t)faceIdx].name);
+        lv_obj_set_style_text_color(lblFace, lv_color_hex(0xF0F4F8), 0);
+        lv_obj_set_style_text_font(lblFace, &lv_font_montserrat_12, 0);
+        lv_obj_set_width(lblFace, LV_PCT(100));
+    } else {
+        lv_obj_t* lblText = lv_label_create(bubble);
+        lv_label_set_text(lblText, msg.text.c_str());
+        lv_label_set_long_mode(lblText, LV_LABEL_LONG_WRAP);
+        lv_obj_set_width(lblText, LV_PCT(100));
+        lv_obj_set_style_text_color(lblText, lv_color_hex(0xF0F4F8), 0);
+        lv_obj_set_style_text_font(lblText, &lv_font_montserrat_12, 0);
+    }
+
+    lv_obj_t* lblMeta = lv_label_create(bubble);
+    char meta[64];
+    if (msg.hasSnr) {
+        snprintf(meta, sizeof(meta), "%s · %.1f dB · %u saltos", fmtTime(msg.timestamp).c_str(),
+                 (double)msg.snrDb, (unsigned)msg.pathLength);
+    } else {
+        const char* outState = "";
+        if (msg.outgoing) {
+            outState = (nPending > 0) ? " · pendiente de ACK" : " · en dongle";
         }
+        snprintf(meta, sizeof(meta), "%s%s", fmtTime(msg.timestamp).c_str(), outState);
+    }
+    lv_label_set_text(lblMeta, meta);
+    lv_obj_set_style_text_color(lblMeta, DefaultTheme::getMutedTextColor(), 0);
+    lv_obj_set_style_text_font(lblMeta, &lv_font_montserrat_12, 0);
+    lv_obj_set_width(lblMeta, LV_PCT(100));
+    return bubble;
+}
+
+void MeshCoreView::updateConvPendingLabels(size_t nPending) {
+    if (!m_convContainer || !lv_obj_is_valid(m_convContainer)) return;
+    auto& client = meshcore::MeshCoreClient::getInstance();
+    const meshcore::DMThread* th = client.getThread(m_activePrefix);
+    if (!th || th->msgs.empty()) return;
+    // Los hijos van en el mismo orden de creación que th->msgs.
+    uint32_t childCount = lv_obj_get_child_cnt(m_convContainer);
+    if (childCount != (uint32_t)th->msgs.size()) {
+        // Desincronizado: forzar reconstrucción completa.
+        m_lastRenderedConvMsgs = (size_t)-1;
+        m_lastRenderedConvPending = (size_t)-1;
+        refreshConversation();
+        return;
+    }
+    for (uint32_t i = 0; i < childCount; ++i) {
+        const auto& msg = th->msgs[(size_t)i];
+        lv_obj_t* bubble = lv_obj_get_child(m_convContainer, (int32_t)i);
+        if (!bubble || !lv_obj_is_valid(bubble)) continue;
+        lv_obj_t* lblMeta = lv_obj_get_child(bubble, -1);  // última: la meta
+        if (!lblMeta || !lv_obj_is_valid(lblMeta)) continue;
+        char meta[64];
+        if (msg.hasSnr) {
+            snprintf(meta, sizeof(meta), "%s · %.1f dB · %u saltos", fmtTime(msg.timestamp).c_str(),
+                     (double)msg.snrDb, (unsigned)msg.pathLength);
+        } else {
+            const char* outState = "";
+            if (msg.outgoing) {
+                outState = (nPending > 0) ? " · pendiente de ACK" : " · en dongle";
+            }
+            snprintf(meta, sizeof(meta), "%s%s", fmtTime(msg.timestamp).c_str(), outState);
+        }
+        lv_label_set_text(lblMeta, meta);
+    }
+}
+
+void MeshCoreView::updateConvStatusLabel(size_t nPending) {
+    if (!m_lblConvStatus || !lv_obj_is_valid(m_lblConvStatus)) return;
+    if (nPending > 0) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Enviando... %u pendiente(s) de ACK", (unsigned)nPending);
+        lv_label_set_text(m_lblConvStatus, buf);
+    } else {
+        lv_label_set_text(m_lblConvStatus, "");
     }
 }
 
@@ -1864,6 +2079,7 @@ void MeshCoreView::sendDirectMessage() {
         lv_textarea_set_text(m_taDmInput, "");
         m_lastRenderedConvMsgs = (size_t)-1;
         m_lastRenderedConvPending = (size_t)-1;
+        m_lastRenderedConvFirstTs = 0;
         refreshConversation();
     } else {
         UIManager::showToast("No se pudo enviar. Revisa el enlace Radio.");
@@ -1871,6 +2087,15 @@ void MeshCoreView::sendDirectMessage() {
 }
 
 void MeshCoreView::hideOverlay() {
+    // POC Winks: liberar el draw buffer del lottie antes de limpiar la card.
+    m_winkLottie = nullptr;
+    if (m_winkDrawBuf) {
+#if LV_USE_LOTTIE
+        lv_draw_buf_destroy(m_winkDrawBuf);
+#endif
+        m_winkDrawBuf = nullptr;
+    }
+    m_winkJson.clear();
     if (m_overlay && lv_obj_is_valid(m_overlay)) {
         lv_obj_add_flag(m_overlay, LV_OBJ_FLAG_HIDDEN);
     }
@@ -2502,6 +2727,179 @@ void MeshCoreView::applyRadioParams() {
 void MeshCoreView::radioApplyBtnCb(lv_event_t* e) {
     auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
     if (self) self->applyRadioParams();
+}
+
+// ────────────────────────────────────────────────────────────────
+// POC Emoji + Winks estilo Telegram (prueba con estrella + gato)
+// En el aire viajan 5-6 B (":star:", ":cat:"); la animacion se
+// reproduce en local desde flash (estrella) o SD (catmov.json).
+// ────────────────────────────────────────────────────────────────
+
+void MeshCoreView::sendWink(int winkId) {
+    const char* token = meshcore::emoji::winkTokenForId(winkId);
+    auto& client = meshcore::MeshCoreClient::getInstance();
+    bool ok = false;
+    if (m_pickerTarget == 1 && !m_activePrefix.empty()) {
+        ok = client.sendDMByPrefix(m_activePrefix, token);
+        if (ok) {
+            m_lastRenderedConvMsgs = (size_t)-1;
+            m_lastRenderedConvPending = (size_t)-1;
+            refreshConversation();
+        }
+    } else {
+        ok = client.sendChannelMessage(m_channelIdx, token);
+        if (ok) refreshChatLog();
+    }
+    if (!ok) UIManager::showToast("Dongle desconectado. Revisa Radio.");
+}
+
+void MeshCoreView::showEmojiPicker(int target) {
+    if (!m_overlay || !m_overlayCard) return;
+    m_pickerTarget = target;
+    hideOverlay();
+    lv_obj_remove_flag(m_overlay, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t* title = lv_label_create(m_overlayCard);
+    lv_label_set_text(title, target == 1 ? "Emoji / Wink -> DM" : "Emoji / Wink -> Canal");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(title, lv_color_hex(0x00E5FF), 0);
+
+    lv_obj_t* hint = lv_label_create(m_overlayCard);
+    lv_label_set_text(hint, "Winks: solo 5-6 B en el aire. El resto ve :star: / :cat:.");
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(hint, DefaultTheme::getMutedTextColor(), 0);
+    lv_obj_set_width(hint, LV_PCT(100));
+    lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
+
+    // Fila de winks: tap = enviar directo estilo Telegram.
+    lv_obj_t* winkRow = lv_obj_create(m_overlayCard);
+    lv_obj_set_size(winkRow, LV_PCT(100), 44);
+    lv_obj_set_style_bg_opa(winkRow, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(winkRow, 0, 0);
+    lv_obj_set_flex_flow(winkRow, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(winkRow, 8, 0);
+    DefaultTheme::disableScroll(winkRow);
+
+    lv_obj_t* bStar = makeButton(winkRow, "Estrella " LV_SYMBOL_PLAY, 130, 36, 0x1B5E20);
+    lv_obj_set_user_data(bStar, (void*)(uintptr_t)0);
+    lv_obj_add_event_cb(bStar, winkSendCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* bCat = makeButton(winkRow, "Gato " LV_SYMBOL_PLAY, 110, 36, 0x1B5E20);
+    lv_obj_set_user_data(bCat, (void*)(uintptr_t)1);
+    lv_obj_add_event_cb(bCat, winkSendCb, LV_EVENT_CLICKED, this);
+
+    // Caritas amarillas: tap = insertar en el input (no se envia solo).
+    size_t nFaces = 0;
+    const auto* faces = meshcore::emoji::emojiTable(nFaces);
+    for (size_t i = 0; i < nFaces; ++i) {
+        lv_obj_t* b = makeButton(m_overlayCard, faces[i].name, 220, 32, 0);
+        lv_obj_set_user_data(b, (void*)(uintptr_t)i);
+        lv_obj_add_event_cb(b, emojiPickCb, LV_EVENT_CLICKED, this);
+    }
+
+    lv_obj_t* bClose = makeButton(m_overlayCard, "Cerrar", 220, 36, 0);
+    lv_obj_add_event_cb(bClose, overlayCloseCb, LV_EVENT_CLICKED, this);
+}
+
+void MeshCoreView::showWinkPlayer(int winkId) {
+    if (!m_overlay || !m_overlayCard) return;
+    hideOverlay();
+    lv_obj_remove_flag(m_overlay, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t* title = lv_label_create(m_overlayCard);
+    char tbuf[48];
+    snprintf(tbuf, sizeof(tbuf), "%s (%s) - 5-6 B en el aire",
+             meshcore::emoji::winkNameForId(winkId),
+             meshcore::emoji::winkTokenForId(winkId));
+    lv_label_set_text(title, tbuf);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(title, lv_color_hex(0xFFD93B), 0);
+
+#if LV_USE_LOTTIE
+    const char* src = nullptr;
+    size_t srcLen = 0;
+    m_winkJson.clear();
+    if (winkId == 1) {
+        // Gato: de la SD del usuario. Rutas aceptadas (primera que exista):
+        m_winkJson = cbdos::storage::readFile("/sdcard/lottie/catmov.json");
+        if (m_winkJson.empty()) m_winkJson = cbdos::storage::readFile("/sdcard/catmov.json");
+        if (!m_winkJson.empty()) {
+            src = m_winkJson.c_str();
+            srcLen = m_winkJson.size();
+        }
+    }
+    if (src == nullptr) {
+        // Estrella demo embebida (siempre disponible) o fallback del gato.
+        src = LOTTIE_TEST_JSON;
+        srcLen = LOTTIE_TEST_JSON_SIZE;
+    }
+    if (winkId == 1 && m_winkJson.empty()) {
+        lv_obj_t* warn = lv_label_create(m_overlayCard);
+        lv_label_set_text(warn, "Sin /sdcard/lottie/catmov.json: muestro estrella.\nCopia tu catmov.json a /sdcard/lottie/");
+        lv_obj_set_style_text_font(warn, &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_color(warn, lv_color_hex(0xFFB300), 0);
+        lv_obj_set_width(warn, LV_PCT(100));
+        lv_label_set_long_mode(warn, LV_LABEL_LONG_WRAP);
+    }
+    m_winkLottie = lv_lottie_create(m_overlayCard);
+    lv_obj_set_size(m_winkLottie, 240, 240);
+    m_winkDrawBuf =
+        lv_draw_buf_create(240, 240, LV_COLOR_FORMAT_ARGB8888_PREMULTIPLIED, LV_STRIDE_AUTO);
+    if (m_winkDrawBuf) {
+        lv_lottie_set_draw_buf(m_winkLottie, m_winkDrawBuf);
+        lv_lottie_set_src_data(m_winkLottie, src, srcLen);
+    } else {
+        lv_obj_t* err = lv_label_create(m_overlayCard);
+        lv_label_set_text(err, "Sin memoria para el canvas Lottie.");
+        lv_obj_set_style_text_color(err, lv_color_hex(0xEF4444), 0);
+    }
+#else
+    (void)winkId;
+    lv_obj_t* fb = lv_label_create(m_overlayCard);
+    lv_label_set_text(fb, "LV_USE_LOTTIE desactivado en este build.");
+    lv_obj_set_style_text_color(fb, lv_color_hex(0xEF4444), 0);
+#endif
+
+    lv_obj_t* bClose = makeButton(m_overlayCard, "Cerrar", 220, 36, 0);
+    lv_obj_add_event_cb(bClose, overlayCloseCb, LV_EVENT_CLICKED, this);
+}
+
+void MeshCoreView::emojiBtnCb(lv_event_t* e) {
+    auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
+    lv_obj_t* target = (lv_obj_t*)lv_event_get_target(e);
+    if (!self || !target) return;
+    int tgt = (int)(uintptr_t)lv_obj_get_user_data(target);
+    self->showEmojiPicker(tgt);
+}
+
+void MeshCoreView::emojiPickCb(lv_event_t* e) {
+    auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
+    lv_obj_t* target = (lv_obj_t*)lv_event_get_target(e);
+    if (!self || !target) return;
+    size_t idx = (size_t)(uintptr_t)lv_obj_get_user_data(target);
+    std::string txt = meshcore::emoji::sendTextForEmoji(idx);
+    lv_obj_t* ta = (self->m_pickerTarget == 1) ? self->m_taDmInput : self->m_taInput;
+    if (ta && lv_obj_is_valid(ta)) {
+        lv_textarea_add_text(ta, txt.c_str());
+    }
+    self->hideOverlay();
+}
+
+void MeshCoreView::winkSendCb(lv_event_t* e) {
+    auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
+    lv_obj_t* target = (lv_obj_t*)lv_event_get_target(e);
+    if (!self || !target) return;
+    int id = (int)(uintptr_t)lv_obj_get_user_data(target);
+    self->hideOverlay();
+    self->sendWink(id);
+}
+
+void MeshCoreView::winkViewCb(lv_event_t* e) {
+    auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
+    lv_obj_t* target = (lv_obj_t*)lv_event_get_target(e);
+    if (!self || !target) return;
+    int id = (int)(uintptr_t)lv_obj_get_user_data(target);
+    self->showWinkPlayer(id);
 }
 
 } // namespace ui

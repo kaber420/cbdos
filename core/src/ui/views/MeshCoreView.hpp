@@ -39,6 +39,9 @@ private:
     void showContactsPane(ContactsPane pane);
     void refreshContactsList();
     void refreshConversation();
+    lv_obj_t* createDmBubble(const meshcore::ContactMessage& msg, size_t nPending);
+    void updateConvPendingLabels(size_t nPending);
+    void updateConvStatusLabel(size_t nPending);
     void refreshDetails();
     void openConversation(const std::string& prefixHex12);
     void openDetails(const std::string& prefixHex12);
@@ -48,6 +51,10 @@ private:
     void showOverlayManualAdd();
     void showOverlayImportCard();
     void hideOverlay();
+    // POC Emoji + Winks
+    void showEmojiPicker(int target);
+    void showWinkPlayer(int winkId);
+    void sendWink(int winkId);
 
     // Actualizaciones reactivas de UI
     void refreshChatLog();
@@ -115,6 +122,11 @@ private:
     static void importSaveCb(lv_event_t* e);
     static void mapExportCb(lv_event_t* e);
     static void discoverBtnCb(lv_event_t* e);
+    // POC Emoji + Winks
+    static void emojiBtnCb(lv_event_t* e);
+    static void emojiPickCb(lv_event_t* e);
+    static void winkSendCb(lv_event_t* e);
+    static void winkViewCb(lv_event_t* e);
 
     lv_obj_t* m_tabview = nullptr;
     lv_timer_t* m_pumpTimer = nullptr;
@@ -147,6 +159,11 @@ private:
     lv_obj_t* m_taManualName = nullptr;
     lv_obj_t* m_ddManualType = nullptr;
     lv_obj_t* m_taImportCard = nullptr;
+    // POC Emoji + Winks (picker y reproductor de 1 solo lottie)
+    lv_obj_t* m_winkLottie = nullptr;
+    lv_draw_buf_t* m_winkDrawBuf = nullptr;
+    std::string m_winkJson;
+    int m_pickerTarget = 0;  // 0 = chat de canal, 1 = DM
 
     // Tab Canales: chat del canal activo
     lv_obj_t* m_lblChannel = nullptr;
@@ -207,6 +224,7 @@ private:
     size_t m_lastRenderedConvMsgs = 0;
     std::string m_lastRenderedConvPrefix;
     size_t m_lastRenderedConvPending = 0;
+    uint32_t m_lastRenderedConvFirstTs = 0;
     std::string m_pendingError;
 };
 
