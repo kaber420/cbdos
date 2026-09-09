@@ -1,4 +1,5 @@
 <script lang="ts">
+  import WebFlasher from './WebFlasher.svelte';
   let activeGuide = $state<'p4' | 's3' | 'coproc'>('p4');
   let copiedStep = $state<string | null>(null);
 
@@ -17,6 +18,12 @@
       <p class="section-desc">
         Instrucciones paso a paso para compilar y cargar CBDos en tu dispositivo mediante USB-C.
       </p>
+    </div>
+
+    <WebFlasher />
+
+    <div class="section-header" style="margin-top: 1rem;">
+      <span class="section-tag">// COMPILACIÓN MANUAL (AVANZADO)</span>
     </div>
 
     <div class="guide-toggle">

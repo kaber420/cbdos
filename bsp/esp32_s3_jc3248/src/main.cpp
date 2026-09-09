@@ -1,4 +1,5 @@
 #include "cbdos/system.hpp"
+#include "cbdos/board_identity.hpp"
 #include "cbdos/display.hpp"
 #include "cbdos/input.hpp"
 #include "cbdos/audio.hpp"
@@ -81,6 +82,9 @@ static void lvgl_touch_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
 void setup() {
     Serial.begin(115200);
     cbdos::system::sleepMs(500);
+    // Identidad v1 para el flasheador web (banner + comando CBDOS:VERSION?).
+    Serial.println(cbdos::board_identity::bannerFor(
+        *cbdos::board_identity::findBoard("jc3248w535")).c_str());
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "=== Iniciando CyBerDeck OS (CBDos v0.2.1) [Target: ESP32-S3] ===");
     
     // Inyectar el backend de persistencia NVS, Almacenamiento, Audio, UART, GPIO, Radio, Red, Sockets, Transporte de Malla, Cliente HTTP y USB HID
@@ -203,6 +207,23 @@ extern void cbdos_hid_s3_poll();
 
 void loop() {
     cbdos_hid_s3_poll();
+
+    // Respuesta al flasheador web: "CBDOS:VERSION?" -> banner de identidad.
+    while (Serial.available()) {
+        static String s3IdLine;
+        char c = (char)Serial.read();
+        if (c == '\n') {
+            std::string line(s3IdLine.c_str());
+            s3IdLine = "";
+            if (cbdos::board_identity::isVersionQuery(line)) {
+                Serial.println(cbdos::board_identity::bannerFor(
+                    *cbdos::board_identity::findBoard("jc3248w535")).c_str());
+            }
+        } else if (c != '\r') {
+            s3IdLine += c;
+            if (s3IdLine.length() > 64) s3IdLine = "";
+        }
+    }
 
     if (LuaBridge::checkAndClearNeedsRefresh()) {
         lv_obj_t* scr = lv_screen_active();

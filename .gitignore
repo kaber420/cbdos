@@ -105,6 +105,7 @@ poseidon/
 # --- Svelte Web & Python Venv ---
 site/node_modules/
 site/dist/
+dist/
 .venv/
 
 
