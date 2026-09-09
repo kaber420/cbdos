@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CBDOS - Luciernagas del Bosque</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #050a06; }
+canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const PARTICLE_COUNT = 24;
+const BG_COLOR = '#0a0d1a';
+
+class Particle {
+    constructor() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.vx = (Math.random() - 0.5) * 0.8;
+        this.vy = (Math.random() - 0.5) * 0.8;
+        this.radius = 2.0 + Math.random() * 4;
+        this.alpha = 0.35 + Math.random() * 0.45;
+        this.pulseSpeed = 0.02 + Math.random() * 0.04;
+        this.phase = Math.random() * Math.PI * 2;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.phase += this.pulseSpeed;
+
+        if (this.x < 0 || this.x > W) this.vx *= -1;
+        if (this.y < 0 || this.y > H) this.vy *= -1;
+
+        this.x = Math.max(0, Math.min(W, this.x));
+        this.y = Math.max(0, Math.min(H, this.y));
+    }
+
+    draw() {
+        const pulse = Math.sin(this.phase) * 0.45 + 0.55;
+        const r = this.radius * 0.6 + 2;
+
+        // Aura exterior translucida (Verde Neon)
+        const auraR = r + 8;
+        const auraGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, auraR);
+        auraGrad.addColorStop(0, `rgba(212, 255, 0, ${this.alpha * pulse * 0.35})`);
+        auraGrad.addColorStop(1, 'rgba(212, 255, 0, 0)');
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, auraR, 0, Math.PI * 2);
+        ctx.fillStyle = auraGrad;
+        ctx.fill();
+
+        // Nucleo brillante (Amarillo Calido)
+        const coreGrad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r);
+        coreGrad.addColorStop(0, `rgba(255, 255, 200, ${this.alpha * pulse})`);
+        coreGrad.addColorStop(0.5, `rgba(255, 255, 153, ${this.alpha * pulse * 0.7})`);
+        coreGrad.addColorStop(1, 'rgba(255, 255, 153, 0)');
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+    }
+}
+
+// Bosque: siluetas de pinos
+function drawForest() {
+    const forestY = H * 0.72;
+
+    // Suelo oscuro
+    ctx.fillStyle = '#05130b';
+    ctx.fillRect(0, forestY, W, H - forestY);
+
+    // Pinos
+    const trees = [
+        { x: 0.03, h: 0.18 }, { x: 0.12, h: 0.24 },
+        { x: 0.22, h: 0.15 }, { x: 0.35, h: 0.28 },
+        { x: 0.48, h: 0.20 }, { x: 0.60, h: 0.26 },
+        { x: 0.73, h: 0.17 }, { x: 0.85, h: 0.22 },
+        { x: 0.95, h: 0.19 }
+    ];
+
+    trees.forEach((t, i) => {
+        const tx = t.x * W;
+        const th = t.h * H;
+        const ty = forestY;
+        const cx = tx;
+
+        // Tronco
+        ctx.fillStyle = '#080f0a';
+        ctx.fillRect(cx - 3, ty - 20, 6, 20);
+
+        // Capas de copas
+        const colors = ['#0a1e12', '#06150c'];
+        ctx.fillStyle = colors[i % 2];
+        for (let l = 0; l < 3; l++) {
+            const lw = (th / 3) + (2 - l) * (W * 0.035);
+            const ly = ty - 20 - (l + 1) * (th / 4);
+            const lh = 30 + (W * 0.01);
+
+            ctx.beginPath();
+            ctx.moveTo(cx - lw / 2, ly + lh);
+            ctx.lineTo(cx, ly);
+            ctx.lineTo(cx + lw / 2, ly + lh);
+            ctx.closePath();
+            ctx.fill();
+        }
+    });
+}
+
+const particles = [];
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push(new Particle());
+}
+
+let tick = 0;
+
+function animate() {
+    tick++;
+
+    // Fondo
+    ctx.fillStyle = BG_COLOR;
+    ctx.fillRect(0, 0, W, H);
+
+    drawForest();
+
+    // Luciernagas
+    for (const p of particles) {
+        p.update();
+        p.draw();
+    }
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>

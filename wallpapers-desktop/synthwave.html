@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CBDOS - Synthwave 80s Grid</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0d1a; }
+canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const BG_COLOR = '#0a0d1a';
+const horizonRatio = 0.58;
+
+let tick = 0;
+
+function drawSun(horizonY) {
+    const sunX = W / 2;
+    const sunY = horizonY - 55;
+    const sunR = 65;
+
+    // Halo exterior
+    const haloGrad = ctx.createRadialGradient(sunX, sunY, sunR * 0.5, sunX, sunY, sunR * 2);
+    haloGrad.addColorStop(0, 'rgba(255, 0, 127, 0.15)');
+    haloGrad.addColorStop(1, 'rgba(255, 0, 127, 0)');
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, sunR * 2, 0, Math.PI * 2);
+    ctx.fillStyle = haloGrad;
+    ctx.fill();
+
+    // Sol principal
+    const sunGrad = ctx.createLinearGradient(sunX, sunY - sunR, sunX, sunY + sunR);
+    sunGrad.addColorStop(0, '#ff007f');
+    sunGrad.addColorStop(0.5, '#ff6b9d');
+    sunGrad.addColorStop(1, '#ff007f');
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+    ctx.fillStyle = sunGrad;
+    ctx.fill();
+
+    // Franjas de sombra horizontales
+    ctx.fillStyle = BG_COLOR;
+    for (let s = 0; s < 6; s++) {
+        const sy = sunY + s * 10 + 5;
+        const sh = 2 + s * 1.2;
+        ctx.fillRect(sunX - sunR - 5, sy, sunR * 2 + 10, sh);
+    }
+}
+
+function drawMountains(horizonY) {
+    ctx.strokeStyle = '#9d4edd';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const peaks = [
+        { x: 0, y: 0 }, { x: 0.08, y: 35 }, { x: 0.17, y: 10 },
+        { x: 0.29, y: 50 }, { x: 0.42, y: 20 }, { x: 0.50, y: 60 },
+        { x: 0.65, y: 15 }, { x: 0.79, y: 45 }, { x: 0.92, y: 10 },
+        { x: 1.0, y: 0 }
+    ];
+
+    for (let i = 0; i < peaks.length - 1; i++) {
+        const p1 = peaks[i];
+        const p2 = peaks[i + 1];
+        ctx.moveTo(p1.x * W, horizonY - p1.y);
+        ctx.lineTo(p2.x * W, horizonY - p2.y);
+    }
+    ctx.stroke();
+}
+
+function drawGrid(horizonY, tick) {
+    const vpX = W / 2;
+
+    // Lineas longitudinales convergentes
+    ctx.strokeStyle = 'rgba(0, 245, 212, 0.6)';
+    ctx.lineWidth = 1;
+    for (let x = -200; x <= W + 200; x += 50) {
+        ctx.beginPath();
+        ctx.moveTo(vpX, horizonY);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+    }
+
+    // Lineas transversales avanzando
+    const gProgress = (tick * 1.6) % 30;
+    for (let i = 0; i < 10; i++) {
+        const distRatio = (i * 30 + gProgress) / 300;
+        if (distRatio > 1) continue;
+        const lineY = horizonY + distRatio * distRatio * (H - horizonY);
+        const alpha = (1 - distRatio) * 0.6;
+        ctx.strokeStyle = `rgba(0, 245, 212, ${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(0, lineY);
+        ctx.lineTo(W, lineY);
+        ctx.stroke();
+    }
+}
+
+function drawStars(tick) {
+    for (let i = 0; i < 40; i++) {
+        const sx = (i * 137.5 + 50) % W;
+        const sy = (i * 73.7 + 30) % (H * 0.5);
+        const pulse = Math.sin(tick * 0.05 + i * 2.1) * 0.4 + 0.6;
+        const size = 1 + pulse;
+
+        ctx.beginPath();
+        ctx.arc(sx, sy, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${pulse * 0.7})`;
+        ctx.fill();
+    }
+}
+
+function animate() {
+    tick++;
+
+    ctx.fillStyle = BG_COLOR;
+    ctx.fillRect(0, 0, W, H);
+
+    const horizonY = H * horizonRatio;
+
+    drawStars(tick);
+    drawSun(horizonY);
+    drawMountains(horizonY);
+    drawGrid(horizonY, tick);
+
+    // Linea del horizonte
+    ctx.strokeStyle = 'rgba(157, 78, 221, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, horizonY);
+    ctx.lineTo(W, horizonY);
+    ctx.stroke();
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>

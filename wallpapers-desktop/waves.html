@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CBDOS - Ondas Neon</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0d1a; }
+canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const BG_COLOR = '#0a0d1a';
+let tick = 0;
+
+function animate() {
+    tick++;
+    const timeVal = tick * 0.03;
+
+    ctx.fillStyle = BG_COLOR;
+    ctx.fillRect(0, 0, W, H);
+
+    const step = 4;
+
+    // Onda 1 (Cyan Neon)
+    ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = 0; x < W; x += step) {
+        const y = H * 0.45 + Math.sin(x * 0.015 + timeVal) * 50 + Math.cos(x * 0.008 - timeVal * 0.5) * 25;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Onda 2 (Violeta Neon)
+    ctx.strokeStyle = 'rgba(157, 78, 221, 0.5)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let x = 0; x < W; x += step) {
+        const y = H * 0.6 + Math.cos(x * 0.012 - timeVal * 0.8) * 60 + Math.sin(x * 0.005 + timeVal * 0.4) * 35;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Onda 3 (extra: teal suave)
+    ctx.strokeStyle = 'rgba(0, 245, 212, 0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = 0; x < W; x += step) {
+        const y = H * 0.52 + Math.sin(x * 0.01 + timeVal * 0.7) * 40 + Math.cos(x * 0.02 + timeVal * 0.3) * 20;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>

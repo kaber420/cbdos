@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CBDOS - Matrix Code Rain</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    initColumns();
+}
+resize();
+window.addEventListener('resize', resize);
+
+const GLYPHS = '0123456789ABCDEFHIJKLMNOPQRSTUVWXYZ*#@$%&+-=<>?:/';
+const FONT_SIZE = 16;
+const COL_SPACING = 20;
+
+let mouseX = -9999, mouseY = -9999;
+let mouseActive = false;
+
+document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    mouseActive = true;
+});
+
+document.addEventListener('mouseleave', () => {
+    mouseActive = false;
+});
+
+class MatrixColumn {
+    constructor(x, index) {
+        this.x = x;
+        this.reset();
+    }
+
+    reset() {
+        this.y = -(Math.random() * 400);
+        this.speed = 3.5 + Math.random() * 5;
+        this.length = 8 + Math.floor(Math.random() * 16);
+        this.mutateCounter = Math.floor(Math.random() * 6);
+        this.chars = [];
+        for (let i = 0; i < 24; i++) {
+            this.chars.push(GLYPHS[Math.floor(Math.random() * GLYPHS.length)]);
+        }
+    }
+
+    update() {
+        this.y += this.speed;
+
+        // Mutar caracteres periodicamente
+        this.mutateCounter++;
+        if (this.mutateCounter >= 3) {
+            this.mutateCounter = 0;
+            const idx = Math.floor(Math.random() * this.length);
+            this.chars[idx] = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+        }
+
+        // Aceleracion al acercar el mouse
+        if (mouseActive) {
+            const dx = mouseX - this.x;
+            const dy = mouseY - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 120) {
+                this.y += 4.0;
+                this.chars[0] = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+            }
+        }
+
+        // Reiniciar al salir de pantalla
+        const totalH = this.length * FONT_SIZE;
+        if (this.y - totalH > H) {
+            this.reset();
+        }
+    }
+
+    draw() {
+        for (let j = 0; j < this.length; j++) {
+            const glyphY = Math.floor(this.y - j * FONT_SIZE);
+            if (glyphY < -FONT_SIZE || glyphY > H + FONT_SIZE) continue;
+
+            const ch = this.chars[j];
+
+            if (j === 0) {
+                // Cabeza: Blanco brillante
+                ctx.fillStyle = '#eaffea';
+                ctx.globalAlpha = 1.0;
+            } else if (j < 3) {
+                // Cuerpo superior: Verde fosforo brillante
+                ctx.fillStyle = '#00ff41';
+                ctx.globalAlpha = 0.9;
+            } else if (j < this.length / 2) {
+                // Cuerpo medio: Verde matriz
+                ctx.fillStyle = '#00b82b';
+                ctx.globalAlpha = 0.7;
+            } else {
+                // Cola: Verde oscuro desvanecido
+                const fade = 1 - j / this.length;
+                ctx.fillStyle = '#004d13';
+                ctx.globalAlpha = fade * 0.65 + 0.12;
+            }
+
+            ctx.font = `${FONT_SIZE}px "Courier New", monospace`;
+            ctx.fillText(ch, this.x, glyphY);
+        }
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+let columns = [];
+
+function initColumns() {
+    columns = [];
+    const numCols = Math.floor(W / COL_SPACING);
+    for (let i = 0; i < numCols; i++) {
+        columns.push(new MatrixColumn(i * COL_SPACING + COL_SPACING / 2, i));
+    }
+}
+
+initColumns();
+
+let tick = 0;
+
+function animate() {
+    tick++;
+
+    // Fondo semi-transparente para efecto de estela
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+    ctx.fillRect(0, 0, W, H);
+
+    for (const col of columns) {
+        col.update();
+        col.draw();
+    }
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>

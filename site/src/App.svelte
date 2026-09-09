@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AnimatedBackground from './lib/AnimatedBackground.svelte';
   import Navbar from './lib/Navbar.svelte';
   import Hero from './lib/Hero.svelte';
   import HardwareExplorer from './lib/HardwareExplorer.svelte';
@@ -8,6 +9,8 @@
   import ManualsSection from './lib/ManualsSection.svelte';
   import Footer from './lib/Footer.svelte';
 </script>
+
+<AnimatedBackground />
 
 <main class="app-layout">
   <Navbar />

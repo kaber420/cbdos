@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>CBDOS - Particulas Touch Magnet</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0d1a; cursor: crosshair; }
+canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const PARTICLE_COUNT = 32;
+const BG_COLOR = '#0a0d1a';
+
+let mouseX = -9999, mouseY = -9999;
+let mouseActive = false;
+let lastMoveTime = 0;
+
+document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    mouseActive = true;
+    lastMoveTime = Date.now();
+});
+
+document.addEventListener('mouseleave', () => {
+    mouseActive = false;
+});
+
+// Si el mouse no se mueve por 2 segundos, dejar de atraer
+setInterval(() => {
+    if (Date.now() - lastMoveTime > 2000) {
+        mouseActive = false;
+    }
+}, 100);
+
+class Particle {
+    constructor() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.vx = (Math.random() - 0.5) * 1.2;
+        this.vy = (Math.random() - 0.5) * 1.2;
+        this.radius = 2.5 + Math.random() * 5;
+        this.alpha = 0.7 + Math.random() * 0.3;
+        this.phase = Math.random() * Math.PI * 2;
+        this.pulseSpeed = 0.03 + Math.random() * 0.03;
+    }
+
+    update() {
+        if (mouseActive) {
+            const dx = mouseX - this.x;
+            const dy = mouseY - this.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > 1) {
+                const dist = Math.sqrt(distSq);
+                const force = 1.2 / (dist + 12);
+                this.vx += (dx / dist) * force * 20;
+                this.vy += (dy / dist) * force * 20;
+            }
+        }
+
+        this.vx *= 0.93;
+        this.vy *= 0.93;
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.phase += this.pulseSpeed;
+
+        // Rebote en bordes
+        if (this.x < 0 || this.x > W) this.vx *= -1;
+        if (this.y < 0 || this.y > H) this.vy *= -1;
+
+        this.x = Math.max(0, Math.min(W, this.x));
+        this.y = Math.max(0, Math.min(H, this.y));
+    }
+
+    draw() {
+        const pulse = Math.sin(this.phase) * 0.3 + 0.7;
+        const r = this.radius * pulse;
+
+        // Glow
+        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r * 3);
+        const isEven = particles.indexOf(this) % 2 === 0;
+        const color = isEven ? [0, 245, 212] : [255, 0, 127];
+        grad.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${this.alpha * 0.6})`);
+        grad.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r * 3, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Nucleo
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${this.alpha})`;
+        ctx.fill();
+    }
+}
+
+const particles = [];
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push(new Particle());
+}
+
+let tick = 0;
+
+function animate() {
+    tick++;
+
+    ctx.fillStyle = BG_COLOR;
+    ctx.fillRect(0, 0, W, H);
+
+    // Lineas de atraccion y anillos tactiles
+    if (mouseActive) {
+        const rPulse = Math.sin(tick * 0.2) * 6 + 25;
+
+        // Anillo pulsante
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, rPulse, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0, 245, 212, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Anillo exterior
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, rPulse + 12, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0, 245, 212, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Lineas de conexion a particulas cercanas
+        for (const p of particles) {
+            const dx = mouseX - p.x;
+            const dy = mouseY - p.y;
+            if (dx * dx + dy * dy < 200 * 200) {
+                ctx.beginPath();
+                ctx.moveTo(mouseX, mouseY);
+                ctx.lineTo(p.x, p.y);
+                ctx.strokeStyle = 'rgba(255, 0, 127, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+    }
+
+    // Actualizar y dibujar particulas
+    for (const p of particles) {
+        p.update();
+    }
+
+    // Lineas entre particulas cercanas
+    for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < 120 * 120) {
+                const dist = Math.sqrt(distSq);
+                const alpha = (1 - dist / 120) * 0.3;
+                ctx.beginPath();
+                ctx.moveTo(particles[i].x, particles[i].y);
+                ctx.lineTo(particles[j].x, particles[j].y);
+                ctx.strokeStyle = `rgba(0, 245, 212, ${alpha})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+    }
+
+    for (const p of particles) {
+        p.draw();
+    }
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
