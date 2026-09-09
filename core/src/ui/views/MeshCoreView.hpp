@@ -51,10 +51,12 @@ private:
     void showOverlayManualAdd();
     void showOverlayImportCard();
     void hideOverlay();
-    // POC Emoji + Winks
+    // POC Emoji + Winks inline
     void showEmojiPicker(int target);
-    void showWinkPlayer(int winkId);
     void sendWink(int winkId);
+    void freeChatWinkBufs();
+    void freeConvWinkBufs();
+    lv_obj_t* createInlineWink(lv_obj_t* bubble, int winkId, bool isDM);
 
     // Actualizaciones reactivas de UI
     void refreshChatLog();
@@ -126,7 +128,7 @@ private:
     static void emojiBtnCb(lv_event_t* e);
     static void emojiPickCb(lv_event_t* e);
     static void winkSendCb(lv_event_t* e);
-    static void winkViewCb(lv_event_t* e);
+    static void winkReplayCb(lv_event_t* e);
 
     lv_obj_t* m_tabview = nullptr;
     lv_timer_t* m_pumpTimer = nullptr;
@@ -159,10 +161,13 @@ private:
     lv_obj_t* m_taManualName = nullptr;
     lv_obj_t* m_ddManualType = nullptr;
     lv_obj_t* m_taImportCard = nullptr;
-    // POC Emoji + Winks (picker y reproductor de 1 solo lottie)
-    lv_obj_t* m_winkLottie = nullptr;
-    lv_draw_buf_t* m_winkDrawBuf = nullptr;
-    std::string m_winkJson;
+    // POC Emoji + Winks inline (1 lottie por burbuja, 96px).
+    // OJO: un vector por contenedor. Los tabs conviven vivos y el rebuild
+    // de uno no debe liberar los draw bufs del otro (use-after-free).
+    std::vector<lv_draw_buf_t*> m_chatWinkBufs;
+    std::vector<lv_draw_buf_t*> m_convWinkBufs;
+    std::string m_catJson;                   // cache de /sdcard/lottie/catmov.json
+    std::string m_starSd;                    // override opcional /sdcard/lottie/star.json
     int m_pickerTarget = 0;  // 0 = chat de canal, 1 = DM
 
     // Tab Canales: chat del canal activo

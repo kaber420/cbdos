@@ -8,6 +8,7 @@
 #include "cbdos/meshcore/meshcore_store.hpp"
 #include "cbdos/meshcore/mesh_emoji.hpp"
 #include "../../assets/lottie_sample.h"
+#include "../../assets/wink_star_assets.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -248,14 +249,12 @@ void MeshCoreView::onDestroy() {
         lv_timer_delete(m_pumpTimer);
         m_pumpTimer = nullptr;
     }
-    m_winkLottie = nullptr;
-    if (m_winkDrawBuf) {
-#if LV_USE_LOTTIE
-        lv_draw_buf_destroy(m_winkDrawBuf);
-#endif
-        m_winkDrawBuf = nullptr;
-    }
-    m_winkJson.clear();
+    // POC Winks inline: al salir de la vista mueren objetos+anims y se
+    // liberan los draw bufs de ambos contenedores -> cero CPU fuera.
+    freeChatWinkBufs();
+    freeConvWinkBufs();
+    m_catJson.clear();
+    m_starSd.clear();
 
     auto& client = meshcore::MeshCoreClient::getInstance();
     client.setOnChannelMessage(nullptr);
@@ -416,6 +415,7 @@ void MeshCoreView::refreshChatLog() {
         return;
     }
 
+    freeChatWinkBufs();  // los draw bufs del chat mueren con sus burbujas
     lv_obj_clean(m_chatContainer);
     m_lastRenderedChCount = shown;
     m_lastRenderedChannel = m_channelIdx;
@@ -481,30 +481,12 @@ void MeshCoreView::refreshChatLog() {
             lv_obj_set_width(lblSender, LV_PCT(100));
         }
 
-        // POC Emoji + Winks: token de 5-6 B -> animacion, 1 emoji -> carita.
+        // POC Emoji + Winks inline: token de 5-6 B -> animacion 96px con
+        // autoplay de 1 pasada; tap = loop mientras este en vista.
         int winkId = meshcore::emoji::winkIdForText(msg.text);
         int faceIdx = (winkId < 0) ? meshcore::emoji::singleEmojiIndex(msg.text) : -1;
         if (winkId >= 0) {
-            lv_obj_t* lblW = lv_label_create(bubble);
-            char wbuf[64];
-            snprintf(wbuf, sizeof(wbuf), "%s Animacion: %s (%s)",
-                     winkId == 1 ? "[GATO]" : "[ESTRELLA]",
-                     meshcore::emoji::winkNameForId(winkId),
-                     meshcore::emoji::winkTokenForId(winkId));
-            lv_label_set_text(lblW, wbuf);
-            lv_obj_set_style_text_color(lblW, lv_color_hex(0xFFD93B), 0);
-            lv_obj_set_style_text_font(lblW, &lv_font_montserrat_12, 0);
-            lv_obj_set_width(lblW, LV_PCT(100));
-            lv_label_set_long_mode(lblW, LV_LABEL_LONG_WRAP);
-            lv_obj_t* btnView = lv_button_create(bubble);
-            lv_obj_set_size(btnView, 120, 32);
-            DefaultTheme::applyButton(btnView, 6);
-            lv_obj_t* lblV = lv_label_create(btnView);
-            lv_label_set_text(lblV, "Ver " LV_SYMBOL_PLAY);
-            lv_obj_set_style_text_font(lblV, &lv_font_montserrat_12, 0);
-            lv_obj_center(lblV);
-            lv_obj_set_user_data(btnView, (void*)(uintptr_t)winkId);
-            lv_obj_add_event_cb(btnView, winkViewCb, LV_EVENT_CLICKED, this);
+            createInlineWink(bubble, winkId, false);
         } else if (faceIdx >= 0) {
             size_t nFaces = 0;
             const auto* faces = meshcore::emoji::emojiTable(nFaces);
@@ -1834,6 +1816,7 @@ void MeshCoreView::refreshConversation() {
     m_lastRenderedConvPending = nPending;
     m_lastRenderedConvFirstTs = (nMsgs > 0 && th) ? th->msgs[0].timestamp : 0;
 
+    freeConvWinkBufs();  // los draw bufs del DM mueren con sus burbujas
     lv_obj_clean(m_convContainer);
     if (!th || th->msgs.empty()) {
         lv_obj_t* emptyLbl = lv_label_create(m_convContainer);
@@ -1873,30 +1856,11 @@ lv_obj_t* MeshCoreView::createDmBubble(const meshcore::ContactMessage& msg, size
     }
     lv_obj_set_style_border_width(bubble, 1, 0);
 
-    // POC Emoji + Winks (misma logica que el chat de canal).
+    // POC Emoji + Winks inline (misma logica que el chat de canal).
     int winkId = meshcore::emoji::winkIdForText(msg.text);
     int faceIdx = (winkId < 0) ? meshcore::emoji::singleEmojiIndex(msg.text) : -1;
     if (winkId >= 0) {
-        lv_obj_t* lblW = lv_label_create(bubble);
-        char wbuf[64];
-        snprintf(wbuf, sizeof(wbuf), "%s Animacion: %s (%s)",
-                 winkId == 1 ? "[GATO]" : "[ESTRELLA]",
-                 meshcore::emoji::winkNameForId(winkId),
-                 meshcore::emoji::winkTokenForId(winkId));
-        lv_label_set_text(lblW, wbuf);
-        lv_obj_set_style_text_color(lblW, lv_color_hex(0xFFD93B), 0);
-        lv_obj_set_style_text_font(lblW, &lv_font_montserrat_12, 0);
-        lv_obj_set_width(lblW, LV_PCT(100));
-        lv_label_set_long_mode(lblW, LV_LABEL_LONG_WRAP);
-        lv_obj_t* btnView = lv_button_create(bubble);
-        lv_obj_set_size(btnView, 120, 32);
-        DefaultTheme::applyButton(btnView, 6);
-        lv_obj_t* lblV = lv_label_create(btnView);
-        lv_label_set_text(lblV, "Ver " LV_SYMBOL_PLAY);
-        lv_obj_set_style_text_font(lblV, &lv_font_montserrat_12, 0);
-        lv_obj_center(lblV);
-        lv_obj_set_user_data(btnView, (void*)(uintptr_t)winkId);
-        lv_obj_add_event_cb(btnView, winkViewCb, LV_EVENT_CLICKED, this);
+        createInlineWink(bubble, winkId, true);
     } else if (faceIdx >= 0) {
         size_t nFaces = 0;
         const auto* faces = meshcore::emoji::emojiTable(nFaces);
@@ -2087,15 +2051,6 @@ void MeshCoreView::sendDirectMessage() {
 }
 
 void MeshCoreView::hideOverlay() {
-    // POC Winks: liberar el draw buffer del lottie antes de limpiar la card.
-    m_winkLottie = nullptr;
-    if (m_winkDrawBuf) {
-#if LV_USE_LOTTIE
-        lv_draw_buf_destroy(m_winkDrawBuf);
-#endif
-        m_winkDrawBuf = nullptr;
-    }
-    m_winkJson.clear();
     if (m_overlay && lv_obj_is_valid(m_overlay)) {
         lv_obj_add_flag(m_overlay, LV_OBJ_FLAG_HIDDEN);
     }
@@ -2801,67 +2756,112 @@ void MeshCoreView::showEmojiPicker(int target) {
     lv_obj_add_event_cb(bClose, overlayCloseCb, LV_EVENT_CLICKED, this);
 }
 
-void MeshCoreView::showWinkPlayer(int winkId) {
-    if (!m_overlay || !m_overlayCard) return;
-    hideOverlay();
-    lv_obj_remove_flag(m_overlay, LV_OBJ_FLAG_HIDDEN);
+void MeshCoreView::freeChatWinkBufs() {
+#if LV_USE_LOTTIE
+    for (auto* b : m_chatWinkBufs) {
+        if (b) lv_draw_buf_destroy(b);
+    }
+#endif
+    m_chatWinkBufs.clear();
+}
 
-    lv_obj_t* title = lv_label_create(m_overlayCard);
-    char tbuf[48];
-    snprintf(tbuf, sizeof(tbuf), "%s (%s) - 5-6 B en el aire",
-             meshcore::emoji::winkNameForId(winkId),
-             meshcore::emoji::winkTokenForId(winkId));
-    lv_label_set_text(title, tbuf);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFD93B), 0);
+void MeshCoreView::freeConvWinkBufs() {
+#if LV_USE_LOTTIE
+    for (auto* b : m_convWinkBufs) {
+        if (b) lv_draw_buf_destroy(b);
+    }
+#endif
+    m_convWinkBufs.clear();
+}
 
+lv_obj_t* MeshCoreView::createInlineWink(lv_obj_t* bubble, int winkId, bool isDM) {
+    // Cuadro de animacion dentro del chat: 96px en loop continuo mientras
+    // la vista esta visible; tap = pausa/retomar. Al salir de la vista los
+    // objetos mueren con sus animaciones (cero CPU fuera de la vista).
+    lv_obj_t* card = lv_obj_create(bubble);
+    lv_obj_set_size(card, 124, 142);
+    lv_obj_set_style_radius(card, 10, 0);
+    lv_obj_set_style_pad_all(card, 6, 0);
+    lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(card, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_row(card, 2, 0);
+    DefaultTheme::disableScroll(card);
+
+    char cap[48];
 #if LV_USE_LOTTIE
     const char* src = nullptr;
     size_t srcLen = 0;
-    m_winkJson.clear();
+    bool missing = false;
     if (winkId == 1) {
-        // Gato: de la SD del usuario. Rutas aceptadas (primera que exista):
-        m_winkJson = cbdos::storage::readFile("/sdcard/lottie/catmov.json");
-        if (m_winkJson.empty()) m_winkJson = cbdos::storage::readFile("/sdcard/catmov.json");
-        if (!m_winkJson.empty()) {
-            src = m_winkJson.c_str();
-            srcLen = m_winkJson.size();
+        // Gato: se lee una vez de la SD y se cachea (ThorVG copia el JSON
+        // al cargar, asi que el std::string puede vivir en el miembro).
+        if (m_catJson.empty()) {
+            m_catJson = cbdos::storage::readFile("/sdcard/lottie/catmov.json");
+            if (m_catJson.empty()) m_catJson = cbdos::storage::readFile("/sdcard/catmov.json");
+        }
+        if (!m_catJson.empty()) {
+            src = m_catJson.c_str();
+            srcLen = m_catJson.size();
+        } else {
+            src = cbdos::assets::WINK_STAR_JSON;
+            srcLen = cbdos::assets::WINK_STAR_JSON_SIZE;
+            missing = true;
+        }
+    } else {
+        // Estrella: override desde SD si existe, si no la embebida segura
+        // (solo circulos; se evita "sr"/polystar que este ThorVG no traga).
+        if (m_starSd.empty()) {
+            m_starSd = cbdos::storage::readFile("/sdcard/lottie/star.json");
+        }
+        if (!m_starSd.empty()) {
+            src = m_starSd.c_str();
+            srcLen = m_starSd.size();
+        } else {
+            src = cbdos::assets::WINK_STAR_JSON;
+            srcLen = cbdos::assets::WINK_STAR_JSON_SIZE;
         }
     }
-    if (src == nullptr) {
-        // Estrella demo embebida (siempre disponible) o fallback del gato.
-        src = LOTTIE_TEST_JSON;
-        srcLen = LOTTIE_TEST_JSON_SIZE;
-    }
-    if (winkId == 1 && m_winkJson.empty()) {
-        lv_obj_t* warn = lv_label_create(m_overlayCard);
-        lv_label_set_text(warn, "Sin /sdcard/lottie/catmov.json: muestro estrella.\nCopia tu catmov.json a /sdcard/lottie/");
-        lv_obj_set_style_text_font(warn, &lv_font_montserrat_12, 0);
-        lv_obj_set_style_text_color(warn, lv_color_hex(0xFFB300), 0);
-        lv_obj_set_width(warn, LV_PCT(100));
-        lv_label_set_long_mode(warn, LV_LABEL_LONG_WRAP);
-    }
-    m_winkLottie = lv_lottie_create(m_overlayCard);
-    lv_obj_set_size(m_winkLottie, 240, 240);
-    m_winkDrawBuf =
-        lv_draw_buf_create(240, 240, LV_COLOR_FORMAT_ARGB8888_PREMULTIPLIED, LV_STRIDE_AUTO);
-    if (m_winkDrawBuf) {
-        lv_lottie_set_draw_buf(m_winkLottie, m_winkDrawBuf);
-        lv_lottie_set_src_data(m_winkLottie, src, srcLen);
+
+    lv_obj_t* anim = lv_lottie_create(card);
+    lv_obj_set_size(anim, 96, 96);
+    lv_draw_buf_t* db =
+        lv_draw_buf_create(96, 96, LV_COLOR_FORMAT_ARGB8888_PREMULTIPLIED, LV_STRIDE_AUTO);
+    if (db && src) {
+        if (isDM) m_convWinkBufs.push_back(db);
+        else m_chatWinkBufs.push_back(db);
+        lv_lottie_set_draw_buf(anim, db);
+        lv_lottie_set_src_data(anim, src, srcLen);
+        // Loop continuo mientras la vista esta visible; el tap pausa/retoma.
+        lv_anim_set_repeat_count(lv_lottie_get_anim(anim), LV_ANIM_REPEAT_INFINITE);
+        lv_obj_set_user_data(anim, (void*)(uintptr_t)0);  // 0 = en loop
+        lv_obj_add_flag(anim, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(anim, winkReplayCb, LV_EVENT_CLICKED, this);
     } else {
-        lv_obj_t* err = lv_label_create(m_overlayCard);
-        lv_label_set_text(err, "Sin memoria para el canvas Lottie.");
-        lv_obj_set_style_text_color(err, lv_color_hex(0xEF4444), 0);
+        if (db) lv_draw_buf_destroy(db);
+        lv_obj_t* err = lv_label_create(card);
+        lv_label_set_text(err, "Sin memoria anim.");
+        lv_obj_set_style_text_font(err, &lv_font_montserrat_12, 0);
+    }
+    if (missing) {
+        snprintf(cap, sizeof(cap), "falta catmov.json: estrella");
+    } else {
+        snprintf(cap, sizeof(cap), "%s (%s) - toca = pausa",
+                 meshcore::emoji::winkNameForId(winkId),
+                 meshcore::emoji::winkTokenForId(winkId));
     }
 #else
     (void)winkId;
-    lv_obj_t* fb = lv_label_create(m_overlayCard);
-    lv_label_set_text(fb, "LV_USE_LOTTIE desactivado en este build.");
-    lv_obj_set_style_text_color(fb, lv_color_hex(0xEF4444), 0);
+    snprintf(cap, sizeof(cap), "Lottie OFF en build");
 #endif
 
-    lv_obj_t* bClose = makeButton(m_overlayCard, "Cerrar", 220, 36, 0);
-    lv_obj_add_event_cb(bClose, overlayCloseCb, LV_EVENT_CLICKED, this);
+    lv_obj_t* lblCap = lv_label_create(card);
+    lv_label_set_text(lblCap, cap);
+    lv_obj_set_style_text_font(lblCap, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(lblCap, DefaultTheme::getMutedTextColor(), 0);
+    lv_obj_set_width(lblCap, LV_PCT(100));
+    lv_label_set_long_mode(lblCap, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(lblCap, LV_TEXT_ALIGN_CENTER, 0);
+    return card;
 }
 
 void MeshCoreView::emojiBtnCb(lv_event_t* e) {
@@ -2894,12 +2894,24 @@ void MeshCoreView::winkSendCb(lv_event_t* e) {
     self->sendWink(id);
 }
 
-void MeshCoreView::winkViewCb(lv_event_t* e) {
-    auto* self = static_cast<MeshCoreView*>(lv_event_get_user_data(e));
-    lv_obj_t* target = (lv_obj_t*)lv_event_get_target(e);
-    if (!self || !target) return;
-    int id = (int)(uintptr_t)lv_obj_get_user_data(target);
-    self->showWinkPlayer(id);
+void MeshCoreView::winkReplayCb(lv_event_t* e) {
+    lv_obj_t* anim = (lv_obj_t*)lv_event_get_target(e);
+    if (!anim || !lv_obj_is_valid(anim)) return;
+#if LV_USE_LOTTIE
+    // Tap = pausa / retomar. Pausar deja terminar la pasada actual y la
+    // animacion sale del scheduler (no gasta CPU hasta retomar).
+    bool paused = (bool)(uintptr_t)lv_obj_get_user_data(anim);
+    lv_anim_t* a = lv_lottie_get_anim(anim);
+    if (!a) return;
+    if (paused) {
+        lv_anim_set_repeat_count(a, LV_ANIM_REPEAT_INFINITE);
+        lv_anim_start(a);  // seguro aunque siga corriendo (deduplica)
+        lv_obj_set_user_data(anim, (void*)(uintptr_t)0);
+    } else {
+        lv_anim_set_repeat_count(a, 1);
+        lv_obj_set_user_data(anim, (void*)(uintptr_t)1);
+    }
+#endif
 }
 
 } // namespace ui
