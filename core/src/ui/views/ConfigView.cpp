@@ -9,7 +9,10 @@
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/config_manager.hpp"
+#include "cbdos/usb_manager.hpp"
+#include "cbdos/system.hpp"
 #include <cstdio>
+#include <string>
 
 namespace cbdos {
 namespace ui {
@@ -104,6 +107,24 @@ void ConfigView::btn_event_cb(lv_event_t * e) {
             DiagnosticsModal::show();
         } else if (id == 8) {
             AboutModal::show();
+        } else if (id == 9) {
+            // Selector de modo USB de sistema: persiste y reinicia para aplicar
+            // limpio al arranque (las apps jamás tocan el BSP directo).
+            // Reboot diferido con timer: el toast debe pintarse antes del restart.
+            auto cur = cbdos::usb::UsbManager::getInstance().getBootMode();
+            auto next = (cur == cbdos::usb::UsbMode::Hid)
+                            ? cbdos::usb::UsbMode::Host
+                            : cbdos::usb::UsbMode::Hid;
+            cbdos::usb::UsbManager::getInstance().requestMode(next);
+            UIManager::showToast(next == cbdos::usb::UsbMode::Hid
+                                     ? "Modo HOST->HID: reiniciando..."
+                                     : "Modo HID->HOST: reiniciando...");
+            lv_timer_create(
+                [](lv_timer_t* t) {
+                    lv_timer_delete(t);
+                    cbdos::usb::UsbManager::getInstance().reboot();
+                },
+                1500, nullptr);
         }
     }
 }
@@ -138,6 +159,12 @@ bool ConfigView::onCreate(lv_obj_t* parent) {
         {"Acerca de CBDos", "v0.2.1, Licencia GPLv3 y Repo", 8},
         {"Resetear NVS", "Manten presionado 3s para borrar", 7}
     };
+
+    // Fila de modo USB de sistema (se dibuja aparte por subtítulo dinámico)
+    const bool usbHid =
+        cbdos::usb::UsbManager::getInstance().getBootMode() == cbdos::usb::UsbMode::Hid;
+    const std::string usbSub = usbHid ? "Actual: HID teclado/raton (tocar=cambiar a HOST)"
+                                      : "Actual: HOST modem/flasher (tocar=cambiar a HID)";
 
 
     for (size_t i = 0; i < sizeof(options) / sizeof(options[0]); i++) {
@@ -212,6 +239,48 @@ bool ConfigView::onCreate(lv_obj_t* parent) {
             lv_obj_set_style_radius(bar, 2, LV_PART_INDICATOR);
             lv_obj_remove_flag(bar, LV_OBJ_FLAG_CLICKABLE);
         }
+    }
+
+    // Fila de modo USB de sistema (id 9): mismo estilo de tarjeta
+    {
+        lv_obj_t* card = lv_button_create(m_container);
+        lv_obj_set_width(card, lv_pct(100));
+        lv_obj_set_height(card, 60);
+        DefaultTheme::applyButton(card, 14);
+        lv_obj_set_user_data(card, (void*)(intptr_t)9);
+        lv_obj_add_event_cb(card, btn_event_cb, LV_EVENT_CLICKED, NULL);
+
+        lv_obj_set_flex_flow(card, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(card, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_left(card, 16, 0);
+        lv_obj_set_style_pad_right(card, 16, 0);
+        lv_obj_set_style_pad_top(card, 8, 0);
+        lv_obj_set_style_pad_bottom(card, 8, 0);
+
+        lv_obj_t* textCont = lv_obj_create(card);
+        lv_obj_set_flex_grow(textCont, 1);
+        lv_obj_set_style_bg_opa(textCont, 0, 0);
+        lv_obj_set_style_border_width(textCont, 0, 0);
+        lv_obj_set_flex_flow(textCont, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_align(textCont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+        lv_obj_set_style_pad_all(textCont, 0, 0);
+        lv_obj_set_style_pad_row(textCont, 2, 0);
+        lv_obj_remove_flag(textCont, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* titleLbl = lv_label_create(textCont);
+        lv_label_set_text(titleLbl, "Modo USB");
+        lv_obj_set_style_text_color(titleLbl, DefaultTheme::getTextColor(), 0);
+        lv_obj_set_style_text_font(titleLbl, &lv_font_montserrat_16, 0);
+
+        lv_obj_t* subLbl = lv_label_create(textCont);
+        lv_label_set_text(subLbl, usbSub.c_str());
+        lv_obj_set_style_text_color(subLbl, DefaultTheme::getMutedTextColor(), 0);
+        lv_obj_set_style_text_font(subLbl, &lv_font_montserrat_12, 0);
+
+        lv_obj_t* iconRight = lv_label_create(card);
+        lv_label_set_text(iconRight, LV_SYMBOL_REFRESH);
+        lv_obj_set_style_text_color(iconRight, DefaultTheme::getMutedTextColor(), 0);
+        lv_obj_set_style_text_font(iconRight, &lv_font_montserrat_14, 0);
     }
 
     return true;

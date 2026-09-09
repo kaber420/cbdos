@@ -9,6 +9,7 @@
 #include "cbdos/flasher.hpp"
 #include "cbdos/uart.hpp"
 #include "cbdos/ui.hpp"
+#include "cbdos/usb_manager.hpp"
 #include "cbdos/mesh/mesh_engine.hpp"
 #include "LVGL_Port.h"
 #include "cbdos/config_manager.hpp"
@@ -76,7 +77,16 @@ extern "C" void app_main(void) {
     cbdos::bsp::initMeshTransportP4();
     cbdos::bsp::initHttpClientP4();
     cbdos::bsp::initHidDriverP4();
-    cbdos::usb::UsbDeviceManager::getInstance().init();
+    // Gestor USB de sistema: el único PHY HS es exclusivo por arranque.
+    // Decide qué stack es dueño del hardware; las apps solo piden modo vía UsbManager.
+    cbdos::usb::UsbManager::getInstance().init();
+    if (cbdos::usb::UsbManager::getInstance().getBootMode() ==
+        cbdos::usb::UsbMode::Host) {
+        cbdos::usb::UsbDeviceManager::getInstance().init();
+    } else {
+        cbdos::system::log(cbdos::system::LogLevel::Info, TAG,
+                           "USB modo HID: stack Host no iniciado (PHY libre para TinyUSB)");
+    }
 
     // Registrar servicio de TTS (Offline-First: permanece en reposo hasta su primer uso)
     cbdos::tts::setTTSService(&cbdos::tts::PicoTTSService::getInstance());
