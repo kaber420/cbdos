@@ -15,6 +15,18 @@ const char* MeshStore::kDirSd = "/sdcard/cbdos/data/meshcore";
 
 namespace {
 
+std::string tmpPathFor(const char* path) {
+    // SPIFFS tiene CONFIG_SPIFFS_OBJ_NAME_LEN=32. El nombre interno
+    // (sin "/spiffs") cuenta: "/data/meshcore/contacts.msgpack"=31 OK,
+    // pero "+.tmp"=35 falla. Reemplazamos ".msgpack" por ".tmp".
+    std::string p = path ? path : "";
+    const std::string ext = ".msgpack";
+    if (p.size() > ext.size() && p.compare(p.size() - ext.size(), ext.size(), ext) == 0) {
+        return p.substr(0, p.size() - ext.size()) + ".tmp";
+    }
+    return p + ".tmp";
+}
+
 void putU16(std::string& o, uint16_t v) {
     o.push_back(static_cast<char>(v & 0xFF));
     o.push_back(static_cast<char>((v >> 8) & 0xFF));
@@ -69,7 +81,7 @@ void MeshStore::ensureDirs() {
 
 bool MeshStore::saveAtomic(const char* path, const std::string& content) {
     ensureDirs();
-    std::string tmp = std::string(path) + ".tmp";
+    std::string tmp = tmpPathFor(path);
     if (!cbdos::storage::writeFile(tmp.c_str(), content)) return false;
     if (!cbdos::storage::copyFile(tmp.c_str(), path)) return false;
     cbdos::storage::deleteFile(tmp.c_str());
@@ -340,7 +352,7 @@ bool MeshStore::saveThreads(const std::map<std::string, DMThread>& threads) {
     // Tier 2 bulk solo si hay SD (historial largo).
     if (cbdos::storage::isSdMounted()) {
         std::string full = encodeThreads(threads, kSdMsgsPerThread);
-        std::string tmp = std::string(kThreadsFullPath) + ".tmp";
+        std::string tmp = tmpPathFor(kThreadsFullPath);
         cbdos::storage::makeDir(kDirSd);
         if (cbdos::storage::writeFile(tmp.c_str(), full)) {
             cbdos::storage::copyFile(tmp.c_str(), kThreadsFullPath);

@@ -13,6 +13,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <cstring>
+#include <cerrno>
 
 static const char* TAG = "HAL_Storage_P4";
 static const char* SD_MOUNT_POINT = "/sdcard";
@@ -576,7 +577,12 @@ public:
 
         FILE* f = fopen(fullPath.c_str(), "wb");
         if (!f) {
-            ESP_LOGE(TAG, "writeFile: Error al crear %s", fullPath.c_str());
+            int e = errno;
+            size_t total = 0, used = 0;
+            if (!isSd) esp_spiffs_info(SPIFFS_PARTITION_LABEL, &total, &used);
+            ESP_LOGE(TAG, "writeFile: Error al crear %s (errno=%d %s, len=%u, spiffs used=%u/%u)",
+                     fullPath.c_str(), e, strerror(e),
+                     (unsigned)fullPath.size(), (unsigned)used, (unsigned)total);
             return false;
         }
 
