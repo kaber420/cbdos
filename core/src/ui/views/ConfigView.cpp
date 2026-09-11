@@ -6,6 +6,7 @@
 #include "TimeConfigView.hpp"
 #include "../modals/DiagnosticsModal.hpp"
 #include "../modals/AboutModal.hpp"
+#include "../modals/LanguageModal.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/config_manager.hpp"
@@ -129,20 +130,8 @@ void ConfigView::btn_event_cb(lv_event_t * e) {
                 },
                 1500, nullptr);
         } else if (id == 10) {
-            // Selector de idioma ES/EN: persiste en NVS cbdos_sys/lang y
-            // reinicia para redibujar las 4 vistas piloto en el nuevo idioma.
-            namespace lang = cbdos::lang;
-            bool toEnglish = (lang::getLanguage() != lang::Lang::EN);
-            lang::setLanguage(toEnglish ? lang::Lang::EN : lang::Lang::ES);
-            ConfigManager::getInstance().setLanguage(toEnglish ? "en" : "es");
-            UIManager::showToast(toEnglish ? lang::tr(lang::StrId::STR_CFG_LANG_TO_EN)
-                                           : lang::tr(lang::StrId::STR_CFG_LANG_TO_ES));
-            lv_timer_create(
-                [](lv_timer_t* t) {
-                    lv_timer_delete(t);
-                    cbdos::usb::UsbManager::getInstance().reboot();
-                },
-                1500, nullptr);
+            // Selector de idioma: abre modal con ES/EN y marca en el actual.
+            LanguageModal::show();
         }
     }
 }

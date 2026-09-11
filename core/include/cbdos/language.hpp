@@ -88,7 +88,11 @@ enum class StrId : uint16_t {
     STR_MUSIC_PLAYING = 0x003E,
     STR_MUSIC_PAUSED = 0x003F,
 
-    STR_COUNT = 0x0040,
+    // Selector de idioma (modal)
+    STR_LANG_SPANISH = 0x0040,  // "Espanol" (igual en ambos; sin ñ por montserrat)
+    STR_LANG_ENGLISH = 0x0041,  // "English" (igual en ambos)
+
+    STR_COUNT = 0x0042,
 };
 
 // Texto en idioma actual. Fallback a ES si falta clave. Nunca nullptr.

@@ -69,6 +69,7 @@ idf_component_register(
         "src/cartridge/CartridgeManager.cpp"
         "src/ui/modals/DiagnosticsModal.cpp"
         "src/ui/modals/AboutModal.cpp"
+        "src/ui/modals/LanguageModal.cpp"
         "src/ui/modals/C6FlasherModal.cpp"
         "src/audio/AudioPlayer.cpp"
         "src/audio/WavRecorder.cpp"

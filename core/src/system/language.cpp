@@ -53,8 +53,8 @@ static const char* const lang_es[] = {
     "Modo HOST->HID: reiniciando...",              // 0x0028
     "Modo HID->HOST: reiniciando...",              // 0x0029
     "Idioma",                                      // 0x002A
-    "Actual: Espanol (tocar=cambiar a English)",   // 0x002B
-    "Current: English (tap=switch to Espanol)",    // 0x002C (se muestra en EN)
+    "Actual: Espanol (tocar para elegir)",         // 0x002B
+    "Current: English (tap to choose)",            // 0x002C (se muestra en EN)
     "Language: English. Rebooting...",             // 0x002D
     "Idioma: Espanol. Reiniciando...",             // 0x002E
     "CyBerDeck OS",                                // 0x002F
@@ -74,6 +74,8 @@ static const char* const lang_es[] = {
     "Lista",                                       // 0x003D
     "Reproduciendo...",                            // 0x003E
     "En Pausa",                                    // 0x003F
+    "Espanol",                                     // 0x0040 (sin ñ: montserrat 12/14/16 no la trae)
+    "English",                                     // 0x0041
 };
 
 static const char* const lang_en[] = {
@@ -120,8 +122,8 @@ static const char* const lang_en[] = {
     "HOST->HID mode: rebooting...",
     "HID->HOST mode: rebooting...",
     "Language",
-    "Actual: Espanol (tocar=cambiar a English)",
-    "Current: English (tap=switch to Espanol)",
+    "Actual: Espanol (tocar para elegir)",
+    "Current: English (tap to choose)",
     "Language: English. Rebooting...",
     "Idioma: Espanol. Reiniciando...",
     "CyBerDeck OS",
@@ -141,6 +143,8 @@ static const char* const lang_en[] = {
     "List",
     "Playing...",
     "Paused",
+    "Espanol",
+    "English",
 };
 
 static_assert(sizeof(lang_es) / sizeof(lang_es[0]) == (size_t)StrId::STR_COUNT,
