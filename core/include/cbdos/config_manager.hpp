@@ -66,6 +66,7 @@ struct SystemConfig {
     int32_t daylightOffsetSeconds = 0;
     uint32_t screenTimeoutSeconds = 60;
     std::string defaultTheme = "dark";
+    std::string language = "es"; // Fase 1 i18n: "es" | "en" (NVS cbdos_sys/lang)
 };
 
 class ConfigManager {
@@ -90,6 +91,8 @@ public:
     void setTimezoneOffset(int32_t offsetSec);
     uint32_t getIdleTimeoutSec();
     void setIdleTimeoutSec(uint32_t seconds);
+    std::string getLanguage();
+    void setLanguage(const std::string& lang); // "es" | "en", otro -> "es"
 
     // WiFi
     bool loadWiFi(WiFiConfig& cfg);

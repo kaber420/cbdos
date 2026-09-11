@@ -11,6 +11,7 @@
 #include "cbdos/config_manager.hpp"
 #include "cbdos/usb_manager.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/language.hpp"
 #include <cstdio>
 #include <string>
 
@@ -23,7 +24,7 @@ lv_obj_t* ConfigView::s_nvsBar = nullptr;
 lv_obj_t* ConfigView::s_nvsSubLabel = nullptr;
 
 ConfigView::ConfigView()
-    : BaseView("Configuracion") {
+    : BaseView(cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_TITLE)) {
 }
 
 void ConfigView::onDestroy() {
@@ -41,7 +42,7 @@ void ConfigView::cancel_nvs_reset() {
         lv_bar_set_value(s_nvsBar, 0, LV_ANIM_OFF);
     }
     if (s_nvsSubLabel && lv_obj_is_valid(s_nvsSubLabel)) {
-        lv_label_set_text(s_nvsSubLabel, "Manten presionado 3s para borrar");
+        lv_label_set_text(s_nvsSubLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_RESET_NVS_SUB));
     }
 }
 
@@ -59,13 +60,15 @@ void ConfigView::nvs_timer_cb(lv_timer_t* timer) {
             float rem = (3000.0f - (float)elapsed) / 1000.0f;
             if (rem < 0.0f) rem = 0.0f;
             char buf[48];
-            snprintf(buf, sizeof(buf), "Soltar para cancelar (%.1fs)", rem);
+            snprintf(buf, sizeof(buf), cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_RESET_COUNTDOWN), rem);
             lv_label_set_text(s_nvsSubLabel, buf);
         }
     } else {
         cancel_nvs_reset();
         ConfigManager::getInstance().clearAllNvs();
-        UIManager::showToast("NVS borrado completamente");
+        // clearAllNvs borra tambien lang -> re-fijar idioma actual para no perderlo
+        cbdos::lang::setLanguage(cbdos::lang::getLanguage());
+        UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_NVS_CLEARED));
     }
 }
 
@@ -117,8 +120,23 @@ void ConfigView::btn_event_cb(lv_event_t * e) {
                             : cbdos::usb::UsbMode::Hid;
             cbdos::usb::UsbManager::getInstance().requestMode(next);
             UIManager::showToast(next == cbdos::usb::UsbMode::Hid
-                                     ? "Modo HOST->HID: reiniciando..."
-                                     : "Modo HID->HOST: reiniciando...");
+                                     ? cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_USB_TO_HID)
+                                     : cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_USB_TO_HOST));
+            lv_timer_create(
+                [](lv_timer_t* t) {
+                    lv_timer_delete(t);
+                    cbdos::usb::UsbManager::getInstance().reboot();
+                },
+                1500, nullptr);
+        } else if (id == 10) {
+            // Selector de idioma ES/EN: persiste en NVS cbdos_sys/lang y
+            // reinicia para redibujar las 4 vistas piloto en el nuevo idioma.
+            namespace lang = cbdos::lang;
+            bool toEnglish = (lang::getLanguage() != lang::Lang::EN);
+            lang::setLanguage(toEnglish ? lang::Lang::EN : lang::Lang::ES);
+            ConfigManager::getInstance().setLanguage(toEnglish ? "en" : "es");
+            UIManager::showToast(toEnglish ? lang::tr(lang::StrId::STR_CFG_LANG_TO_EN)
+                                           : lang::tr(lang::StrId::STR_CFG_LANG_TO_ES));
             lv_timer_create(
                 [](lv_timer_t* t) {
                     lv_timer_delete(t);
@@ -149,22 +167,29 @@ bool ConfigView::onCreate(lv_obj_t* parent) {
         int id;
     };
 
+    using cbdos::lang::tr;
+    using cbdos::lang::StrId;
     OptionItem options[] = {
-        {"Sistema y Energia", "Apagado, reinicio, standby y auto-suspension", 4},
-        {"Redes e Interfaces", "Wi-Fi, ESP-NOW, LoRa y Ranuras de Hardware", 1},
-        {"Fecha y Hora", "Zona horaria, horario de verano y NTP", 3},
-        {"Almacenamiento", "Gestion de MicroSD, Flash y USB", 2},
-        {"Fondo de Pantalla", "Elegir wallpaper de SD o Flash", 5},
-        {"Sistema", "Diagnostico de hardware y memoria", 6},
-        {"Acerca de CBDos", "v0.2.3-dev, Licencia GPLv3 y Repo", 8},
-        {"Resetear NVS", "Manten presionado 3s para borrar", 7}
+        {tr(StrId::STR_CFG_SYS_POWER), tr(StrId::STR_CFG_SYS_POWER_SUB), 4},
+        {tr(StrId::STR_CFG_NET), tr(StrId::STR_CFG_NET_SUB), 1},
+        {tr(StrId::STR_CFG_DATETIME), tr(StrId::STR_CFG_DATETIME_SUB), 3},
+        {tr(StrId::STR_CFG_STORAGE), tr(StrId::STR_CFG_STORAGE_SUB), 2},
+        {tr(StrId::STR_CFG_WALLPAPER), tr(StrId::STR_CFG_WALLPAPER_SUB), 5},
+        {tr(StrId::STR_CFG_SYSTEM), tr(StrId::STR_CFG_SYSTEM_SUB), 6},
+        {tr(StrId::STR_CFG_ABOUT), tr(StrId::STR_CFG_ABOUT_SUB), 8},
+        {tr(StrId::STR_CFG_RESET_NVS), tr(StrId::STR_CFG_RESET_NVS_SUB), 7}
     };
 
     // Fila de modo USB de sistema (se dibuja aparte por subtítulo dinámico)
     const bool usbHid =
         cbdos::usb::UsbManager::getInstance().getBootMode() == cbdos::usb::UsbMode::Hid;
-    const std::string usbSub = usbHid ? "Actual: HID teclado/raton (tocar=cambiar a HOST)"
-                                      : "Actual: HOST modem/flasher (tocar=cambiar a HID)";
+    const char* usbSub = usbHid ? tr(StrId::STR_CFG_USB_HID_SUB)
+                                : tr(StrId::STR_CFG_USB_HOST_SUB);
+
+    // Fila de idioma (id 10): subtitulo dinamico segun idioma actual
+    const bool isEnglish = (cbdos::lang::getLanguage() == cbdos::lang::Lang::EN);
+    const char* langSub = isEnglish ? tr(StrId::STR_CFG_LANG_SUB_EN)
+                                    : tr(StrId::STR_CFG_LANG_SUB_ES);
 
 
     for (size_t i = 0; i < sizeof(options) / sizeof(options[0]); i++) {
@@ -268,12 +293,54 @@ bool ConfigView::onCreate(lv_obj_t* parent) {
         lv_obj_remove_flag(textCont, LV_OBJ_FLAG_CLICKABLE);
 
         lv_obj_t* titleLbl = lv_label_create(textCont);
-        lv_label_set_text(titleLbl, "Modo USB");
+        lv_label_set_text(titleLbl, tr(StrId::STR_CFG_USB_MODE));
         lv_obj_set_style_text_color(titleLbl, DefaultTheme::getTextColor(), 0);
         lv_obj_set_style_text_font(titleLbl, &lv_font_montserrat_16, 0);
 
         lv_obj_t* subLbl = lv_label_create(textCont);
-        lv_label_set_text(subLbl, usbSub.c_str());
+        lv_label_set_text(subLbl, usbSub);
+        lv_obj_set_style_text_color(subLbl, DefaultTheme::getMutedTextColor(), 0);
+        lv_obj_set_style_text_font(subLbl, &lv_font_montserrat_12, 0);
+
+        lv_obj_t* iconRight = lv_label_create(card);
+        lv_label_set_text(iconRight, LV_SYMBOL_REFRESH);
+        lv_obj_set_style_text_color(iconRight, DefaultTheme::getMutedTextColor(), 0);
+        lv_obj_set_style_text_font(iconRight, &lv_font_montserrat_14, 0);
+    }
+
+    // Fila de idioma ES/EN (id 10): mismo estilo de tarjeta
+    {
+        lv_obj_t* card = lv_button_create(m_container);
+        lv_obj_set_width(card, lv_pct(100));
+        lv_obj_set_height(card, 60);
+        DefaultTheme::applyButton(card, 14);
+        lv_obj_set_user_data(card, (void*)(intptr_t)10);
+        lv_obj_add_event_cb(card, btn_event_cb, LV_EVENT_CLICKED, NULL);
+
+        lv_obj_set_flex_flow(card, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(card, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_left(card, 16, 0);
+        lv_obj_set_style_pad_right(card, 16, 0);
+        lv_obj_set_style_pad_top(card, 8, 0);
+        lv_obj_set_style_pad_bottom(card, 8, 0);
+
+        lv_obj_t* textCont = lv_obj_create(card);
+        lv_obj_set_flex_grow(textCont, 1);
+        lv_obj_set_style_bg_opa(textCont, 0, 0);
+        lv_obj_set_style_border_width(textCont, 0, 0);
+        lv_obj_set_flex_flow(textCont, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_align(textCont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+        lv_obj_set_style_pad_all(textCont, 0, 0);
+        lv_obj_set_style_pad_row(textCont, 2, 0);
+        lv_obj_remove_flag(textCont, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* titleLbl = lv_label_create(textCont);
+        lv_label_set_text(titleLbl, tr(StrId::STR_CFG_LANGUAGE));
+        lv_obj_set_style_text_color(titleLbl, DefaultTheme::getTextColor(), 0);
+        lv_obj_set_style_text_font(titleLbl, &lv_font_montserrat_16, 0);
+
+        lv_obj_t* subLbl = lv_label_create(textCont);
+        lv_label_set_text(subLbl, langSub);
         lv_obj_set_style_text_color(subLbl, DefaultTheme::getMutedTextColor(), 0);
         lv_obj_set_style_text_font(subLbl, &lv_font_montserrat_12, 0);
 

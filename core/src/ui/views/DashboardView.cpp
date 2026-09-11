@@ -23,37 +23,40 @@
 #include "../assets/SystemIcons.hpp"
 #include "cbdos/display.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/language.hpp"
 #include <cstring>
 
 namespace cbdos {
 namespace ui {
 
 DashboardView::DashboardView()
-    : BaseView("Dashboard") {
+    : BaseView(cbdos::lang::tr(cbdos::lang::StrId::STR_DASHBOARD)) {
 }
 
 bool DashboardView::onCreate(lv_obj_t* parent) {
     if (!parent) return false;
 
+    using cbdos::lang::tr;
+    using cbdos::lang::StrId;
     // Resetear lista de aplicaciones
     m_apps = {
-        {"browser", "Navegador", LV_SYMBOL_EYE_OPEN, 0x00B4D8, false, ""},
-        {"gallery", "Galeria", LV_SYMBOL_IMAGE, 0xEC4899, false, ""},
-        {"files", "Archivos", LV_SYMBOL_DIRECTORY, 0xF77F00, false, ""},
-        {"utilities", "Utilidades", LV_SYMBOL_LIST, 0x00F5D4, false, ""},
-        {"cartridge", "Cartuchos", LV_SYMBOL_PLAY, 0x3F68D9, false, ""},
-        {"lua", "Lua Runner", LV_SYMBOL_FILE, 0x06B6D4, false, ""},
-        {"editor", "Editor", LV_SYMBOL_EDIT, 0x3B82F6, false, ""},
-        {"radio", "Radio Online", LV_SYMBOL_WIFI, 0x10B981, false, ""},
-        {"flasher", "Flasheador", LV_SYMBOL_DOWNLOAD, 0xF59E0B, false, ""},
-        {"terminal", "Terminal", LV_SYMBOL_KEYBOARD, 0x10B981, false, ""},
-        {"hid", "HID Control", LV_SYMBOL_KEYBOARD, 0xFFD60A, false, ""},
-        {"meshcore", "MeshCore", LV_SYMBOL_WIFI, 0x00E5FF, false, ""},
-        {"recorder", "Grabadora", LV_SYMBOL_AUDIO, 0xEF4444, false, ""},
-        {"music", "Musica", LV_SYMBOL_AUDIO, 0x00E5FF, false, ""},
-        {"kerberos", "Kerberos FIDO", LV_SYMBOL_USB, 0x10B981, false, ""},
-        {"lottie", "Lottie Test", LV_SYMBOL_IMAGE, 0x06D6A0, false, ""},
-        {"config", "Configuracion", LV_SYMBOL_SETTINGS, 0x9D4EDD, false, ""}
+        {"browser", tr(StrId::STR_APP_BROWSER), LV_SYMBOL_EYE_OPEN, 0x00B4D8, false, ""},
+        {"gallery", tr(StrId::STR_APP_GALLERY), LV_SYMBOL_IMAGE, 0xEC4899, false, ""},
+        {"files", tr(StrId::STR_APP_FILES), LV_SYMBOL_DIRECTORY, 0xF77F00, false, ""},
+        {"utilities", tr(StrId::STR_APP_UTILITIES), LV_SYMBOL_LIST, 0x00F5D4, false, ""},
+        {"cartridge", tr(StrId::STR_APP_CARTRIDGE), LV_SYMBOL_PLAY, 0x3F68D9, false, ""},
+        {"lua", tr(StrId::STR_APP_LUA), LV_SYMBOL_FILE, 0x06B6D4, false, ""},
+        {"editor", tr(StrId::STR_APP_EDITOR), LV_SYMBOL_EDIT, 0x3B82F6, false, ""},
+        {"radio", tr(StrId::STR_APP_RADIO), LV_SYMBOL_WIFI, 0x10B981, false, ""},
+        {"flasher", tr(StrId::STR_APP_FLASHER), LV_SYMBOL_DOWNLOAD, 0xF59E0B, false, ""},
+        {"terminal", tr(StrId::STR_APP_TERMINAL), LV_SYMBOL_KEYBOARD, 0x10B981, false, ""},
+        {"hid", tr(StrId::STR_APP_HID), LV_SYMBOL_KEYBOARD, 0xFFD60A, false, ""},
+        {"meshcore", tr(StrId::STR_APP_MESHCORE), LV_SYMBOL_WIFI, 0x00E5FF, false, ""},
+        {"recorder", tr(StrId::STR_APP_RECORDER), LV_SYMBOL_AUDIO, 0xEF4444, false, ""},
+        {"music", tr(StrId::STR_APP_MUSIC), LV_SYMBOL_AUDIO, 0x00E5FF, false, ""},
+        {"kerberos", tr(StrId::STR_APP_KERBEROS), LV_SYMBOL_USB, 0x10B981, false, ""},
+        {"lottie", tr(StrId::STR_APP_LOTTIE), LV_SYMBOL_IMAGE, 0x06D6A0, false, ""},
+        {"config", tr(StrId::STR_APP_CONFIG), LV_SYMBOL_SETTINGS, 0x9D4EDD, false, ""}
     };
 
     // Escanear dinámicamente aplicaciones .luapp en la MicroSD

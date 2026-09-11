@@ -84,5 +84,29 @@ Fuera de Fase 1: `WiFiConfig` (Fase 2, flujo crítico), `Radio/MeshCore/Flasher/
 - `dropdown` con `\n`, placeholders y teclado virtual.
 - Crecimiento futuro: cada idioma extra ~+12 KB. CJK requeriría fuente custom + PSRAM — no contemplado.
 
+## 8. Decisión cerrada 11-SEP-2026: Fase 1 solo ES-EN en código, diccionario postergado
+- Fase 1 = traducción en código (`tr(StrId)`, tablas ES+EN compiladas en Flash). Sin SPEC completo, sin BBS-LoRa aún.
+- Motivo: SPEC 3B hoy vacío (solo fallback `[DictXX:YYYY]`) y BBS-LoRa pendiente. Completarlo ahora bloquea lo entregable.
+- Híbrido-preparado para no retrabajar:
+  1. `enum StrId` con valores fijos = futuros `param_id` de `E0` (ej. `STR_GUARDAR = 0x0013`). Nunca renumerar, solo añadir.
+  2. Tablas `lang_es[] / lang_en[]` con misma forma que tendrán los packs SD.
+  3. `LanguageManager::loadSdPack()` como hook vacío con fallback a Flash (se llena en Fase 2 sin tocar vistas).
+- Reserva TLV congelada desde ya: `E0` = UI (370 IDs Fase 1), `E1` = telemetría/contenido (reusa Core banco 0), `E2` = BBS-LoRa futuro, `E3-FF` libres.
+- Base compilada ES+EN + override SD opcional (offline-first: sin SD sigue 100% funcional). Flag futuro `CBDOS_LANG_EXTRA=de` para builds con idioma horneado.
+
+## 9. Simplificación UI (menos strings = menos i18n)
+Regla: 1 pista, no 2. El placeholder manda, la lista vacía no repite la instrucción.
+- Radio Explorar: `textarea "Buscar emisora o genero..."` se mantiene; botón `Buscar` → solo-lupa `LV_SYMBOL_SEARCH`; empty `Escribe un genero...` se elimina → `Sin resultados` genérico reutilizable + icono.
+- Paginación: solo `LV_SYMBOL_LEFT/RIGHT`, se mantiene `Pagina N` (estado, no ayuda).
+- Extender a `MusicPlayer` / `FileManager` en Fase 2: mismo `Sin resultados / Sin archivos` genérico (1 ID TLV compartido en vez de N custom).
+- Toast solo para error, no tutorial. Con campo vacío el botón no hace nada.
+- Ahorro Explorar: ~10 strings → ~3 (2 genéricos compartidos).
+
+## 10. Packs de idioma comunitarios (Fase 2+, no Fase 1) + uso LoRa/BBS
+- UI guarda IDs, no texto. Pack = archivo `/sdcard/lang/de.tlv` (`id → texto`, versionado con hash). Si falta ID o archivo, fallback a ES/EN.
+- Flujo: alguien crea `de`, lo suelta en SD o lo recibe por mesh/gateway, reboot y listo. Sin recompilar P4/S3.
+- LoRa/BBS: mismo ID se transmite como 3B (`E2:0x00A1`) y cada nodo renderiza en su idioma local. Frase 24B → 3B = 8x en payload ~200B LoRa. VIP 1B + Core 2B siguen comprimiendo texto libre no diccionarizado; lo desconocido va en crudo `0x00-0x7F` sin romperse.
+- Crudo 1B ya es TLV (`TLV_DICT_RAW_MAX 0x7F`): el primer byte define el largo (1B/2B/3B), sin separadores ni cambios bruscos.
+
 ---
-**Siguiente decisión pendiente:** incluir o no `WiFiConfig` ya en Fase 1 (sube utilidad, sube riesgo en flujo crítico).
+**Decisión cerrada:** Fase 1 = ES-EN compilado + IDs congelados compatibles E0. `WiFiConfig` queda en Fase 2.

@@ -13,6 +13,7 @@
 #include "cbdos/mesh/mesh_engine.hpp"
 #include "LVGL_Port.h"
 #include "cbdos/config_manager.hpp"
+#include "cbdos/language.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos/tts.hpp"
 #include "PicoTTSService.hpp"
@@ -105,6 +106,7 @@ extern "C" void app_main(void) {
     // Cargar configuraciones del sistema desde NVS
     SystemConfig sysCfg;
     ConfigManager::getInstance().loadSystem(sysCfg);
+    cbdos::lang::initLanguage();  // Fase 1 i18n: aplica NVS cbdos_sys/lang antes de la UI
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "Preferencias NVS: Brillo=%d%%, Vol=%d%%, Auto-WiFi=%s, TZ Offset=%ld", 
                        sysCfg.brightness, sysCfg.volume, sysCfg.autoConnectWifi ? "SI" : "NO", (long)sysCfg.gmtOffsetSeconds);
 

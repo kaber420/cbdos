@@ -69,6 +69,8 @@ bool ConfigManager::loadSystem(SystemConfig& cfg) {
         cfg.daylightOffsetSeconds = backend->getInt("dst_off", 0);
         cfg.screenTimeoutSeconds = backend->getUInt("scr_tout", 60);
         cfg.defaultTheme = backend->getString("theme", "dark");
+        cfg.language = backend->getString("lang", "es");
+        if (cfg.language != "en") cfg.language = "es";
         backend->end();
         s_cachedSys = cfg;
         return true;
@@ -88,6 +90,8 @@ bool ConfigManager::saveSystem(const SystemConfig& cfg) {
         backend->setInt("dst_off", cfg.daylightOffsetSeconds);
         backend->setUInt("scr_tout", cfg.screenTimeoutSeconds);
         backend->setString("theme", cfg.defaultTheme);
+        std::string lang = (cfg.language == "en") ? "en" : "es";
+        backend->setString("lang", lang);
         backend->end();
         return true;
     }
@@ -165,6 +169,22 @@ void ConfigManager::setIdleTimeoutSec(uint32_t seconds) {
     auto* backend = cbdos::persistence::getBackend();
     if (backend && backend->begin("cbdos_sys", false)) {
         backend->setUInt("scr_tout", seconds);
+        backend->end();
+    }
+}
+
+std::string ConfigManager::getLanguage() {
+    SystemConfig cfg;
+    loadSystem(cfg);
+    return cfg.language;
+}
+
+void ConfigManager::setLanguage(const std::string& lang) {
+    std::string code = (lang == "en") ? "en" : "es";
+    s_cachedSys.language = code;
+    auto* backend = cbdos::persistence::getBackend();
+    if (backend && backend->begin("cbdos_sys", false)) {
+        backend->setString("lang", code);
         backend->end();
     }
 }

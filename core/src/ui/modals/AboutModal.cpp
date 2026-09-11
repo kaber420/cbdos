@@ -3,6 +3,7 @@
 #include "../themes/DefaultTheme.h"
 #include "cbdos/display.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/language.hpp"
 #include <cstdio>
 
 namespace cbdos {
@@ -68,12 +69,12 @@ void AboutModal::show(lv_obj_t* parent) {
 
     // 2. Título y Versión
     lv_obj_t* title = lv_label_create(card);
-    lv_label_set_text(title, "CyBerDeck OS");
+    lv_label_set_text(title, cbdos::lang::tr(cbdos::lang::StrId::STR_ABOUT_TITLE));
     lv_obj_set_style_text_color(title, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
 
     lv_obj_t* verLbl = lv_label_create(card);
-    lv_label_set_text(verLbl, "Version 0.2.3-dev (Universal Core)");
+    lv_label_set_text(verLbl, cbdos::lang::tr(cbdos::lang::StrId::STR_ABOUT_VERSION));
     lv_obj_set_style_text_color(verLbl, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_set_style_text_font(verLbl, &lv_font_montserrat_14, 0);
     lv_obj_set_style_margin_bottom(verLbl, 6, 0);
@@ -107,16 +108,18 @@ void AboutModal::show(lv_obj_t* parent) {
     };
 
     // 3. Cajas de Información
-    addInfoBox(card, "Autor / Mantenedor", "kaber420");
-    addInfoBox(card, "Repositorio Oficial", "https://github.com/kaber420/cbdos", "url");
-    addInfoBox(card, "Sitio Web", "https://kaber420.github.io/cbdos/", "url");
-    addInfoBox(card, "Licencia de Software", "GNU General Public License v3.0 (GPLv3)");
-    addInfoBox(card, "Enlace de la Licencia", "https://www.gnu.org/licenses/gpl-3.0.html", "url");
+    using cbdos::lang::tr;
+    using cbdos::lang::StrId;
+    addInfoBox(card, tr(StrId::STR_ABOUT_AUTHOR), "kaber420");
+    addInfoBox(card, tr(StrId::STR_ABOUT_REPO), "https://github.com/kaber420/cbdos", "url");
+    addInfoBox(card, tr(StrId::STR_ABOUT_WEBSITE), "https://kaber420.github.io/cbdos/", "url");
+    addInfoBox(card, tr(StrId::STR_ABOUT_LICENSE), "GNU General Public License v3.0 (GPLv3)");
+    addInfoBox(card, tr(StrId::STR_ABOUT_LICENSE_LINK), "https://www.gnu.org/licenses/gpl-3.0.html", "url");
 
     if (caps.width >= 480) {
-        addInfoBox(card, "Hardware Target", "ESP32-P4 RISC-V Dual-Core @ 400MHz\n480x800 MIPI-DPI | 32MB Hexal-PSRAM");
+        addInfoBox(card, tr(StrId::STR_ABOUT_HW), "ESP32-P4 RISC-V Dual-Core @ 400MHz\n480x800 MIPI-DPI | 32MB Hexal-PSRAM");
     } else {
-        addInfoBox(card, "Hardware Target", "ESP32-S3 Xtensa Dual-Core @ 240MHz\n320x480 QSPI | 8MB Octal-PSRAM");
+        addInfoBox(card, tr(StrId::STR_ABOUT_HW), "ESP32-S3 Xtensa Dual-Core @ 240MHz\n320x480 QSPI | 8MB Octal-PSRAM");
     }
 
     // Botón Cerrar
@@ -127,7 +130,7 @@ void AboutModal::show(lv_obj_t* parent) {
     lv_obj_set_style_margin_top(btnClose, 4, 0);
 
     lv_obj_t* lblC = lv_label_create(btnClose);
-    lv_label_set_text(lblC, "Cerrar");
+    lv_label_set_text(lblC, tr(StrId::STR_ABOUT_CLOSE));
     lv_obj_set_style_text_color(lblC, lv_color_hex(0x0F172A), 0);
     lv_obj_center(lblC);
 

@@ -87,6 +87,7 @@ idf_component_register(
         "src/system/gpio.cpp"
         "src/system/serial.cpp"
         "src/system/ConfigManager.cpp"
+        "src/system/language.cpp"
         "src/system/PowerManager.cpp"
         "src/system/usb_manager.cpp"
         "src/network/http_client.cpp"
