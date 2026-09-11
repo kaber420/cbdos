@@ -301,13 +301,13 @@ void GalleryListView::renderMedia() {
     lv_obj_set_flex_flow(navRow, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(navRow, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    // Botón Anterior
+    // Botón Anterior (solo-icono: el indicador N/Total ya da el contexto)
     m_prevBtn = lv_button_create(navRow);
-    lv_obj_set_size(m_prevBtn, 85, 38);
+    lv_obj_set_size(m_prevBtn, 38, 38);
     DefaultTheme::applyButton(m_prevBtn, 12);
     lv_obj_add_event_cb(m_prevBtn, prevBtnCb, LV_EVENT_CLICKED, this);
     lv_obj_t* prevLbl = lv_label_create(m_prevBtn);
-    lv_label_set_text(prevLbl, LV_SYMBOL_LEFT "  Ant.");
+    lv_label_set_text(prevLbl, LV_SYMBOL_LEFT);
     lv_obj_set_style_text_color(prevLbl, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_set_style_text_font(prevLbl, &lv_font_montserrat_12, 0);
     lv_obj_center(prevLbl);
@@ -318,13 +318,13 @@ void GalleryListView::renderMedia() {
     lv_obj_set_style_text_color(m_pageIndicatorLbl, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(m_pageIndicatorLbl, &lv_font_montserrat_12, 0);
 
-    // Botón Siguiente
+    // Botón Siguiente (solo-icono)
     m_nextBtn = lv_button_create(navRow);
-    lv_obj_set_size(m_nextBtn, 85, 38);
+    lv_obj_set_size(m_nextBtn, 38, 38);
     DefaultTheme::applyButton(m_nextBtn, 12);
     lv_obj_add_event_cb(m_nextBtn, nextBtnCb, LV_EVENT_CLICKED, this);
     lv_obj_t* nextLbl = lv_label_create(m_nextBtn);
-    lv_label_set_text(nextLbl, "Sig.  " LV_SYMBOL_RIGHT);
+    lv_label_set_text(nextLbl, LV_SYMBOL_RIGHT);
     lv_obj_set_style_text_color(nextLbl, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_set_style_text_font(nextLbl, &lv_font_montserrat_12, 0);
     lv_obj_center(nextLbl);

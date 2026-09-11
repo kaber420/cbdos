@@ -2,13 +2,18 @@
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/storage.hpp"
+#include "cbdos/language.hpp"
 #include <cstdio>
+#include <string>
 
 namespace cbdos {
 namespace ui {
 
+using cbdos::lang::tr;
+using cbdos::lang::StrId;
+
 StorageConfigView::StorageConfigView()
-    : BaseView("Almacenamiento") {
+    : BaseView(tr(StrId::STR_CFG_STORAGE)) {
 }
 
 void StorageConfigView::mount_btn_cb(lv_event_t* e) {
@@ -16,9 +21,9 @@ void StorageConfigView::mount_btn_cb(lv_event_t* e) {
     if (code == LV_EVENT_CLICKED) {
         StorageConfigView* self = (StorageConfigView*)lv_event_get_user_data(e);
         if (cbdos::storage::mountSd()) {
-            UIManager::showToast("MicroSD detectada y montada");
+            UIManager::showToast(tr(StrId::STR_ST_MOUNTED_OK));
         } else {
-            UIManager::showToast("No se detecto tarjeta MicroSD");
+            UIManager::showToast(tr(StrId::STR_ST_NO_SD));
         }
         if (self) {
             self->onUpdate();
@@ -31,9 +36,9 @@ void StorageConfigView::unmount_btn_cb(lv_event_t* e) {
     if (code == LV_EVENT_CLICKED) {
         StorageConfigView* self = (StorageConfigView*)lv_event_get_user_data(e);
         if (cbdos::storage::unmountSd()) {
-            UIManager::showToast("MicroSD desmontada con seguridad");
+            UIManager::showToast(tr(StrId::STR_ST_UNMOUNT_OK));
         } else {
-            UIManager::showToast("Error al desmontar MicroSD");
+            UIManager::showToast(tr(StrId::STR_ST_UNMOUNT_ERR));
         }
         if (self) {
             self->onUpdate();
@@ -53,23 +58,23 @@ void StorageConfigView::format_btn_cb(lv_event_t* e) {
 
 void StorageConfigView::showFormatConfirmDialog() {
     lv_obj_t* mbox = lv_msgbox_create(lv_screen_active());
-    lv_msgbox_add_title(mbox, "Formatear MicroSD");
-    lv_msgbox_add_text(mbox, "¿Deseas formatear la MicroSD a FAT32?\n\n¡ADVERTENCIA! Se eliminaran todos los archivos.");
+    lv_msgbox_add_title(mbox, tr(StrId::STR_ST_FMT_TITLE));
+    lv_msgbox_add_text(mbox, tr(StrId::STR_ST_FMT_TEXT));
 
-    lv_obj_t* btnConfirm = lv_msgbox_add_footer_button(mbox, "Formatear");
+    lv_obj_t* btnConfirm = lv_msgbox_add_footer_button(mbox, tr(StrId::STR_ST_FMT_BTN));
     lv_obj_set_style_bg_color(btnConfirm, lv_color_hex(0xEF4444), 0);
     lv_obj_add_event_cb(btnConfirm, [](lv_event_t* e) {
         lv_obj_t* mb = (lv_obj_t*)lv_event_get_user_data(e);
         if (mb) lv_msgbox_close(mb);
-        UIManager::showToast("Formateando a FAT32...");
+        UIManager::showToast(tr(StrId::STR_ST_FORMATTING));
         if (cbdos::storage::formatSd()) {
-            UIManager::showToast("MicroSD formateada y montada OK!");
+            UIManager::showToast(tr(StrId::STR_ST_FMT_OK));
         } else {
-            UIManager::showToast("Error al formatear MicroSD");
+            UIManager::showToast(tr(StrId::STR_ST_FMT_ERR));
         }
     }, LV_EVENT_CLICKED, mbox);
 
-    lv_obj_t* btnCancel = lv_msgbox_add_footer_button(mbox, "Cancelar");
+    lv_obj_t* btnCancel = lv_msgbox_add_footer_button(mbox, tr(StrId::STR_ST_CANCEL));
     lv_obj_add_event_cb(btnCancel, [](lv_event_t* e) {
         lv_obj_t* mb = (lv_obj_t*)lv_event_get_user_data(e);
         if (mb) lv_msgbox_close(mb);
@@ -122,12 +127,12 @@ void StorageConfigView::renderStorageUI() {
     lv_obj_set_style_pad_all(flashHeader, 0, 0);
 
     lv_obj_t* flashTitle = lv_label_create(flashHeader);
-    lv_label_set_text(flashTitle, LV_SYMBOL_DRIVE " Flash Interna (NOR)");
+    lv_label_set_text(flashTitle, (std::string(LV_SYMBOL_DRIVE " ") + tr(StrId::STR_ST_FLASH_TITLE)).c_str());
     lv_obj_set_style_text_color(flashTitle, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(flashTitle, &lv_font_montserrat_14, 0);
 
     lv_obj_t* flashBadge = lv_label_create(flashHeader);
-    lv_label_set_text(flashBadge, "SISTEMA");
+    lv_label_set_text(flashBadge, tr(StrId::STR_ST_SYSTEM));
     lv_obj_set_style_text_color(flashBadge, lv_color_hex(0x00FFCC), 0);
     lv_obj_set_style_text_font(flashBadge, &lv_font_montserrat_12, 0);
 
@@ -141,7 +146,7 @@ void StorageConfigView::renderStorageUI() {
 
     // Detalles Flash
     char flashBuf[96];
-    snprintf(flashBuf, sizeof(flashBuf), "Usado: %.1f MB / Total: %.1f MB (%.0f%%)",
+    snprintf(flashBuf, sizeof(flashBuf), tr(StrId::STR_ST_USED_FMT),
              (float)flashStats.usedBytes / (1024.0f * 1024.0f),
              (float)flashStats.totalBytes / (1024.0f * 1024.0f),
              (float)flashPct);
@@ -170,16 +175,16 @@ void StorageConfigView::renderStorageUI() {
     lv_obj_set_style_pad_all(sdHeader, 0, 0);
 
     lv_obj_t* sdTitle = lv_label_create(sdHeader);
-    lv_label_set_text(sdTitle, LV_SYMBOL_SD_CARD " Tarjeta MicroSD");
+    lv_label_set_text(sdTitle, (std::string(LV_SYMBOL_SD_CARD " ") + tr(StrId::STR_ST_SD_TITLE)).c_str());
     lv_obj_set_style_text_color(sdTitle, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(sdTitle, &lv_font_montserrat_14, 0);
 
     m_sdCardStatusLabel = lv_label_create(sdHeader);
     if (sdStats.isMounted) {
-        lv_label_set_text(m_sdCardStatusLabel, "MONTADA");
+        lv_label_set_text(m_sdCardStatusLabel, tr(StrId::STR_ST_MOUNTED));
         lv_obj_set_style_text_color(m_sdCardStatusLabel, lv_color_hex(0x00FF88), 0);
     } else {
-        lv_label_set_text(m_sdCardStatusLabel, "NO DETECTADA");
+        lv_label_set_text(m_sdCardStatusLabel, tr(StrId::STR_ST_NOTFOUND));
         lv_obj_set_style_text_color(m_sdCardStatusLabel, lv_color_hex(0xFF5555), 0);
     }
     lv_obj_set_style_text_font(m_sdCardStatusLabel, &lv_font_montserrat_12, 0);
@@ -198,9 +203,9 @@ void StorageConfigView::renderStorageUI() {
         float totalGB = (float)sdStats.totalBytes / (1024.0f * 1024.0f * 1024.0f);
         float freeGB = (float)sdStats.freeBytes / (1024.0f * 1024.0f * 1024.0f);
         if (totalGB >= 1.0f) {
-            snprintf(sdBuf, sizeof(sdBuf), "Libre: %.2f GB / Total: %.2f GB (FAT32/exFAT)", freeGB, totalGB);
+            snprintf(sdBuf, sizeof(sdBuf), tr(StrId::STR_ST_FREE_GB), freeGB, totalGB);
         } else {
-            snprintf(sdBuf, sizeof(sdBuf), "Libre: %.1f MB / Total: %.1f MB (FAT32)", 
+            snprintf(sdBuf, sizeof(sdBuf), tr(StrId::STR_ST_FREE_MB),
                      (float)sdStats.freeBytes / (1024.0f * 1024.0f),
                      (float)sdStats.totalBytes / (1024.0f * 1024.0f));
         }
@@ -210,7 +215,7 @@ void StorageConfigView::renderStorageUI() {
         lv_obj_set_style_text_font(m_sdCardCapacityLabel, &lv_font_montserrat_12, 0);
     } else {
         m_sdCardCapacityLabel = lv_label_create(sdCard);
-        lv_label_set_text(m_sdCardCapacityLabel, "Inserta una tarjeta MicroSD formateada en FAT32.");
+        lv_label_set_text(m_sdCardCapacityLabel, tr(StrId::STR_ST_INSERT));
         lv_obj_set_style_text_color(m_sdCardCapacityLabel, DefaultTheme::getMutedTextColor(), 0);
         lv_obj_set_style_text_font(m_sdCardCapacityLabel, &lv_font_montserrat_12, 0);
     }
@@ -234,7 +239,7 @@ void StorageConfigView::renderStorageUI() {
     lv_obj_add_event_cb(mountBtn, mount_btn_cb, LV_EVENT_CLICKED, this);
 
     lv_obj_t* mountLbl = lv_label_create(mountBtn);
-    lv_label_set_text(mountLbl, LV_SYMBOL_REFRESH " Recargar");
+    lv_label_set_text(mountLbl, (std::string(LV_SYMBOL_REFRESH " ") + tr(StrId::STR_ST_RELOAD)).c_str());
     lv_obj_center(mountLbl);
     lv_obj_set_style_text_color(mountLbl, lv_color_hex(0xFFFFFF), 0);
 
@@ -247,7 +252,7 @@ void StorageConfigView::renderStorageUI() {
     lv_obj_add_event_cb(unmountBtn, unmount_btn_cb, LV_EVENT_CLICKED, this);
 
     lv_obj_t* unmountLbl = lv_label_create(unmountBtn);
-    lv_label_set_text(unmountLbl, LV_SYMBOL_EJECT " Expulsar");
+    lv_label_set_text(unmountLbl, (std::string(LV_SYMBOL_EJECT " ") + tr(StrId::STR_ST_EJECT)).c_str());
     lv_obj_center(unmountLbl);
     lv_obj_set_style_text_color(unmountLbl, lv_color_hex(0xCCCCCC), 0);
 
@@ -260,7 +265,7 @@ void StorageConfigView::renderStorageUI() {
     lv_obj_add_event_cb(formatBtn, format_btn_cb, LV_EVENT_CLICKED, this);
 
     lv_obj_t* formatLbl = lv_label_create(formatBtn);
-    lv_label_set_text(formatLbl, LV_SYMBOL_TRASH " Formato");
+    lv_label_set_text(formatLbl, (std::string(LV_SYMBOL_TRASH " ") + tr(StrId::STR_ST_FORMAT)).c_str());
     lv_obj_center(formatLbl);
     lv_obj_set_style_text_color(formatLbl, lv_color_hex(0xFCA5A5), 0);
 
@@ -283,17 +288,17 @@ void StorageConfigView::renderStorageUI() {
     lv_obj_set_style_pad_all(usbHeader, 0, 0);
 
     lv_obj_t* usbTitle = lv_label_create(usbHeader);
-    lv_label_set_text(usbTitle, LV_SYMBOL_USB " Almacenamiento USB (HS)");
+    lv_label_set_text(usbTitle, (std::string(LV_SYMBOL_USB " ") + tr(StrId::STR_ST_USB_TITLE)).c_str());
     lv_obj_set_style_text_color(usbTitle, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(usbTitle, &lv_font_montserrat_14, 0);
 
     lv_obj_t* usbBadge = lv_label_create(usbHeader);
-    lv_label_set_text(usbBadge, "EN ESPERA");
+    lv_label_set_text(usbBadge, tr(StrId::STR_ST_STANDBY));
     lv_obj_set_style_text_color(usbBadge, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(usbBadge, &lv_font_montserrat_12, 0);
 
     lv_obj_t* usbSub = lv_label_create(usbCard);
-    lv_label_set_text(usbSub, "Puerto USB OTG listo para unidades Mass Storage (MSC).");
+    lv_label_set_text(usbSub, tr(StrId::STR_ST_USB_SUB));
     lv_obj_set_style_text_color(usbSub, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(usbSub, &lv_font_montserrat_12, 0);
 }

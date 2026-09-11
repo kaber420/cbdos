@@ -3,6 +3,7 @@
 #include "../themes/DefaultTheme.h"
 #include "cbdos/network.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/language.hpp"
 #include <cstdio>
 
 static const char* TAG_WIFI_UI = "WiFiConfigView";
@@ -26,7 +27,7 @@ lv_obj_t* WiFiConfigView::swStatic = nullptr;
 lv_obj_t* WiFiConfigView::staticContainer = nullptr;
 
 WiFiConfigView::WiFiConfigView()
-    : BaseView("WiFi") {
+    : BaseView(cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_TITLE)) {
 }
 
 void WiFiConfigView::enable_wifi_event_cb(lv_event_t* e) {
@@ -36,13 +37,13 @@ void WiFiConfigView::enable_wifi_event_cb(lv_event_t* e) {
     if (isEnabled) {
         if (wifiSettingsBox) lv_obj_remove_flag(wifiSettingsBox, LV_OBJ_FLAG_HIDDEN);
         if (lblWifiStatusText) {
-            lv_label_set_text(lblWifiStatusText, "Estado: Wi-Fi Habilitado");
+            lv_label_set_text(lblWifiStatusText, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_ENABLED));
             lv_obj_set_style_text_color(lblWifiStatusText, lv_color_hex(0x10B981), 0);
         }
     } else {
         if (wifiSettingsBox) lv_obj_add_flag(wifiSettingsBox, LV_OBJ_FLAG_HIDDEN);
         if (lblWifiStatusText) {
-            lv_label_set_text(lblWifiStatusText, "Estado: Desactivado (Modo Seguro Offline)");
+            lv_label_set_text(lblWifiStatusText, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_DISABLED));
             lv_obj_set_style_text_color(lblWifiStatusText, lv_color_hex(0x9CA3AF), 0);
         }
         cbdos::network::disconnectWifi();
@@ -95,11 +96,11 @@ void WiFiConfigView::save_event_cb(lv_event_t* e) {
         } else {
             cbdos::system::log(cbdos::system::LogLevel::Warn, TAG_WIFI_UI, "SSID vacio, no se intentara conexion");
         }
-        UIManager::showToast("WiFi guardado correctamente");
+        UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_SAVED));
         UIManager::getInstance().popView();
     } else {
         cbdos::system::log(cbdos::system::LogLevel::Error, TAG_WIFI_UI, "Error al guardar en ConfigManager");
-        UIManager::showToast("Error al guardar WiFi");
+        UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_SAVE_ERR));
     }
 }
 
@@ -127,7 +128,7 @@ bool WiFiConfigView::onCreate(lv_obj_t* parent) {
     DefaultTheme::disableScroll(masterRow);
 
     lv_obj_t* lblMaster = lv_label_create(masterRow);
-    lv_label_set_text(lblMaster, "Activar Wi-Fi (Coprocesador)");
+    lv_label_set_text(lblMaster, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_ENABLE));
     lv_obj_set_style_text_color(lblMaster, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(lblMaster, &lv_font_montserrat_14, 0);
 
@@ -135,7 +136,7 @@ bool WiFiConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_add_event_cb(swEnableWifi, enable_wifi_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
     lblWifiStatusText = lv_label_create(m_container);
-    lv_label_set_text(lblWifiStatusText, "Estado: Desactivado (Modo Seguro Offline)");
+    lv_label_set_text(lblWifiStatusText, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_DISABLED));
     lv_obj_set_style_text_color(lblWifiStatusText, lv_color_hex(0x9CA3AF), 0);
     lv_obj_set_style_text_font(lblWifiStatusText, &lv_font_montserrat_12, 0);
     lv_obj_set_style_margin_left(lblWifiStatusText, 4, 0);
@@ -156,13 +157,13 @@ bool WiFiConfigView::onCreate(lv_obj_t* parent) {
     if (isWifiActive) {
         lv_obj_add_state(swEnableWifi, LV_STATE_CHECKED);
         lv_obj_remove_flag(wifiSettingsBox, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text(lblWifiStatusText, "Estado: Wi-Fi Habilitado");
+        lv_label_set_text(lblWifiStatusText, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_ENABLED));
         lv_obj_set_style_text_color(lblWifiStatusText, lv_color_hex(0x10B981), 0);
     }
 
     // SSID
     lv_obj_t* lblSsid = lv_label_create(wifiSettingsBox);
-    lv_label_set_text(lblSsid, "SSID (Nombre de Red):");
+    lv_label_set_text(lblSsid, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_SSID));
     lv_obj_set_style_text_color(lblSsid, DefaultTheme::getTextColor(), 0);
 
     taSsid = lv_textarea_create(wifiSettingsBox);
@@ -217,7 +218,7 @@ bool WiFiConfigView::onCreate(lv_obj_t* parent) {
     DefaultTheme::disableScroll(rowSwitch);
 
     lv_obj_t* lblSw = lv_label_create(rowSwitch);
-    lv_label_set_text(lblSw, "Usar IP Estatica");
+    lv_label_set_text(lblSw, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_STATIC));
     lv_obj_set_style_text_color(lblSw, DefaultTheme::getTextColor(), 0);
 
     swStatic = lv_switch_create(rowSwitch);
@@ -241,7 +242,7 @@ bool WiFiConfigView::onCreate(lv_obj_t* parent) {
     }
 
     lv_obj_t* lblIp = lv_label_create(staticContainer);
-    lv_label_set_text(lblIp, "Direccion IP:");
+    lv_label_set_text(lblIp, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_IP));
     lv_obj_set_style_text_color(lblIp, DefaultTheme::getTextColor(), 0);
 
     taIp = lv_textarea_create(staticContainer);
@@ -271,7 +272,7 @@ bool WiFiConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_add_event_cb(btnSave, save_event_cb, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t* lblBtn = lv_label_create(btnSave);
-    lv_label_set_text(lblBtn, "Guardar y Conectar");
+    lv_label_set_text(lblBtn, cbdos::lang::tr(cbdos::lang::StrId::STR_WIFI_SAVE));
     lv_obj_set_style_text_color(lblBtn, lv_color_hex(0x0F172A), 0);
     lv_obj_set_style_text_font(lblBtn, &lv_font_montserrat_16, 0);
     lv_obj_center(lblBtn);

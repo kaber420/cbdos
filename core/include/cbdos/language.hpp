@@ -92,7 +92,47 @@ enum class StrId : uint16_t {
     STR_LANG_SPANISH = 0x0040,  // "Espanol" (igual en ambos; sin ñ por montserrat)
     STR_LANG_ENGLISH = 0x0041,  // "English" (igual en ambos)
 
-    STR_COUNT = 0x0042,
+    // WiFiConfig
+    STR_WIFI_TITLE = 0x0042,
+    STR_WIFI_ENABLE = 0x0043,
+    STR_WIFI_ENABLED = 0x0044,
+    STR_WIFI_DISABLED = 0x0045,
+    STR_WIFI_SSID = 0x0046,
+    STR_WIFI_STATIC = 0x0047,
+    STR_WIFI_IP = 0x0048,
+    STR_WIFI_SAVE = 0x0049,
+    STR_WIFI_SAVED = 0x004A,
+    STR_WIFI_SAVE_ERR = 0x004B,
+
+    // StorageConfig
+    STR_ST_FLASH_TITLE = 0x004C,  // sufijo tras LV_SYMBOL_DRIVE
+    STR_ST_SYSTEM = 0x004D,
+    STR_ST_USED_FMT = 0x004E,     // formato con %.1f/%.0f
+    STR_ST_SD_TITLE = 0x004F,     // sufijo tras LV_SYMBOL_SD_CARD
+    STR_ST_MOUNTED = 0x0050,
+    STR_ST_NOTFOUND = 0x0051,
+    STR_ST_FREE_GB = 0x0052,      // formato
+    STR_ST_FREE_MB = 0x0053,      // formato
+    STR_ST_INSERT = 0x0054,
+    STR_ST_RELOAD = 0x0055,       // palabra tras LV_SYMBOL_REFRESH
+    STR_ST_EJECT = 0x0056,        // palabra tras LV_SYMBOL_EJECT
+    STR_ST_FORMAT = 0x0057,       // palabra tras LV_SYMBOL_TRASH
+    STR_ST_USB_TITLE = 0x0058,    // sufijo tras LV_SYMBOL_USB
+    STR_ST_STANDBY = 0x0059,
+    STR_ST_USB_SUB = 0x005A,
+    STR_ST_MOUNTED_OK = 0x005B,
+    STR_ST_NO_SD = 0x005C,
+    STR_ST_UNMOUNT_OK = 0x005D,
+    STR_ST_UNMOUNT_ERR = 0x005E,
+    STR_ST_FMT_TITLE = 0x005F,
+    STR_ST_FMT_TEXT = 0x0060,
+    STR_ST_FMT_BTN = 0x0061,
+    STR_ST_CANCEL = 0x0062,
+    STR_ST_FORMATTING = 0x0063,
+    STR_ST_FMT_OK = 0x0064,
+    STR_ST_FMT_ERR = 0x0065,
+
+    STR_COUNT = 0x0066,
 };
 
 // Texto en idioma actual. Fallback a ES si falta clave. Nunca nullptr.
