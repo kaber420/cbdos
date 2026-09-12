@@ -132,7 +132,36 @@ enum class StrId : uint16_t {
     STR_ST_FMT_OK = 0x0064,
     STR_ST_FMT_ERR = 0x0065,
 
-    STR_COUNT = 0x0066,
+    // NetworkManager (radio slots + Wi-Fi STA + LoRa backpack + USB modem)
+    STR_NET_SLOT0 = 0x0066,       // sufijo tras LV_SYMBOL_WIFI
+    STR_NET_MODE = 0x0067,
+    STR_NET_MODES = 0x0068,       // opciones dropdown separadas por \n
+    STR_NET_CH = 0x0069,          // formato "Canal RF: %u"
+    STR_NET_TX = 0x006A,          // formato "Potencia TX: +%d dBm"
+    STR_NET_SWEEP = 0x006B,       // palabra tras LV_SYMBOL_REFRESH
+    STR_NET_SWEEP_IDLE = 0x006C,
+    STR_NET_SCAN = 0x006D,        // palabra tras LV_SYMBOL_WIFI
+    STR_NET_SCAN_IDLE = 0x006E,
+    STR_NET_RADIO_ON = 0x006F,
+    STR_NET_RADIO_OFF = 0x0070,
+    STR_NET_MODE_SAVED = 0x0071,
+    STR_NET_SCANNING = 0x0072,    // texto tras emoji
+    STR_NET_NO_APS = 0x0073,
+    STR_NET_CONNECT_TO = 0x0074,  // formato "Conectar a %s"
+    STR_NET_PASS_PH = 0x0075,     // placeholder (sin ñ por montserrat)
+    STR_NET_CONNECT = 0x0076,
+    STR_NET_CONNECTING = 0x0077,
+    STR_NET_SWEEPING = 0x0078,    // texto tras emoji
+    STR_NET_SWEEP_DONE = 0x0079,  // formato
+    STR_NET_SLOT1 = 0x007A,       // sufijo tras LV_SYMBOL_DRIVE
+    STR_NET_BP_OFF = 0x007B,      // texto tras emoji
+    STR_NET_BP_ON = 0x007C,       // texto tras emoji
+    STR_NET_SLOT2 = 0x007D,       // sufijo tras LV_SYMBOL_USB (sin acento)
+    STR_NET_USB_INFO = 0x007E,    // formato con emojis
+    STR_NET_USB_MODEM = 0x007F,   // alias por defecto (sin acento)
+    STR_NET_USB_OFF = 0x0080,     // texto tras emoji
+
+    STR_COUNT = 0x0081,
 };
 
 // Texto en idioma actual. Fallback a ES si falta clave. Nunca nullptr.

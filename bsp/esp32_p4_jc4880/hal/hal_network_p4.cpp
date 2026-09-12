@@ -67,6 +67,9 @@ public:
         esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, this, &instance_any_id);
         esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, this, &instance_got_ip);
 
+        // El scan del gestor pudo arrancar el wifi antes de existir el netif;
+        // parar y rearrancar deja el orden canonico: netif -> start -> connect.
+        esp_wifi_stop();
         esp_wifi_set_mode(WIFI_MODE_STA);
         esp_wifi_start();
 

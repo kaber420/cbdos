@@ -3,12 +3,17 @@
 #include "../themes/DefaultTheme.h"
 #include "cbdos/network.hpp"
 #include "cbdos/time.hpp"
+#include "cbdos/language.hpp"
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <algorithm>
 
 namespace cbdos {
 namespace ui {
+
+using cbdos::lang::tr;
+using cbdos::lang::StrId;
 
 NetworkManagerView* NetworkManagerView::s_instance = nullptr;
 cbdos::radio::RadioConfig NetworkManagerView::s_radioCfg;
@@ -17,7 +22,7 @@ static std::vector<cbdos::radio::WifiApInfo> s_scannedAps;
 static std::vector<cbdos::radio::DiscoveredNode> s_sweepNodes;
 
 NetworkManagerView::NetworkManagerView()
-    : BaseView("Redes e Interfaces") {
+    : BaseView(tr(StrId::STR_CFG_NET)) {
     s_instance = this;
     ConfigManager::getInstance().loadRadio(s_radioCfg);
     ConfigManager::getInstance().loadWiFi(s_wifiCfg);
@@ -76,7 +81,7 @@ void NetworkManagerView::buildSlot0Radio(lv_obj_t* parent) {
     lv_obj_set_flex_align(headerRow, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t* lblTitle = lv_label_create(headerRow);
-    lv_label_set_text(lblTitle, LV_SYMBOL_WIFI " Slot 0: Radio Integrada (2.4 GHz)");
+    lv_label_set_text(lblTitle, (std::string(LV_SYMBOL_WIFI " ") + tr(StrId::STR_NET_SLOT0)).c_str());
     lv_obj_set_style_text_color(lblTitle, lv_color_white(), 0);
     lv_obj_set_style_text_font(lblTitle, &lv_font_montserrat_14, 0);
 
@@ -96,12 +101,12 @@ void NetworkManagerView::buildSlot0Radio(lv_obj_t* parent) {
     lv_obj_set_flex_align(rowMode, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t* lblMode = lv_label_create(rowMode);
-    lv_label_set_text(lblMode, "Modo Operativo:");
+    lv_label_set_text(lblMode, tr(StrId::STR_NET_MODE));
     lv_obj_set_style_text_color(lblMode, lv_color_hex(0x94A3B8), 0);
 
     m_ddMode = lv_dropdown_create(rowMode);
     lv_obj_set_size(m_ddMode, 160, 36);
-    lv_dropdown_set_options(m_ddMode, "ESP-NOW Normal\nESP-NOW LR\nWi-Fi Internet (STA)\nWi-Fi SoftAP\nApagada (OFF)");
+    lv_dropdown_set_options(m_ddMode, tr(StrId::STR_NET_MODES));
     
     if (s_radioCfg.mode == cbdos::radio::RadioMode::EspNow) lv_dropdown_set_selected(m_ddMode, 0);
     else if (s_radioCfg.mode == cbdos::radio::RadioMode::EspNowLR) lv_dropdown_set_selected(m_ddMode, 1);
@@ -126,7 +131,7 @@ void NetworkManagerView::buildSlot0Radio(lv_obj_t* parent) {
 
     m_lblChannelVal = lv_label_create(m_boxMeshControls);
     char bufCh[32];
-    snprintf(bufCh, sizeof(bufCh), "Canal RF: %u", s_radioCfg.channel);
+    snprintf(bufCh, sizeof(bufCh), tr(StrId::STR_NET_CH), s_radioCfg.channel);
     lv_label_set_text(m_lblChannelVal, bufCh);
     lv_obj_set_style_text_color(m_lblChannelVal, lv_color_hex(0x00E5FF), 0);
 
@@ -138,7 +143,7 @@ void NetworkManagerView::buildSlot0Radio(lv_obj_t* parent) {
 
     m_lblTxVal = lv_label_create(m_boxMeshControls);
     char bufTx[32];
-    snprintf(bufTx, sizeof(bufTx), "Potencia TX: +%d dBm", s_radioCfg.txPower);
+    snprintf(bufTx, sizeof(bufTx), tr(StrId::STR_NET_TX), s_radioCfg.txPower);
     lv_label_set_text(m_lblTxVal, bufTx);
     lv_obj_set_style_text_color(m_lblTxVal, lv_color_hex(0x00E5FF), 0);
 
@@ -156,12 +161,12 @@ void NetworkManagerView::buildSlot0Radio(lv_obj_t* parent) {
     lv_obj_set_style_border_width(m_btnSweep, 1, 0);
     lv_obj_add_event_cb(m_btnSweep, sweepBtnCb, LV_EVENT_CLICKED, this);
     lv_obj_t* lblSwp = lv_label_create(m_btnSweep);
-    lv_label_set_text(lblSwp, LV_SYMBOL_REFRESH " Escanear Canales (1..13)");
+    lv_label_set_text(lblSwp, (std::string(LV_SYMBOL_REFRESH " ") + tr(StrId::STR_NET_SWEEP)).c_str());
     lv_obj_set_style_text_color(lblSwp, lv_color_hex(0x00E5FF), 0);
     lv_obj_center(lblSwp);
 
     m_lblSweepStatus = lv_label_create(m_boxMeshControls);
-    lv_label_set_text(m_lblSweepStatus, "Listo para buscar nodos/torres.");
+    lv_label_set_text(m_lblSweepStatus, tr(StrId::STR_NET_SWEEP_IDLE));
     lv_obj_set_style_text_color(m_lblSweepStatus, lv_color_hex(0x64748B), 0);
     lv_obj_set_style_text_font(m_lblSweepStatus, &lv_font_montserrat_12, 0);
 
@@ -193,12 +198,12 @@ void NetworkManagerView::buildSlot0Radio(lv_obj_t* parent) {
     lv_obj_set_style_border_width(m_btnScanWifi, 1, 0);
     lv_obj_add_event_cb(m_btnScanWifi, wifiScanBtnCb, LV_EVENT_CLICKED, this);
     lv_obj_t* lblScn = lv_label_create(m_btnScanWifi);
-    lv_label_set_text(lblScn, LV_SYMBOL_WIFI " Buscar Redes Wi-Fi");
+    lv_label_set_text(lblScn, (std::string(LV_SYMBOL_WIFI " ") + tr(StrId::STR_NET_SCAN)).c_str());
     lv_obj_set_style_text_color(lblScn, lv_color_white(), 0);
     lv_obj_center(lblScn);
 
     m_lblWifiScanStatus = lv_label_create(m_boxWifiControls);
-    lv_label_set_text(m_lblWifiScanStatus, "Pulsa para buscar redes cercanas.");
+    lv_label_set_text(m_lblWifiScanStatus, tr(StrId::STR_NET_SCAN_IDLE));
     lv_obj_set_style_text_color(m_lblWifiScanStatus, lv_color_hex(0x64748B), 0);
     lv_obj_set_style_text_font(m_lblWifiScanStatus, &lv_font_montserrat_12, 0);
 
@@ -229,7 +234,7 @@ void NetworkManagerView::buildSlot1Backpack(lv_obj_t* parent) {
     lv_obj_set_flex_align(rowHeader, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t* lblTitle = lv_label_create(rowHeader);
-    lv_label_set_text(lblTitle, LV_SYMBOL_DRIVE " Slot 1: Mochila LoRa (JP1)");
+    lv_label_set_text(lblTitle, (std::string(LV_SYMBOL_DRIVE " ") + tr(StrId::STR_NET_SLOT1)).c_str());
     lv_obj_set_style_text_color(lblTitle, lv_color_white(), 0);
     lv_obj_set_style_text_font(lblTitle, &lv_font_montserrat_14, 0);
 
@@ -238,10 +243,10 @@ void NetworkManagerView::buildSlot1Backpack(lv_obj_t* parent) {
 
     m_lblBackpackStatus = lv_label_create(m_cardBackpack);
     if (!isConnected) {
-        lv_label_set_text(m_lblBackpackStatus, "🔌 Estado: Desconectada (Listo para detectar mochila LoRa al acoplarse)");
+        lv_label_set_text(m_lblBackpackStatus, tr(StrId::STR_NET_BP_OFF));
         lv_obj_set_style_text_color(m_lblBackpackStatus, lv_color_hex(0x64748B), 0);
     } else {
-        lv_label_set_text(m_lblBackpackStatus, "✅ Mochila LoRa SX1262 Conectada (915 MHz)");
+        lv_label_set_text(m_lblBackpackStatus, tr(StrId::STR_NET_BP_ON));
         lv_obj_set_style_text_color(m_lblBackpackStatus, lv_color_hex(0x10B981), 0);
     }
     lv_obj_set_style_text_font(m_lblBackpackStatus, &lv_font_montserrat_12, 0);
@@ -265,7 +270,7 @@ void NetworkManagerView::buildSlot2Usb(lv_obj_t* parent) {
     lv_obj_set_flex_align(rowHeader, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t* lblTitle = lv_label_create(rowHeader);
-    lv_label_set_text(lblTitle, LV_SYMBOL_USB " Slot 2: Módem USB Radio (OTG)");
+    lv_label_set_text(lblTitle, (std::string(LV_SYMBOL_USB " ") + tr(StrId::STR_NET_SLOT2)).c_str());
     lv_obj_set_style_text_color(lblTitle, lv_color_white(), 0);
     lv_obj_set_style_text_font(lblTitle, &lv_font_montserrat_14, 0);
 
@@ -283,12 +288,12 @@ void NetworkManagerView::buildSlot2Usb(lv_obj_t* parent) {
         const char* modeName = (iface2->getMode() == cbdos::network::InterfaceMode::EspNowLR) ? "ESP-NOW LR" : "ESP-NOW Normal";
 
         char info[160];
-        snprintf(info, sizeof(info), "✅ Módem: %s | Modo: %s\n📡 Canal RF: %u | MAC: %s",
-                 (alias && alias[0]) ? alias : "Módem USB", modeName, iface2->getChannel(), mac_str);
+        snprintf(info, sizeof(info), tr(StrId::STR_NET_USB_INFO),
+                 (alias && alias[0]) ? alias : tr(StrId::STR_NET_USB_MODEM), modeName, iface2->getChannel(), mac_str);
         lv_label_set_text(lblStatus, info);
         lv_obj_set_style_text_color(lblStatus, lv_color_hex(0x00E5FF), 0);
     } else {
-        lv_label_set_text(lblStatus, "🔌 Estado: Desconectado (Listo para detectar dongle USB-C)");
+        lv_label_set_text(lblStatus, tr(StrId::STR_NET_USB_OFF));
         lv_obj_set_style_text_color(lblStatus, lv_color_hex(0x64748B), 0);
     }
     lv_obj_set_style_text_font(lblStatus, &lv_font_montserrat_12, 0);
@@ -324,6 +329,8 @@ void NetworkManagerView::radioPowerSwCb(lv_event_t* e) {
     if (!enabled) {
         s_radioCfg.mode = cbdos::radio::RadioMode::Off;
         cbdos::radio::setRadioPower(false);
+        // Radio apagada a proposito: no reconectar WiFi en el arranque.
+        ConfigManager::getInstance().setWifiAutoConnect(false);
     } else {
         s_radioCfg.mode = cbdos::radio::RadioMode::EspNow;
         cbdos::radio::setRadioPower(true);
@@ -332,7 +339,7 @@ void NetworkManagerView::radioPowerSwCb(lv_event_t* e) {
 
     ConfigManager::getInstance().saveRadio(s_radioCfg);
     view->updateModeVisibility();
-    UIManager::showToast(enabled ? "Radio 2.4 GHz Encendida" : "Radio 2.4 GHz Apagada");
+    UIManager::showToast(enabled ? tr(StrId::STR_NET_RADIO_ON) : tr(StrId::STR_NET_RADIO_OFF));
 }
 
 void NetworkManagerView::modeSelectCb(lv_event_t* e) {
@@ -358,7 +365,7 @@ void NetworkManagerView::modeSelectCb(lv_event_t* e) {
     cbdos::radio::setMode(s_radioCfg.mode);
     ConfigManager::getInstance().saveRadio(s_radioCfg);
     view->updateModeVisibility();
-    UIManager::showToast("Modo de Radio Guardado");
+    UIManager::showToast(tr(StrId::STR_NET_MODE_SAVED));
 }
 
 
@@ -373,7 +380,7 @@ void NetworkManagerView::channelSliderCb(lv_event_t* e) {
 
     if (view->m_lblChannelVal && lv_obj_is_valid(view->m_lblChannelVal)) {
         char buf[32];
-        snprintf(buf, sizeof(buf), "Canal RF: %u", s_radioCfg.channel);
+        snprintf(buf, sizeof(buf), tr(StrId::STR_NET_CH), s_radioCfg.channel);
         lv_label_set_text(view->m_lblChannelVal, buf);
     }
 }
@@ -389,7 +396,7 @@ void NetworkManagerView::txPowerSliderCb(lv_event_t* e) {
 
     if (view->m_lblTxVal && lv_obj_is_valid(view->m_lblTxVal)) {
         char buf[32];
-        snprintf(buf, sizeof(buf), "Potencia TX: +%d dBm", s_radioCfg.txPower);
+        snprintf(buf, sizeof(buf), tr(StrId::STR_NET_TX), s_radioCfg.txPower);
         lv_label_set_text(view->m_lblTxVal, buf);
     }
 }
@@ -399,7 +406,7 @@ void NetworkManagerView::wifiScanBtnCb(lv_event_t* e) {
     if (!view) return;
 
     if (view->m_lblWifiScanStatus && lv_obj_is_valid(view->m_lblWifiScanStatus)) {
-        lv_label_set_text(view->m_lblWifiScanStatus, "🔍 Escaneando redes Wi-Fi...");
+        lv_label_set_text(view->m_lblWifiScanStatus, tr(StrId::STR_NET_SCANNING));
         lv_obj_set_style_text_color(view->m_lblWifiScanStatus, lv_palette_main(LV_PALETTE_CYAN), 0);
     }
 
@@ -418,7 +425,7 @@ void NetworkManagerView::refreshWifiListUi() {
 
     if (s_scannedAps.empty()) {
         lv_obj_t* emptyLbl = lv_label_create(m_wifiListContainer);
-        lv_label_set_text(emptyLbl, "No se detectaron redes Wi-Fi cercanas.");
+        lv_label_set_text(emptyLbl, tr(StrId::STR_NET_NO_APS));
         lv_obj_set_style_text_color(emptyLbl, lv_color_hex(0x64748B), 0);
         return;
     }
@@ -471,13 +478,13 @@ void NetworkManagerView::wifiApClickCb(lv_event_t* e) {
 
     lv_obj_t* lblTitle = lv_label_create(modal);
     char t[64];
-    snprintf(t, sizeof(t), "Conectar a %s", ap.ssid.c_str());
+    snprintf(t, sizeof(t), tr(StrId::STR_NET_CONNECT_TO), ap.ssid.c_str());
     lv_label_set_text(lblTitle, t);
     lv_obj_set_style_text_color(lblTitle, lv_color_hex(0x00E5FF), 0);
 
     lv_obj_t* taPass = lv_textarea_create(modal);
     lv_obj_set_size(taPass, LV_PCT(100), 38);
-    lv_textarea_set_placeholder_text(taPass, "Contraseña Wi-Fi");
+    lv_textarea_set_placeholder_text(taPass, tr(StrId::STR_NET_PASS_PH));
     lv_textarea_set_password_mode(taPass, true);
     lv_textarea_set_one_line(taPass, true);
     lv_obj_add_event_cb(taPass, [](lv_event_t* ev) {
@@ -495,7 +502,7 @@ void NetworkManagerView::wifiApClickCb(lv_event_t* e) {
     lv_obj_set_size(btnCancel, LV_PCT(45), 36);
     lv_obj_set_style_bg_color(btnCancel, lv_color_hex(0x334155), 0);
     lv_obj_t* lblC = lv_label_create(btnCancel);
-    lv_label_set_text(lblC, "Cancelar");
+    lv_label_set_text(lblC, tr(StrId::STR_ST_CANCEL));
     lv_obj_center(lblC);
     lv_obj_add_event_cb(btnCancel, [](lv_event_t* ev) {
         lv_obj_t* m = (lv_obj_t*)lv_event_get_user_data(ev);
@@ -514,7 +521,7 @@ void NetworkManagerView::wifiApClickCb(lv_event_t* e) {
     lv_obj_set_size(btnConn, LV_PCT(48), 36);
     lv_obj_set_style_bg_color(btnConn, lv_color_hex(0x00E5FF), 0);
     lv_obj_t* lblOk = lv_label_create(btnConn);
-    lv_label_set_text(lblOk, "Conectar");
+    lv_label_set_text(lblOk, tr(StrId::STR_NET_CONNECT));
     lv_obj_set_style_text_color(lblOk, lv_color_black(), 0);
     lv_obj_center(lblOk);
 
@@ -526,8 +533,11 @@ void NetworkManagerView::wifiApClickCb(lv_event_t* e) {
             cfg.ssid = c->ssid;
             cfg.password = pass ? pass : "";
             ConfigManager::getInstance().saveWiFi(cfg);
+            // Marcar autoconexion: sin esto el arranque nunca reconecta
+            // (antes lo hacia WiFiConfigView al guardar).
+            ConfigManager::getInstance().setWifiAutoConnect(true);
             cbdos::network::connectWifi(cfg.ssid.c_str(), cfg.password.c_str());
-            UIManager::showToast("Conectando a Wi-Fi...");
+            UIManager::showToast(tr(StrId::STR_NET_CONNECTING));
             UIManager::closeKeyboard();
             lv_obj_delete(c->modal);
             delete c;
@@ -540,7 +550,7 @@ void NetworkManagerView::sweepBtnCb(lv_event_t* e) {
     if (!view) return;
 
     if (view->m_lblSweepStatus && lv_obj_is_valid(view->m_lblSweepStatus)) {
-        lv_label_set_text(view->m_lblSweepStatus, "📡 Realizando barrido 1..13...");
+        lv_label_set_text(view->m_lblSweepStatus, tr(StrId::STR_NET_SWEEPING));
         lv_obj_set_style_text_color(view->m_lblSweepStatus, lv_palette_main(LV_PALETTE_CYAN), 0);
     }
 
@@ -561,7 +571,7 @@ void NetworkManagerView::refreshSweepListUi() {
 
     if (m_lblSweepStatus && lv_obj_is_valid(m_lblSweepStatus)) {
         char buf[64];
-        snprintf(buf, sizeof(buf), "Barrido completado: %zu nodos detectados", s_sweepNodes.size());
+        snprintf(buf, sizeof(buf), tr(StrId::STR_NET_SWEEP_DONE), s_sweepNodes.size());
         lv_label_set_text(m_lblSweepStatus, buf);
         lv_obj_set_style_text_color(m_lblSweepStatus, lv_color_hex(0x10B981), 0);
     }

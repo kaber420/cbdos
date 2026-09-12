@@ -2,9 +2,12 @@
 #include "cbdos/network.hpp"
 #include "cbdos/network_interface.hpp"
 #include <esp_log.h>
+#include <esp_wifi.h>
+#include <esp_wifi_types.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <cstring>
+#include <cstdio>
 #include <vector>
 
 static const char* TAG_RADIO_P4 = "HAL_RADIO_P4";
@@ -30,14 +33,74 @@ struct RadioStateP4 {
 static RadioStateP4 s_radioP4;
 static TaskHandle_t s_p4ScanTask = nullptr;
 
+// Asegura WiFi STA arrancado para escanear (el adapter de red lo inicia
+// perezoso al conectar; el scan no puede esperar a eso).
+static bool ensureWifiScanReady() {
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_err_t err = esp_wifi_init(&cfg);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG_RADIO_P4, "scan: esp_wifi_init fallo: %s", esp_err_to_name(err));
+        return false;
+    }
+    err = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG_RADIO_P4, "scan: set_mode fallo: %s", esp_err_to_name(err));
+        return false;
+    }
+    err = esp_wifi_start();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG_RADIO_P4, "scan: esp_wifi_start fallo: %s", esp_err_to_name(err));
+        return false;
+    }
+    return true;
+}
+
 static void radioScanWorkerP4(void* param) {
     while (true) {
         if (s_radioP4.wifiScanning) {
-            vTaskDelay(pdMS_TO_TICKS(1000));
             std::vector<radio::WifiApInfo> aps;
+            bool ok = false;
+            if (ensureWifiScanReady()) {
+                wifi_scan_config_t scan_cfg;
+                std::memset(&scan_cfg, 0, sizeof(scan_cfg));
+                scan_cfg.show_hidden = false;
+                scan_cfg.scan_type = WIFI_SCAN_TYPE_ACTIVE;
+                scan_cfg.scan_time.active.min = 100;
+                scan_cfg.scan_time.active.max = 300;
+                if (esp_wifi_scan_start(&scan_cfg, true) == ESP_OK) {
+                    uint16_t num = 0;
+                    if (esp_wifi_scan_get_ap_num(&num) == ESP_OK) {
+                        ok = true;
+                        if (num > 0) {
+                            std::vector<wifi_ap_record_t> recs(num);
+                            uint16_t got = num;
+                            if (esp_wifi_scan_get_ap_records(&got, recs.data()) == ESP_OK) {
+                                for (uint16_t i = 0; i < got; i++) {
+                                    radio::WifiApInfo ap;
+                                    ap.ssid = (const char*)recs[i].ssid;
+                                    ap.rssi = recs[i].rssi;
+                                    ap.channel = recs[i].primary;
+                                    ap.isEncrypted = (recs[i].authmode != WIFI_AUTH_OPEN);
+                                    char bssid[18];
+                                    std::snprintf(bssid, sizeof(bssid), "%02X:%02X:%02X:%02X:%02X:%02X",
+                                                  recs[i].bssid[0], recs[i].bssid[1], recs[i].bssid[2],
+                                                  recs[i].bssid[3], recs[i].bssid[4], recs[i].bssid[5]);
+                                    ap.bssid = bssid;
+                                    aps.push_back(ap);
+                                }
+                            } else {
+                                ok = false;
+                            }
+                        }
+                    }
+                } else {
+                    ESP_LOGW(TAG_RADIO_P4, "scan: esp_wifi_scan_start fallo");
+                }
+            }
+            ESP_LOGI(TAG_RADIO_P4, "scan: %u redes, ok=%d", (unsigned)aps.size(), (int)ok);
             s_radioP4.wifiScanning = false;
             if (s_radioP4.wifiScanCb) {
-                s_radioP4.wifiScanCb(aps, true);
+                s_radioP4.wifiScanCb(aps, ok);
             }
         }
 
