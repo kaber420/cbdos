@@ -22,6 +22,7 @@ idf_component_register(
         "../hal/hal_socket_p4.cpp"
         "../hal/hal_ssh_p4.cpp"
         "../hal/hal_hid_p4.cpp"
+        "../hal/hal_lan_recon_p4.cpp"
         "../hal/EspIdfTimeProvider.cpp"
     INCLUDE_DIRS 
         "."

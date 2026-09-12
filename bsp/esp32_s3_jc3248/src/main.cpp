@@ -35,6 +35,7 @@ namespace bsp {
     void initSshBackendS3();
     void initHidDriverS3();
     void initNetworkAdapterS3();
+    void init_lan_recon_s3();
     void initRadioBackendS3();
     cbdos::time::ITimeProvider* getArduinoTimeProvider();
 }
@@ -101,6 +102,7 @@ void setup() {
     cbdos::bsp::initMeshTransportS3();
     cbdos::bsp::initHttpClientS3();
     cbdos::bsp::initHidDriverS3();
+    cbdos::bsp::init_lan_recon_s3();
 
     // Registrar servicio de TTS (Offline-First: permanece en reposo hasta su primer uso)
     cbdos::tts::setTTSService(&cbdos::tts::PicoTTSService::getInstance());

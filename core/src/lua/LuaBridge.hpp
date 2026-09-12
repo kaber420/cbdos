@@ -25,4 +25,5 @@ private:
     static void registerHidAPI(lua_State* L);
     static void registerDuckyAPI(lua_State* L);
     static void registerSshAPI(lua_State* L);
+    static void registerNetAPI(lua_State* L);
 };

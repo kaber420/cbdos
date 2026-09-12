@@ -11,6 +11,8 @@
 #include "cbdos/hid.hpp"
 #include "cbdos/ducky.hpp"
 #include "cbdos/ssh.hpp"
+#include "cbdos/lan_recon.hpp"
+#include "../network/LanScannerService.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 
@@ -2173,6 +2175,96 @@ static int lua_ssh_close_shell(lua_State* L) {
     return 0;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Net API (LAN Recon v2): ping ICMP real + sonda TCP + sweep async.
+// ─────────────────────────────────────────────────────────────────────────────
+static int lua_net_ping(lua_State* L) {
+    const char* ip = luaL_checkstring(L, 1);
+    uint32_t timeoutMs = (uint32_t)luaL_optinteger(L, 2, 1000);
+    uint32_t rtt = 0;
+    std::string method;
+    bool ok = cbdos::network::LanScannerService::getInstance().pingSingle(
+        ip ? ip : "", timeoutMs, &rtt, &method);
+    lua_pushboolean(L, ok);
+    lua_pushinteger(L, (lua_Integer)rtt);
+    lua_pushstring(L, method.c_str());
+    return 3;
+}
+
+static int lua_net_probe_port(lua_State* L) {
+    const char* ip = luaL_checkstring(L, 1);
+    int port = (int)luaL_checkinteger(L, 2);
+    uint32_t timeoutMs = (uint32_t)luaL_optinteger(L, 3, 300);
+    bool open = false;
+    auto* backend = cbdos::network::getLanScannerBackend();
+    if (backend && ip && port > 0 && port < 65536) {
+        open = backend->probeTcpPort(ip, (uint16_t)port, timeoutMs);
+    }
+    lua_pushboolean(L, open);
+    return 1;
+}
+
+static int lua_net_scan_start(lua_State* L) {
+    const char* cidr = luaL_optstring(L, 1, "");
+    bool ok = false;
+    if (cidr && cidr[0] != '\0') {
+        ok = cbdos::network::LanScannerService::getInstance().startScanCidr(cidr);
+    } else {
+        ok = cbdos::network::LanScannerService::getInstance().startScan();
+    }
+    lua_pushboolean(L, ok);
+    return 1;
+}
+
+static int lua_net_scan_stop(lua_State* L) {
+    (void)L;
+    cbdos::network::LanScannerService::getInstance().stopScan();
+    return 0;
+}
+
+static int lua_net_scanning(lua_State* L) {
+    lua_pushboolean(L, cbdos::network::LanScannerService::getInstance().isScanning());
+    return 1;
+}
+
+static int lua_net_results(lua_State* L) {
+    std::vector<cbdos::network::LanHostInfo> hosts =
+        cbdos::network::LanScannerService::getInstance().getResults();
+    lua_newtable(L);
+    int idx = 1;
+    for (const auto& h : hosts) {
+        lua_newtable(L);
+        lua_pushstring(L, h.ip.c_str());
+        lua_setfield(L, -2, "ip");
+        lua_pushstring(L, h.getMacString().c_str());
+        lua_setfield(L, -2, "mac");
+        lua_pushstring(L, h.vendor.c_str());
+        lua_setfield(L, -2, "vendor");
+        lua_pushstring(L, h.banner.c_str());
+        lua_setfield(L, -2, "banner");
+        lua_pushstring(L, h.discovery.c_str());
+        lua_setfield(L, -2, "discovery");
+        lua_pushstring(L, h.ssdpServer.c_str());
+        lua_setfield(L, -2, "server");
+        lua_pushinteger(L, (lua_Integer)h.rttMs);
+        lua_setfield(L, -2, "rtt");
+        lua_pushboolean(L, h.isTv);
+        lua_setfield(L, -2, "is_tv");
+        lua_newtable(L);
+        int pidx = 1;
+        for (size_t i = 0; i < cbdos::network::kLanReconPortCount; ++i) {
+            uint16_t port = cbdos::network::kLanReconPorts[i];
+            if (h.hasPort(port)) {
+                lua_pushinteger(L, (lua_Integer)port);
+                lua_rawseti(L, -2, pidx++);
+            }
+        }
+        lua_setfield(L, -2, "ports");
+        lua_rawseti(L, -2, idx++);
+    }
+    return 1;
+}
+
 void LuaBridge::registerSshAPI(lua_State* L) {
     lua_newtable(L);
     lua_pushcfunction(L, lua_ssh_connect);
@@ -2196,6 +2288,23 @@ void LuaBridge::registerSshAPI(lua_State* L) {
     lua_setfield(L, -2, "ssh");
 }
 
+void LuaBridge::registerNetAPI(lua_State* L) {
+    lua_newtable(L);
+    lua_pushcfunction(L, lua_net_ping);
+    lua_setfield(L, -2, "ping");
+    lua_pushcfunction(L, lua_net_probe_port);
+    lua_setfield(L, -2, "probe_port");
+    lua_pushcfunction(L, lua_net_scan_start);
+    lua_setfield(L, -2, "scan_start");
+    lua_pushcfunction(L, lua_net_scan_stop);
+    lua_setfield(L, -2, "scan_stop");
+    lua_pushcfunction(L, lua_net_scanning);
+    lua_setfield(L, -2, "scanning");
+    lua_pushcfunction(L, lua_net_results);
+    lua_setfield(L, -2, "results");
+    lua_setfield(L, -2, "net");
+}
+
 void LuaBridge::registerAll(lua_State* L) {
     if (!L) return;
 
@@ -2213,6 +2322,7 @@ void LuaBridge::registerAll(lua_State* L) {
     registerHidAPI(L);
     registerDuckyAPI(L);
     registerSshAPI(L);
+    registerNetAPI(L);
 
     // Guardar tabla como global "cbdos"
     lua_setglobal(L, "cbdos");
@@ -2230,6 +2340,9 @@ void LuaBridge::registerAll(lua_State* L) {
     lua_getglobal(L, "cbdos");
     lua_getfield(L, -1, "ssh");
     lua_setglobal(L, "ssh");
+    lua_getglobal(L, "cbdos");
+    lua_getfield(L, -1, "net");
+    lua_setglobal(L, "net");
 
-    printf("[LuaBridge] Bindings 'cbdos.*', 'sys.*', 'hid.*', 'ducky.*', 'ssh.*' registrados.\n");
+    printf("[LuaBridge] Bindings 'cbdos.*', 'sys.*', 'hid.*', 'ducky.*', 'ssh.*', 'net.*' registrados.\n");
 }

@@ -13,6 +13,7 @@
 #include "HidView.hpp"
 #include "UtilitiesView.hpp"
 #include "TlvBrowserView.hpp"
+#include "LanReconView.hpp"
 #include "LuappView.hpp"
 #include "LottieTestView.hpp"
 #include "MeshCoreView.hpp"
@@ -52,6 +53,7 @@ bool DashboardView::onCreate(lv_obj_t* parent) {
         {"terminal", tr(StrId::STR_APP_TERMINAL), LV_SYMBOL_KEYBOARD, 0x10B981, false, ""},
         {"hid", tr(StrId::STR_APP_HID), LV_SYMBOL_KEYBOARD, 0xFFD60A, false, ""},
         {"meshcore", tr(StrId::STR_APP_MESHCORE), LV_SYMBOL_WIFI, 0x00E5FF, false, ""},
+        {"recon", "LAN Recon", LV_SYMBOL_WIFI, 0x00F5D4, false, ""},
         {"recorder", tr(StrId::STR_APP_RECORDER), LV_SYMBOL_AUDIO, 0xEF4444, false, ""},
         {"music", tr(StrId::STR_APP_MUSIC), LV_SYMBOL_AUDIO, 0x00E5FF, false, ""},
         {"kerberos", tr(StrId::STR_APP_KERBEROS), LV_SYMBOL_USB, 0x10B981, false, ""},
@@ -239,6 +241,8 @@ void DashboardView::cardClickedEventCb(lv_event_t* e) {
         UIManager::getInstance().pushView(std::make_shared<HidView>());
     } else if (app.id == "meshcore") {
         UIManager::getInstance().pushView(std::make_shared<MeshCoreView>());
+    } else if (app.id == "recon") {
+        UIManager::getInstance().pushView(std::make_shared<LanReconView>());
     } else if (app.id == "lottie") {
         UIManager::getInstance().pushView(std::make_shared<LottieTestView>());
     }
