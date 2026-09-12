@@ -387,6 +387,41 @@ void LanScannerService::finishScan(LanScanPhase finalPhase) {
     }
 }
 
+void LanScannerService::addFoundHost(const LanHostInfo& host, uint8_t percentage) {
+    OnHostFoundCallback hostCb;
+    LanScanProgress snapshot{};
+    OnProgressCallback progressCb;
+    if (m_mutex) {
+        cbdos::rtos::lockMutex(m_mutex);
+        m_results.push_back(host);
+        m_progress.hostsDiscovered =
+            static_cast<uint16_t>(m_results.size());
+        m_progress.currentHostIndex =
+            static_cast<uint16_t>(m_results.size());
+        m_progress.percentage = percentage;
+        snapshot = m_progress;
+        hostCb = m_onHostFound;
+        progressCb = m_onProgress;
+        cbdos::rtos::unlockMutex(m_mutex);
+    } else {
+        m_results.push_back(host);
+        m_progress.hostsDiscovered =
+            static_cast<uint16_t>(m_results.size());
+        m_progress.currentHostIndex =
+            static_cast<uint16_t>(m_results.size());
+        m_progress.percentage = percentage;
+        snapshot = m_progress;
+        hostCb = m_onHostFound;
+        progressCb = m_onProgress;
+    }
+    if (hostCb) {
+        hostCb(host);
+    }
+    if (progressCb) {
+        progressCb(snapshot);
+    }
+}
+
 void LanScannerService::runScan() {
     ILanScannerBackend* backend = getLanScannerBackend();
     if (backend == nullptr) {
@@ -459,30 +494,26 @@ void LanScannerService::runScan() {
 
     setPhase(LanScanPhase::ArpSweep, 0);
 
-    // ── v2.1 Fase 1: blast + collect ──
-    // Blast: se "toca" TODA la subred primero (UDP + ARP fire-and-forget,
-    // ~ms por host). La pila lwIP resuelve ARP sola al enviar, asi las
-    // respuestas llegan en paralelo. Luego UNA espera global y recoleccion
-    // por host leyendo cache (instantaneo), ICMP y TCP. Los hosts muertos
-    // ya no pagan esperas ARP largas uno por uno.
-    for (std::size_t i = 0; i < targets.size(); ++i) {
-        if (m_abortRequested.load(std::memory_order_relaxed)) {
-            finishScan(LanScanPhase::Aborted);
-            return;
-        }
-        backend->udpStimulate(targets[i], 5353);
-        if (!isRouted) {
+    // ── v2.2 Fase 1: blast ──
+    // Disparo ARP fire-and-forget a toda la subred (microsegundos por
+    // host): las respuestas llegan en paralelo a la pila lwIP y la
+    // recoleccion posterior las lee de cache. Sin UDP bloqueante aqui
+    // (su recv de 150ms por host sumaba ~38s muertos por /24).
+    if (!isRouted) {
+        for (std::size_t i = 0; i < targets.size(); ++i) {
+            if (m_abortRequested.load(std::memory_order_relaxed)) {
+                finishScan(LanScanPhase::Aborted);
+                return;
+            }
             backend->arpProbe(targets[i]);
-        }
-        if ((i & 15) == 15) {
-            LanScanProgress bp{};
-            bp.phase = LanScanPhase::ArpSweep;
-            bp.percentage = static_cast<uint8_t>((i + 1) * 8 / targets.size());
-            publishProgress(bp);
+            if ((i & 31) == 31) {
+                setPhase(LanScanPhase::ArpSweep,
+                         static_cast<uint8_t>((i + 1) * 6 / targets.size()));
+            }
         }
     }
-    // Espera global a respuestas ARP/ICMP (en rebanadas p/cancelar).
-    for (int w = 0; w < 14; ++w) {
+    // Espera global a respuestas ARP (en rebanadas p/cancelar).
+    for (int w = 0; w < 10; ++w) {
         if (m_abortRequested.load(std::memory_order_relaxed)) {
             finishScan(LanScanPhase::Aborted);
             return;
@@ -490,13 +521,50 @@ void LanScannerService::runScan() {
         cbdos::rtos::sleepMs(50);
     }
 
-    // ── v2.1 Fase 1b: recoleccion por host ──
-    // Orden: cache ARP (0ms) -> ICMP real -> TCP liveness -> descarte.
-    // En red ruteada no hay ARP: ICMP+TCP unicamente.
+    // ── v2.2 Pasada A: solo cache ARP (casi instantanea) ──
+    // Tras el blast, lo vivo en LAN ya esta en cache: TVs/PCs aparecen
+    // aqui en ~1-2s sin pagar ningun timeout.
+    std::vector<uint8_t> foundIdx(targets.size(), 0);
+    if (!isRouted) {
+        for (std::size_t i = 0; i < targets.size(); ++i) {
+            if (m_abortRequested.load(std::memory_order_relaxed)) {
+                finishScan(LanScanPhase::Aborted);
+                return;
+            }
+            uint8_t mac[6] = {0, 0, 0, 0, 0, 0};
+            if (!backend->lookupArpCacheOnly(targets[i], mac)) {
+                continue;
+            }
+            LanHostInfo host;
+            host.ip = targets[i];
+            for (int b = 0; b < 6; ++b) {
+                host.mac[b] = mac[b];
+            }
+            host.vendor = lookupVendorByMac(mac);
+            host.alive = true;
+            host.discovery = "arp";
+            host.isTv = isTvVendorName(host.vendor);
+            foundIdx[i] = 1;
+            const uint8_t pctA = static_cast<uint8_t>(
+                6 + ((i + 1) * 9) / (targets.size() > 0 ? targets.size() : 1));
+            addFoundHost(host, pctA > 15 ? 15 : pctA);
+        }
+        if (m_abortRequested.load(std::memory_order_relaxed)) {
+            finishScan(LanScanPhase::Aborted);
+            return;
+        }
+    }
+
+    // ── v2.2 Pasada B: ICMP + TCP a los restantes ──
+    // Solo las IPs no vistas en cache pagan timeouts. En red ruteada
+    // es la unica via (sin ARP).
     for (std::size_t i = 0; i < targets.size(); ++i) {
         if (m_abortRequested.load(std::memory_order_relaxed)) {
             finishScan(LanScanPhase::Aborted);
             return;
+        }
+        if (foundIdx[i]) {
+            continue;
         }
         const std::string& ip = targets[i];
 
@@ -505,11 +573,7 @@ void LanScannerService::runScan() {
         bool arpOk = false;
         uint32_t rtt = 0;
         std::string how;
-        if (!isRouted && backend->lookupArpCacheOnly(ip, mac)) {
-            alive = true;
-            arpOk = true;
-            how = "arp";
-        } else if (backend->pingIcmp(ip, 150, &rtt)) {
+        if (backend->pingIcmp(ip, 120, &rtt)) {
             alive = true;
             how = "icmp";
             if (!isRouted) {
@@ -555,39 +619,9 @@ void LanScannerService::runScan() {
         host.discovery = how.empty() ? (arpOk ? "arp" : "tcp") : how;
         host.isTv = isTvVendorName(host.vendor);
 
-        OnHostFoundCallback hostCb;
-        LanScanProgress snapshot{};
-        OnProgressCallback progressCb;
-        if (m_mutex) {
-            cbdos::rtos::lockMutex(m_mutex);
-            m_results.push_back(host);
-            m_progress.hostsDiscovered =
-                static_cast<uint16_t>(m_results.size());
-            m_progress.currentHostIndex =
-                static_cast<uint16_t>(m_results.size());
-            const uint8_t pct = static_cast<uint8_t>(
-                8 + ((i + 1) * 42) / targets.size());
-            m_progress.percentage = pct > 50 ? 50 : pct;
-            snapshot = m_progress;
-            hostCb = m_onHostFound;
-            progressCb = m_onProgress;
-            cbdos::rtos::unlockMutex(m_mutex);
-        } else {
-            m_results.push_back(host);
-            m_progress.hostsDiscovered =
-                static_cast<uint16_t>(m_results.size());
-            m_progress.currentHostIndex =
-                static_cast<uint16_t>(m_results.size());
-            snapshot = m_progress;
-            hostCb = m_onHostFound;
-            progressCb = m_onProgress;
-        }
-        if (hostCb) {
-            hostCb(host);
-        }
-        if (progressCb) {
-            progressCb(snapshot);
-        }
+        const uint8_t pctB = static_cast<uint8_t>(
+            15 + ((i + 1) * 35) / (targets.size() > 0 ? targets.size() : 1));
+        addFoundHost(host, pctB > 50 ? 50 : pctB);
     }
 
     if (m_abortRequested.load(std::memory_order_relaxed)) {

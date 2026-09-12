@@ -77,6 +77,8 @@ private:
     void setPhase(LanScanPhase phase, uint8_t percentage);
     void publishProgress(const LanScanProgress& progress);
     void finishScan(LanScanPhase finalPhase);
+    // Publica un host hallado (mutex + callbacks + progreso).
+    void addFoundHost(const LanHostInfo& host, uint8_t percentage);
 
     cbdos::rtos::TaskHandle m_taskHandle{nullptr};
     cbdos::rtos::MutexHandle m_mutex{nullptr};

@@ -423,7 +423,11 @@ public:
         if (!parseIpv4(ip, &ip4)) {
             return false;
         }
-        return lookupArpCache(ip4, mac);
+        if (lookupArpCache(ip4, mac)) {
+            Serial.printf("[LAN_S3] ARP hit %s\n", ip.c_str());
+            return true;
+        }
+        return false;
     }
 
     bool probeTcpPort(const std::string& ip, uint16_t port, uint32_t timeoutMs = 250) override {
@@ -452,6 +456,8 @@ public:
             if (outRttMs) {
                 *outRttMs = rtt;
             }
+            Serial.printf("[LAN_S3] ICMP %s %ums\n", ip.c_str(),
+                          static_cast<unsigned>(rtt));
             return true;
         }
         return false;
