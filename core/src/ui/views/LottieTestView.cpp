@@ -53,7 +53,6 @@ void LottieTestView::onDestroy() {
 
 void LottieTestView::scanLottieFiles() {
     m_fileList.clear();
-    m_fileList.push_back("__EMBEDDED_NEUMORPHIC_UI__");
     m_fileList.push_back("__EMBEDDED_STAR__");
     m_fileList.push_back("__EMBEDDED_ROBOT_IDLE__");
     m_fileList.push_back("__EMBEDDED_ROBOT_DANCE__");
@@ -309,11 +308,7 @@ void LottieTestView::loadCurrentLottie() {
     if (m_drawBuf) {
         lv_lottie_set_draw_buf(m_lottieObj, m_drawBuf);
 
-        if (currentPath == "__EMBEDDED_NEUMORPHIC_UI__") {
-            lv_lottie_set_src_data(m_lottieObj, cbdos::assets::LOTTIE_CBDOS_NEUMORPHIC_UI_JSON, cbdos::assets::LOTTIE_CBDOS_NEUMORPHIC_UI_JSON_SIZE);
-            snprintf(labelBuf, sizeof(labelBuf), "[%zu/%zu] CBDos: Panel Neumórfico", 
-                     m_currentFileIndex + 1, m_fileList.size());
-        } else if (currentPath == "__EMBEDDED_STAR__") {
+        if (currentPath == "__EMBEDDED_STAR__") {
             lv_lottie_set_src_data(m_lottieObj, LOTTIE_TEST_JSON, LOTTIE_TEST_JSON_SIZE);
             snprintf(labelBuf, sizeof(labelBuf), "[%zu/%zu] Estrella Demo (Embebida)", 
                      m_currentFileIndex + 1, m_fileList.size());

@@ -345,7 +345,7 @@ cbdos/
 │   ├── tlvgl_gateway/          # Servidor gateway Python TLVGL
 │   ├── meshcore_upstream/      # Referencia upstream de MeshCore (solo lectura)
 │   └── design/svg_icons/       # Iconos SVG fuente para la UI
-├── assets/lottie/              # Animaciones Lottie (robot mascot, UI neumorphic)
+├── assets/lottie/              # Animaciones Lottie (robot mascot)
 ├── bin/                        # Binarios pre-compilados (GBC, NES para P4)
 ├── scripts/                    # Utilidades y scripts Lua de demostracion
 │   ├── lua/                    # Demos: audio, graficos, HID, sistema

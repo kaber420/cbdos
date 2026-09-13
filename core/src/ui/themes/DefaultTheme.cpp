@@ -7,14 +7,18 @@ void DefaultTheme::disableScroll(lv_obj_t* obj) {
 }
 
 void DefaultTheme::applyFlatBg(lv_obj_t* obj) {
+    if(!obj) return;
     lv_obj_set_style_bg_color(obj, getBgColor(), 0);
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(obj, 0, 0);
     lv_obj_set_style_pad_all(obj, 0, 0);
+    // Herencia: todo label/hijo sin color propio queda legible sobre fondo oscuro
+    lv_obj_set_style_text_color(obj, getTextColor(), 0);
     disableScroll(obj);
 }
 
 void DefaultTheme::applyRaisedCard(lv_obj_t* obj, int32_t radius) {
+    if(!obj) return;
     disableScroll(obj);
     
     // Fondo translúcido con efecto acrílico (Glassmorphism)
@@ -26,9 +30,13 @@ void DefaultTheme::applyRaisedCard(lv_obj_t* obj, int32_t radius) {
     lv_obj_set_style_border_color(obj, lv_color_hex(0x3B4252), 0);
     lv_obj_set_style_border_width(obj, 1, 0);
     lv_obj_set_style_border_opa(obj, LV_OPA_COVER, 0);
+
+    // Texto heredable: evita negro-sobre-oscuro en labels olvidados
+    lv_obj_set_style_text_color(obj, getTextColor(), 0);
 }
 
 void DefaultTheme::applySunkenCard(lv_obj_t* obj, int32_t radius) {
+    if(!obj) return;
     disableScroll(obj);
     
     // Tono hendido translúcido
@@ -41,12 +49,19 @@ void DefaultTheme::applySunkenCard(lv_obj_t* obj, int32_t radius) {
     lv_obj_set_style_border_width(obj, 1, 0);
     lv_obj_set_style_border_opa(obj, LV_OPA_COVER, 0);
 
+    // Texto heredable
+    lv_obj_set_style_text_color(obj, getTextColor(), 0);
+
     lv_obj_set_style_bg_color(obj, lv_color_hex(0x11131A), LV_STATE_PRESSED);
     lv_obj_set_style_bg_opa(obj, LV_OPA_80, LV_STATE_PRESSED);
 }
 
 void DefaultTheme::applyButton(lv_obj_t* obj, int32_t radius) {
+    if(!obj) return;
     applyRaisedCard(obj, radius);
+
+    // Asegura herencia tambien en el boton (sobreescribe cualquier default LVGL)
+    lv_obj_set_style_text_color(obj, getTextColor(), 0);
 
     // Estado presionado con feedback visual luminoso
     lv_obj_set_style_bg_color(obj, lv_color_hex(0x242838), LV_STATE_PRESSED);
@@ -54,6 +69,7 @@ void DefaultTheme::applyButton(lv_obj_t* obj, int32_t radius) {
     lv_obj_set_style_border_color(obj, lv_color_hex(0x00F5D4), LV_STATE_PRESSED);
     lv_obj_set_style_border_width(obj, 1, LV_STATE_PRESSED);
     lv_obj_set_style_border_opa(obj, LV_OPA_COVER, LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(obj, getTextColor(), LV_STATE_PRESSED);
 }
 
 void DefaultTheme::applyTextArea(lv_obj_t* obj, int32_t radius) {

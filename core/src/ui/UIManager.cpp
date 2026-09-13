@@ -68,6 +68,8 @@ bool UIManager::init(lv_obj_t* rootScreen) {
     lv_obj_set_style_bg_color(m_rootScreen, lv_color_hex(palette.bg), 0);
     lv_obj_set_style_bg_opa(m_rootScreen, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(m_rootScreen, 0, 0);
+    // Texto base heredable: evita negro-sobre-oscuro en labels sin estilo propio
+    lv_obj_set_style_text_color(m_rootScreen, lv_color_hex(palette.textPrimary), 0);
     lv_obj_remove_flag(m_rootScreen, LV_OBJ_FLAG_SCROLLABLE);
 
     // 3. Aplicar Fondo de Pantalla (Wallpaper de fábrica o personalizado)
@@ -101,6 +103,8 @@ bool UIManager::init(lv_obj_t* rootScreen) {
     lv_obj_set_style_border_width(m_contentContainer, 0, 0);
     lv_obj_set_style_pad_all(m_contentContainer, 0, 0);
     lv_obj_set_style_radius(m_contentContainer, 0, 0);
+    // Propaga texto claro a todas las vistas hijas
+    lv_obj_set_style_text_color(m_contentContainer, lv_color_hex(palette.textPrimary), 0);
     lv_obj_remove_flag(m_contentContainer, LV_OBJ_FLAG_SCROLLABLE);
 
     // 6. Suscribir a cambios de tema
@@ -337,6 +341,10 @@ void UIManager::showNotification(const char* message, uint32_t durationMs) {
 void UIManager::onThemeChanged(cbdos::theme::ThemeType theme, const cbdos::theme::ThemePalette& palette) {
     if (m_rootScreen && lv_obj_is_valid(m_rootScreen)) {
         lv_obj_set_style_bg_color(m_rootScreen, lv_color_hex(palette.bg), 0);
+        lv_obj_set_style_text_color(m_rootScreen, lv_color_hex(palette.textPrimary), 0);
+    }
+    if (m_contentContainer && lv_obj_is_valid(m_contentContainer)) {
+        lv_obj_set_style_text_color(m_contentContainer, lv_color_hex(palette.textPrimary), 0);
     }
 
     m_headerBar.onThemeChanged(theme, palette);
