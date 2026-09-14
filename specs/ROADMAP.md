@@ -53,7 +53,7 @@ El sistema utiliza una arquitectura **Dual-Target desacoplada**:
 - [x] Desacoplamiento total de `core/` y `bsp/`.
 - [x] Migración total de vistas y componentes a **LVGL v9.5**.
 - [x] Implementación de `UIManager`, `BaseView`, `ThemeEngine` y `WallpaperManager`.
-- [x] Pantallas base: `SplashScreenView`, `DashboardView`, `ConfigView`, `WiFiConfigView`, `StorageConfigView`.
+- [x] Pantallas base: `SplashScreenView`, `DashboardView`, `ConfigView`, `NetworkManagerView`, `StorageConfigView`.
 
 ### 🟢 Fase 2: Subsistema Multimedia, Archivos y Herramientas (Completada)
 - [x] Motor agnóstico `AudioPlayer` con decodificación Helix MP3/AAC.

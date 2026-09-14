@@ -29,7 +29,6 @@ idf_component_register(
         "src/ui/mascot/RobotMascotWidget.cpp"
         "src/ui/views/DashboardView.cpp"
         "src/ui/views/ConfigView.cpp"
-        "src/ui/views/WiFiConfigView.cpp"
         "src/ui/views/WallpaperConfigView.cpp"
         "src/ui/views/StorageConfigView.cpp"
         "src/ui/views/TimeConfigView.cpp"

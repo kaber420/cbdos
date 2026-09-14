@@ -305,7 +305,7 @@ cbdos/
 │           ├── mascot/          # RobotMascotWidget
 │           ├── assets/          # Icons, SVG, wallpaper por defecto
 │           ├── views/           # 27 vistas de la UI
-│           │   ├── DashboardView, ConfigView, WiFiConfigView
+│           │   ├── DashboardView, ConfigView
 │           │   ├── StorageConfigView, WallpaperConfigView
 │           │   ├── MusicPlayerView, AudioRecorderView
 │           │   ├── RadioView, RadioConfigView
