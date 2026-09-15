@@ -18,15 +18,13 @@ TextEditorView::TextEditorView(const std::string& initialPath)
       m_btnRun(nullptr),
       m_btnKb(nullptr),
       m_textArea(nullptr),
-      m_keyboard(nullptr),
       m_modalMask(nullptr),
       m_saveAsTa(nullptr),
       m_btnSaveTargetFlash(nullptr),
       m_btnSaveTargetSd(nullptr),
       m_currentFilePath(initialPath),
       m_modalSaveStorage(cbdos::storage::StorageType::InternalFlash),
-      m_isModified(false),
-      m_keyboardVisible(true) {
+      m_isModified(false) {
     if (!m_currentFilePath.empty()) {
         if (m_currentFilePath.rfind("/sd", 0) == 0 || m_currentFilePath.rfind("A:", 0) == 0 || m_currentFilePath.rfind("S:", 0) == 0) {
             m_modalSaveStorage = cbdos::storage::StorageType::SdCard;
@@ -98,39 +96,17 @@ void TextEditorView::taEventCb(lv_event_t* e) {
             self->m_isModified = true;
             self->updateTitle();
         }
-    } else if (code == LV_EVENT_FOCUSED || code == LV_EVENT_CLICKED) {
-        if (self->m_keyboard && lv_obj_is_valid(self->m_keyboard)) {
-            lv_keyboard_set_textarea(self->m_keyboard, self->m_textArea);
-            if (!self->m_keyboardVisible) {
-                self->m_keyboardVisible = true;
-                lv_obj_remove_flag(self->m_keyboard, LV_OBJ_FLAG_HIDDEN);
-            }
-        }
     }
 }
 
 void TextEditorView::btnToggleKbCb(lv_event_t* e) {
     TextEditorView* self = static_cast<TextEditorView*>(lv_event_get_user_data(e));
-    if (!self || !self->m_keyboard || !lv_obj_is_valid(self->m_keyboard)) return;
+    if (!self || !self->m_textArea || !lv_obj_is_valid(self->m_textArea)) return;
 
-    self->m_keyboardVisible = !self->m_keyboardVisible;
-    if (self->m_keyboardVisible) {
-        lv_obj_remove_flag(self->m_keyboard, LV_OBJ_FLAG_HIDDEN);
+    if (UIManager::getActiveKeyboard() != nullptr) {
+        UIManager::closeKeyboard();
     } else {
-        lv_obj_add_flag(self->m_keyboard, LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
-void TextEditorView::editorKbEventCb(lv_event_t* e) {
-    TextEditorView* self = static_cast<TextEditorView*>(lv_event_get_user_data(e));
-    if (!self) return;
-
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code == LV_EVENT_READY || code == LV_EVENT_CANCEL) {
-        if (self->m_keyboard && lv_obj_is_valid(self->m_keyboard)) {
-            self->m_keyboardVisible = false;
-            lv_obj_add_flag(self->m_keyboard, LV_OBJ_FLAG_HIDDEN);
-        }
+        UIManager::openKeyboard(self->m_textArea);
     }
 }
 
@@ -248,11 +224,10 @@ void TextEditorView::modalSaveUnitSdCb(lv_event_t* e) {
     }
 }
 
-void TextEditorView::modalSaveConfirmCb(lv_event_t* e) {
-    TextEditorView* self = static_cast<TextEditorView*>(lv_event_get_user_data(e));
-    if (!self || !self->m_saveAsTa || !lv_obj_is_valid(self->m_saveAsTa)) return;
+void TextEditorView::confirmSaveAs() {
+    if (!m_saveAsTa || !lv_obj_is_valid(m_saveAsTa)) return;
 
-    const char* p = lv_textarea_get_text(self->m_saveAsTa);
+    const char* p = lv_textarea_get_text(m_saveAsTa);
     std::string relPath = p ? p : "";
     while (!relPath.empty() && (relPath.front() == ' ' || relPath.front() == '/')) {
         relPath.erase(relPath.begin());
@@ -267,37 +242,44 @@ void TextEditorView::modalSaveConfirmCb(lv_event_t* e) {
     }
 
     std::string finalPath;
-    if (self->m_modalSaveStorage == cbdos::storage::StorageType::InternalFlash) {
+    if (m_modalSaveStorage == cbdos::storage::StorageType::InternalFlash) {
         finalPath = "/spiffs/" + relPath;
     } else {
         finalPath = "/sdcard/" + relPath;
     }
 
-    self->m_currentFilePath = finalPath;
+    m_currentFilePath = finalPath;
 
-    const char* txt = lv_textarea_get_text(self->m_textArea);
+    const char* txt = lv_textarea_get_text(m_textArea);
     std::string content = txt ? txt : "";
 
-    bool ok = cbdos::storage::writeFile(self->m_currentFilePath.c_str(), content);
+    bool ok = cbdos::storage::writeFile(m_currentFilePath.c_str(), content);
     if (ok) {
-        self->m_isModified = false;
-        self->updateTitle();
+        m_isModified = false;
+        updateTitle();
         UIManager::showToast("Guardado correctamente");
     } else {
         UIManager::showToast("Error al guardar archivo");
     }
 
-    if (self->m_modalMask && lv_obj_is_valid(self->m_modalMask)) {
-        lv_obj_delete_async(self->m_modalMask);
-        self->m_modalMask = nullptr;
+    UIManager::closeKeyboard();
+    if (m_modalMask && lv_obj_is_valid(m_modalMask)) {
+        lv_obj_delete_async(m_modalMask);
+        m_modalMask = nullptr;
     }
-    self->m_saveAsTa = nullptr;
-    self->m_btnSaveTargetFlash = nullptr;
-    self->m_btnSaveTargetSd = nullptr;
+    m_saveAsTa = nullptr;
+    m_btnSaveTargetFlash = nullptr;
+    m_btnSaveTargetSd = nullptr;
+}
+
+void TextEditorView::modalSaveConfirmCb(lv_event_t* e) {
+    TextEditorView* self = static_cast<TextEditorView*>(lv_event_get_user_data(e));
+    if (self) self->confirmSaveAs();
 }
 
 void TextEditorView::modalSaveCancelCb(lv_event_t* e) {
     TextEditorView* self = static_cast<TextEditorView*>(lv_event_get_user_data(e));
+    UIManager::closeKeyboard();
     if (self && self->m_modalMask && lv_obj_is_valid(self->m_modalMask)) {
         lv_obj_delete_async(self->m_modalMask);
         self->m_modalMask = nullptr;
@@ -314,10 +296,7 @@ void TextEditorView::showSaveAsModal() {
     }
 
     // Ocultar teclado base para evitar superposiciones
-    if (m_keyboard && lv_obj_is_valid(m_keyboard)) {
-        lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);
-        m_keyboardVisible = false;
-    }
+    UIManager::closeKeyboard();
 
     auto caps = cbdos::display::getCapabilities();
     int32_t screenW = caps.width > 0 ? caps.width : 480;
@@ -429,17 +408,14 @@ void TextEditorView::showSaveAsModal() {
     lv_obj_center(lblS);
     lv_obj_add_event_cb(btnSave, modalSaveConfirmCb, LV_EVENT_CLICKED, this);
 
-    // 4. Teclado virtual en la parte inferior
-    lv_obj_t* kb = lv_keyboard_create(m_modalMask);
-    lv_obj_set_size(kb, LV_PCT(100), (screenH >= 800) ? 320 : 230);
-    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_set_style_bg_color(kb, lv_color_hex(0x1B1E29), 0);
-    lv_obj_set_style_border_color(kb, lv_color_hex(0x2E3444), 0);
-    lv_obj_set_style_border_width(kb, 1, 0);
-    lv_obj_set_style_radius(kb, 0, 0);
-    lv_keyboard_set_textarea(kb, m_saveAsTa);
-    lv_obj_add_event_cb(kb, modalSaveConfirmCb, LV_EVENT_READY, this);
-    lv_obj_add_event_cb(kb, modalSaveCancelCb, LV_EVENT_CANCEL, this);
+    // 4. Teclado virtual unificado
+    UIManager::attachKeyboard(m_saveAsTa, {
+        .autoCloseOnSubmit = true,
+        .onSubmit = [this](const char*) {
+            this->modalSaveConfirmCb(nullptr);
+        }
+    });
+    UIManager::openKeyboard(m_saveAsTa);
 }
 
 // ── Modal: Abrir Archivo ──────────────────────────────────────────
@@ -537,10 +513,7 @@ void TextEditorView::showOpenFileModal() {
     }
 
     // Ocultar teclado si está visible para liberar espacio
-    if (m_keyboard && lv_obj_is_valid(m_keyboard)) {
-        lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);
-        m_keyboardVisible = false;
-    }
+    UIManager::closeKeyboard();
 
     scanTextFiles();
 
@@ -778,14 +751,10 @@ bool TextEditorView::onCreate(lv_obj_t* parent) {
     lv_obj_add_event_cb(m_textArea, taEventCb, LV_EVENT_ALL, this);
 
     // 4. Teclado Virtual Integrado
-    m_keyboard = lv_keyboard_create(m_container);
-    lv_obj_set_size(m_keyboard, LV_PCT(100), (caps.height >= 800) ? 310 : 210);
-    lv_obj_set_style_bg_color(m_keyboard, lv_color_hex(0x1B1E29), 0);
-    lv_obj_set_style_border_color(m_keyboard, lv_color_hex(0x2E3444), 0);
-    lv_obj_set_style_border_width(m_keyboard, 1, 0);
-    lv_obj_set_style_radius(m_keyboard, 0, 0);
-    lv_keyboard_set_textarea(m_keyboard, m_textArea);
-    lv_obj_add_event_cb(m_keyboard, editorKbEventCb, LV_EVENT_ALL, this);
+    UIManager::attachKeyboard(m_textArea, {
+        .autoCloseOnSubmit = false, // Keep open for multi-line
+        .onSubmit = nullptr
+    });
 
     // Cargar contenido inicial
     if (!m_currentFilePath.empty()) {
@@ -807,7 +776,6 @@ void TextEditorView::onDestroy() {
     m_btnRun = nullptr;
     m_btnKb = nullptr;
     m_textArea = nullptr;
-    m_keyboard = nullptr;
     m_saveAsTa = nullptr;
 
     UIManager::getInstance().getHeaderBar().clearRightAction();

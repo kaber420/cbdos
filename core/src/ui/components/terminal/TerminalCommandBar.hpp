@@ -16,9 +16,7 @@ public:
     ~TerminalCommandBar() = default;
 
     bool create(lv_obj_t* parent, SendCommandCallback onSendCmd, SendRawCallback onSendRaw);
-    void toggleKeyboard();
-    void hideKeyboard();
-    bool isKeyboardVisible() const { return m_kbVisible; }
+    void executeCommand();
     cbdos::serial::LineEnding getLineEnding() const { return m_lineEnding; }
     bool isLocalEcho() const { return m_localEcho; }
 
@@ -28,8 +26,6 @@ private:
     static void sendBtnCb(lv_event_t* e);
     static void kbToggleBtnCb(lv_event_t* e);
     static void quickKeyBtnCb(lv_event_t* e);
-    static void inputFocusedCb(lv_event_t* e);
-    static void keyboardEventCb(lv_event_t* e);
 
     lv_obj_t* m_container = nullptr;
     lv_obj_t* m_ddLineEnding = nullptr;
@@ -38,9 +34,7 @@ private:
     lv_obj_t* m_inputCmd = nullptr;
     lv_obj_t* m_btnSend = nullptr;
     lv_obj_t* m_btnToggleKb = nullptr;
-    lv_obj_t* m_keyboard = nullptr;
 
-    bool m_kbVisible = false;
     bool m_localEcho = false;
     cbdos::serial::LineEnding m_lineEnding = cbdos::serial::LineEnding::CRLF;
 

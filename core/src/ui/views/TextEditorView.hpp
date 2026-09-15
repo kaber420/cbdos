@@ -28,11 +28,11 @@ private:
     static void btnNewCb(lv_event_t* e);
     static void btnOpenCb(lv_event_t* e);
     static void btnToggleKbCb(lv_event_t* e);
-    static void editorKbEventCb(lv_event_t* e);
     static void btnRunCb(lv_event_t* e);
 
     // Modals & Navigation callbacks
     void showSaveAsModal();
+    void confirmSaveAs();
     void showOpenFileModal();
     static void modalSaveConfirmCb(lv_event_t* e);
     static void modalSaveCancelCb(lv_event_t* e);
@@ -53,7 +53,6 @@ private:
     lv_obj_t* m_btnRun;
     lv_obj_t* m_btnKb;
     lv_obj_t* m_textArea;
-    lv_obj_t* m_keyboard;
     lv_obj_t* m_modalMask;
     lv_obj_t* m_saveAsTa;
     lv_obj_t* m_btnSaveTargetFlash;
@@ -62,7 +61,6 @@ private:
     std::string m_currentFilePath;
     cbdos::storage::StorageType m_modalSaveStorage;
     bool m_isModified;
-    bool m_keyboardVisible;
     std::vector<std::string> m_foundFiles;
 };
 

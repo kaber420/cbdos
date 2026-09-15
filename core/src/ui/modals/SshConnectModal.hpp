@@ -45,8 +45,6 @@ private:
     static void connectBtnCb(lv_event_t* e);
     static void saveProfileBtnCb(lv_event_t* e);
     static void togglePassVisCb(lv_event_t* e);
-    static void taFocusedCb(lv_event_t* e);
-    static void keyboardActionCb(lv_event_t* e);
 
     lv_obj_t* m_modalMask = nullptr;
     lv_obj_t* m_card = nullptr;
@@ -68,7 +66,6 @@ private:
     lv_obj_t* m_taPassphrase = nullptr;
 
     lv_obj_t* m_lblStatus = nullptr;
-    lv_obj_t* m_keyboard = nullptr;
 
     bool m_passVisible = false;
     std::vector<SshHostProfile> m_profiles;

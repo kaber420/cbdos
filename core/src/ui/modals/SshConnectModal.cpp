@@ -1,5 +1,6 @@
 #include "SshConnectModal.hpp"
 #include "../../themes/DefaultTheme.h"
+#include "../UIManager.hpp"
 #include "cbdos/network.hpp"
 #include "cbdos/display.hpp"
 #include "cbdos/storage.hpp"
@@ -153,19 +154,9 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
     lv_obj_set_style_pad_all(m_modalMask, 0, 0);
     lv_obj_clear_flag(m_modalMask, LV_OBJ_FLAG_SCROLLABLE);
 
-    // 2. Teclado Virtual en la base física de la pantalla
-    int kbHeight = isCompact ? 175 : 260;
-    m_keyboard = lv_keyboard_create(m_modalMask);
-    lv_obj_set_size(m_keyboard, LV_PCT(100), kbHeight);
-    lv_obj_align(m_keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_set_style_bg_color(m_keyboard, lv_color_hex(0x111827), 0);
-    lv_obj_add_event_cb(m_keyboard, keyboardActionCb, LV_EVENT_READY, this);
-    lv_obj_add_event_cb(m_keyboard, keyboardActionCb, LV_EVENT_CANCEL, this);
-    lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);
-
-    // 3. Tarjeta del Formulario (se acomoda arriba del teclado)
+    // 2. Tarjeta del Formulario (con auto-scroll para teclado global de sistema)
     int cardWidth = isCompact ? 308 : 440;
-    int cardHeight = isCompact ? (caps.height - kbHeight - 16) : 480;
+    int cardHeight = isCompact ? (caps.height - 24) : 480;
     if (cardHeight < 280) cardHeight = 280;
 
     m_card = lv_obj_create(m_modalMask);
@@ -239,7 +230,7 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
     lv_obj_set_style_pad_bottom(m_taHost, 8, 0);
     lv_obj_set_style_pad_left(m_taHost, 10, 0);
     lv_obj_set_style_pad_right(m_taHost, 10, 0);
-    lv_obj_add_event_cb(m_taHost, taFocusedCb, LV_EVENT_FOCUSED, this);
+    UIManager::attachKeyboard(m_taHost, { .nextFocusTarget = m_taPort });
 
     // Fila 3: Puerto y Usuario
     lv_obj_t* rowPortUser = lv_obj_create(m_card);
@@ -274,7 +265,7 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
     lv_obj_set_style_pad_bottom(m_taPort, 8, 0);
     lv_obj_set_style_pad_left(m_taPort, 8, 0);
     lv_obj_set_style_pad_right(m_taPort, 8, 0);
-    lv_obj_add_event_cb(m_taPort, taFocusedCb, LV_EVENT_FOCUSED, this);
+    UIManager::attachKeyboard(m_taPort, { .nextFocusTarget = m_taUser });
 
     // Box Usuario
     lv_obj_t* boxUser = lv_obj_create(rowPortUser);
@@ -297,11 +288,11 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
     lv_obj_set_scrollbar_mode(m_taUser, LV_SCROLLBAR_MODE_OFF);
     lv_textarea_set_placeholder_text(m_taUser, "root");
     lv_obj_set_style_text_font(m_taUser, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_pad_top(m_taPort, 8, 0);
-    lv_obj_set_style_pad_bottom(m_taPort, 8, 0);
+    lv_obj_set_style_pad_top(m_taUser, 8, 0);
+    lv_obj_set_style_pad_bottom(m_taUser, 8, 0);
     lv_obj_set_style_pad_left(m_taUser, 10, 0);
     lv_obj_set_style_pad_right(m_taUser, 10, 0);
-    lv_obj_add_event_cb(m_taUser, taFocusedCb, LV_EVENT_FOCUSED, this);
+    UIManager::attachKeyboard(m_taUser, { .nextFocusTarget = m_taPassword });
 
     // Fila 4: Tipo de Autenticación
     lv_obj_t* lblAuth = lv_label_create(m_card);
@@ -336,7 +327,7 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
     lv_obj_set_style_pad_bottom(m_taPassword, 8, 0);
     lv_obj_set_style_pad_left(m_taPassword, 10, 0);
     lv_obj_set_style_pad_right(m_taPassword, 10, 0);
-    lv_obj_add_event_cb(m_taPassword, taFocusedCb, LV_EVENT_FOCUSED, this);
+    UIManager::attachKeyboard(m_taPassword, { .autoCloseOnSubmit = true });
 
     m_btnPassVis = lv_button_create(m_boxPassword);
     DefaultTheme::applyButton(m_btnPassVis, 6);
@@ -369,7 +360,7 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
     lv_obj_set_style_pad_bottom(m_taKeyPath, 8, 0);
     lv_obj_set_style_pad_left(m_taKeyPath, 10, 0);
     lv_obj_set_style_pad_right(m_taKeyPath, 10, 0);
-    lv_obj_add_event_cb(m_taKeyPath, taFocusedCb, LV_EVENT_FOCUSED, this);
+    UIManager::attachKeyboard(m_taKeyPath, { .nextFocusTarget = m_taPassphrase });
 
     m_taPassphrase = lv_textarea_create(m_boxKey);
     lv_obj_set_size(m_taPassphrase, LV_PCT(100), isCompact ? 40 : 44);
@@ -383,7 +374,7 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
     lv_obj_set_style_pad_bottom(m_taPassphrase, 8, 0);
     lv_obj_set_style_pad_left(m_taPassphrase, 10, 0);
     lv_obj_set_style_pad_right(m_taPassphrase, 10, 0);
-    lv_obj_add_event_cb(m_taPassphrase, taFocusedCb, LV_EVENT_FOCUSED, this);
+    UIManager::attachKeyboard(m_taPassphrase, { .autoCloseOnSubmit = true });
 
     // Emulación Terminal PTY
     lv_obj_t* lblTerm = lv_label_create(m_card);
@@ -434,11 +425,11 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
 }
 
 void SshConnectModal::close() {
+    UIManager::closeKeyboard();
     if (m_modalMask) {
         lv_obj_delete(m_modalMask);
         m_modalMask = nullptr;
         m_card = nullptr;
-        m_keyboard = nullptr;
     }
 }
 
@@ -485,25 +476,6 @@ void SshConnectModal::togglePassVisCb(lv_event_t* e) {
     lv_obj_t* lbl = lv_obj_get_child(self->m_btnPassVis, 0);
     if (lbl) {
         lv_label_set_text(lbl, self->m_passVisible ? LV_SYMBOL_EYE_CLOSE : LV_SYMBOL_EYE_OPEN);
-    }
-}
-
-void SshConnectModal::taFocusedCb(lv_event_t* e) {
-    auto* self = static_cast<SshConnectModal*>(lv_event_get_user_data(e));
-    lv_obj_t* ta = static_cast<lv_obj_t*>(lv_event_get_target(e));
-    if (!self || !self->m_keyboard || !ta) return;
-
-    lv_keyboard_set_textarea(self->m_keyboard, ta);
-    lv_obj_remove_flag(self->m_keyboard, LV_OBJ_FLAG_HIDDEN);
-    if (self->m_card) {
-        lv_obj_scroll_to_view(ta, LV_ANIM_ON);
-    }
-}
-
-void SshConnectModal::keyboardActionCb(lv_event_t* e) {
-    auto* self = static_cast<SshConnectModal*>(lv_event_get_user_data(e));
-    if (self && self->m_keyboard) {
-        lv_obj_add_flag(self->m_keyboard, LV_OBJ_FLAG_HIDDEN);
     }
 }
 

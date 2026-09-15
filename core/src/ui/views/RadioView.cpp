@@ -958,46 +958,49 @@ void RadioView::showNewPlaylistModal() {
     lv_obj_center(lblCr);
     lv_obj_add_event_cb(btnCreate, modalNewConfirmCb, LV_EVENT_CLICKED, this);
 
-    // Teclado virtual
-    lv_obj_t* kb = lv_keyboard_create(m_modalMask);
-    lv_obj_set_size(kb, LV_PCT(100), (screenH >= 800) ? 320 : 230);
-    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_set_style_bg_color(kb, lv_color_hex(0x1B1E29), 0);
-    lv_obj_set_style_border_color(kb, lv_color_hex(0x2E3444), 0);
-    lv_obj_set_style_border_width(kb, 1, 0);
-    lv_obj_set_style_radius(kb, 0, 0);
-    lv_keyboard_set_textarea(kb, m_newPlaylistTa);
-    lv_obj_add_event_cb(kb, modalNewConfirmCb, LV_EVENT_READY, this);
-    lv_obj_add_event_cb(kb, modalNewCancelCb, LV_EVENT_CANCEL, this);
+    // Teclado virtual unificado
+    UIManager::attachKeyboard(m_newPlaylistTa, {
+        .autoCloseOnSubmit = true,
+        .onSubmit = [this](const char*) {
+            this->confirmNewPlaylist();
+        }
+    });
+    UIManager::openKeyboard(m_newPlaylistTa);
 }
 
-void RadioView::modalNewConfirmCb(lv_event_t* e) {
-    RadioView* self = static_cast<RadioView*>(lv_event_get_user_data(e));
-    if (!self || !self->m_newPlaylistTa || !lv_obj_is_valid(self->m_newPlaylistTa)) return;
+void RadioView::confirmNewPlaylist() {
+    if (!m_newPlaylistTa || !lv_obj_is_valid(m_newPlaylistTa)) return;
 
-    const char* txt = lv_textarea_get_text(self->m_newPlaylistTa);
+    const char* txt = lv_textarea_get_text(m_newPlaylistTa);
     if (txt && strlen(txt) > 0) {
         bool ok = audio::RadioManager::getInstance().createPlaylist(txt);
         if (ok) {
             const auto& playlists = audio::RadioManager::getInstance().getPlaylists();
-            self->m_selectedPlaylistIdx = playlists.size() - 1;
-            self->refreshPlaylistDropdown();
-            self->refreshFavoritesUI();
+            m_selectedPlaylistIdx = playlists.size() - 1;
+            refreshPlaylistDropdown();
+            refreshFavoritesUI();
             UIManager::showToast("Lista creada con exito");
         } else {
             UIManager::showToast("Error al crear lista");
         }
     }
 
-    if (self->m_modalMask && lv_obj_is_valid(self->m_modalMask)) {
-        lv_obj_delete_async(self->m_modalMask);
-        self->m_modalMask = nullptr;
+    UIManager::closeKeyboard();
+    if (m_modalMask && lv_obj_is_valid(m_modalMask)) {
+        lv_obj_delete_async(m_modalMask);
+        m_modalMask = nullptr;
     }
-    self->m_newPlaylistTa = nullptr;
+    m_newPlaylistTa = nullptr;
+}
+
+void RadioView::modalNewConfirmCb(lv_event_t* e) {
+    RadioView* self = static_cast<RadioView*>(lv_event_get_user_data(e));
+    if (self) self->confirmNewPlaylist();
 }
 
 void RadioView::modalNewCancelCb(lv_event_t* e) {
     RadioView* self = static_cast<RadioView*>(lv_event_get_user_data(e));
+    UIManager::closeKeyboard();
     if (self && self->m_modalMask && lv_obj_is_valid(self->m_modalMask)) {
         lv_obj_delete_async(self->m_modalMask);
         self->m_modalMask = nullptr;

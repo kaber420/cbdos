@@ -77,9 +77,7 @@ private:
     // Callbacks estáticos LVGL
     static void timerPumpCb(lv_timer_t* timer);
     static void sendBtnCb(lv_event_t* e);
-    static void taInputEventCb(lv_event_t* e);
     static void toggleKbBtnCb(lv_event_t* e);
-    static void kbEventCb(lv_event_t* e);
     static void channelDropdownCb(lv_event_t* e);
     static void refreshChannelsBtnCb(lv_event_t* e);
     static void channelUseBtnCb(lv_event_t* e);
@@ -102,9 +100,7 @@ private:
     static void convDetailsCb(lv_event_t* e);
     static void convSendCb(lv_event_t* e);
     static void convRetryCb(lv_event_t* e);
-    static void dmInputEventCb(lv_event_t* e);
     static void toggleDmKbBtnCb(lv_event_t* e);
-    static void dmKbEventCb(lv_event_t* e);
     static void detailsBackCb(lv_event_t* e);
     static void detailsSaveNameCb(lv_event_t* e);
     static void detailsSavePathCb(lv_event_t* e);
@@ -146,8 +142,6 @@ private:
     lv_obj_t* m_lblConvStatus = nullptr;
     lv_obj_t* m_taDmInput = nullptr;
     lv_obj_t* m_btnDmKb = nullptr;
-    lv_obj_t* m_keyboardDm = nullptr;
-    bool m_keyboardDmVisible = false;
     // Tab Contactos: detalles
     lv_obj_t* m_detailsPane = nullptr;
     lv_obj_t* m_lblDetailsTitle = nullptr;
@@ -177,8 +171,6 @@ private:
     lv_obj_t* m_taInput = nullptr;
     lv_obj_t* m_btnSend = nullptr;
     lv_obj_t* m_btnKb = nullptr;
-    lv_obj_t* m_keyboard = nullptr;
-    bool m_keyboardVisible = false;
 
     // Tab 2: Canales
     lv_obj_t* m_lblChannelsCount = nullptr;

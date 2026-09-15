@@ -113,7 +113,7 @@ bool TerminalView::onCreate(lv_obj_t* parent) {
     if (m_display.getObject()) {
         lv_obj_add_event_cb(m_display.getObject(), [](lv_event_t* e) {
             auto* self = static_cast<TerminalView*>(lv_event_get_user_data(e));
-            if (self) self->m_cmdBar.hideKeyboard();
+            if (self) UIManager::closeKeyboard();
         }, LV_EVENT_CLICKED, this);
     }
 

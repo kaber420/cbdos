@@ -36,6 +36,7 @@ private:
     // Modales de gestión de listas
     void showPlaylistManageModal();
     void showNewPlaylistModal();
+    void confirmNewPlaylist();
     void showImportSdModal();
 
     static void tabNavCb(lv_event_t* e);

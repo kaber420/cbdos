@@ -1,5 +1,6 @@
 #include "TerminalCommandBar.hpp"
 #include "../../themes/DefaultTheme.h"
+#include "../UIManager.hpp"
 #include <cstring>
 
 namespace cbdos {
@@ -91,7 +92,6 @@ bool TerminalCommandBar::create(lv_obj_t* parent, SendCommandCallback onSendCmd,
     lv_textarea_set_one_line(m_inputCmd, true);
     lv_textarea_set_placeholder_text(m_inputCmd, "Comando...");
     lv_obj_set_style_text_font(m_inputCmd, &lv_font_montserrat_12, 0);
-    lv_obj_add_event_cb(m_inputCmd, inputFocusedCb, LV_EVENT_FOCUSED, this);
 
     m_btnSend = lv_button_create(inputRow);
     DefaultTheme::applyButton(m_btnSend, 8);
@@ -110,41 +110,22 @@ bool TerminalCommandBar::create(lv_obj_t* parent, SendCommandCallback onSendCmd,
     lv_obj_add_event_cb(m_btnToggleKb, kbToggleBtnCb, LV_EVENT_CLICKED, this);
 
     // Teclado Virtual
-    m_keyboard = lv_keyboard_create(parent);
-    lv_obj_set_size(m_keyboard, LV_PCT(100), 160);
-    lv_keyboard_set_textarea(m_keyboard, m_inputCmd);
-    lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_event_cb(m_keyboard, keyboardEventCb, LV_EVENT_ALL, this);
-    m_kbVisible = false;
+    UIManager::attachKeyboard(m_inputCmd, {
+        .autoCloseOnSubmit = true,
+        .onSubmit = [this](const char*) {
+            this->executeCommand();
+        }
+    });
 
     return true;
 }
 
-void TerminalCommandBar::toggleKeyboard() {
-    if (!m_keyboard) return;
-    m_kbVisible = !m_kbVisible;
-    if (m_kbVisible) {
-        lv_obj_remove_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
-void TerminalCommandBar::hideKeyboard() {
-    if (!m_keyboard) return;
-    m_kbVisible = false;
-    lv_obj_add_flag(m_keyboard, LV_OBJ_FLAG_HIDDEN);
-}
-
-void TerminalCommandBar::keyboardEventCb(lv_event_t* e) {
-    auto* self = static_cast<TerminalCommandBar*>(lv_event_get_user_data(e));
-    if (!self || !self->m_keyboard) return;
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code == LV_EVENT_READY) {
-        self->sendBtnCb(e);
-        self->hideKeyboard();
-    } else if (code == LV_EVENT_CANCEL) {
-        self->hideKeyboard();
+void TerminalCommandBar::executeCommand() {
+    if (!m_inputCmd) return;
+    const char* txt = lv_textarea_get_text(m_inputCmd);
+    if (txt && strlen(txt) > 0 && m_onSendCmd) {
+        m_onSendCmd(txt, m_lineEnding, m_localEcho);
+        lv_textarea_set_text(m_inputCmd, "");
     }
 }
 
@@ -176,17 +157,17 @@ void TerminalCommandBar::echoToggleBtnCb(lv_event_t* e) {
 
 void TerminalCommandBar::sendBtnCb(lv_event_t* e) {
     auto* self = static_cast<TerminalCommandBar*>(lv_event_get_user_data(e));
-    if (!self || !self->m_inputCmd) return;
-    const char* txt = lv_textarea_get_text(self->m_inputCmd);
-    if (txt && strlen(txt) > 0 && self->m_onSendCmd) {
-        self->m_onSendCmd(txt, self->m_lineEnding, self->m_localEcho);
-        lv_textarea_set_text(self->m_inputCmd, "");
-    }
+    if (self) self->executeCommand();
 }
 
 void TerminalCommandBar::kbToggleBtnCb(lv_event_t* e) {
     auto* self = static_cast<TerminalCommandBar*>(lv_event_get_user_data(e));
-    if (self) self->toggleKeyboard();
+    if (!self || !self->m_inputCmd) return;
+    if (UIManager::getActiveKeyboard() != nullptr) {
+        UIManager::closeKeyboard();
+    } else {
+        UIManager::openKeyboard(self->m_inputCmd);
+    }
 }
 
 void TerminalCommandBar::quickKeyBtnCb(lv_event_t* e) {
@@ -196,14 +177,6 @@ void TerminalCommandBar::quickKeyBtnCb(lv_event_t* e) {
     const auto* qk = static_cast<const QuickKey*>(lv_obj_get_user_data(target));
     if (self->m_onSendRaw && qk) {
         self->m_onSendRaw(qk->bytes, qk->len);
-    }
-}
-
-void TerminalCommandBar::inputFocusedCb(lv_event_t* e) {
-    auto* self = static_cast<TerminalCommandBar*>(lv_event_get_user_data(e));
-    if (self && self->m_keyboard && !self->m_kbVisible) {
-        self->m_kbVisible = true;
-        lv_obj_remove_flag(self->m_keyboard, LV_OBJ_FLAG_HIDDEN);
     }
 }
 

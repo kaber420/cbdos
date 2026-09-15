@@ -6,10 +6,17 @@
 #include "views/BaseView.hpp"
 #include <memory>
 #include <vector>
+#include <functional>
 #include <lvgl.h>
 
 namespace cbdos {
 namespace ui {
+
+struct KeyboardOptions {
+    bool autoCloseOnSubmit = true;
+    std::function<void(const char*)> onSubmit = nullptr;
+    lv_obj_t* nextFocusTarget = nullptr;
+};
 
 class UIManager {
 public:
@@ -28,8 +35,10 @@ public:
     bool isQuickSettingsOpen() const { return QuickSettingsPanel::isOpen(); }
     void showNotification(const char* message, uint32_t durationMs = 3000);
     static void showToast(const char* message, uint32_t durationMs = 2500) { getInstance().showNotification(message, durationMs); }
-    static void attachKeyboard(lv_obj_t* ta);
+    static void attachKeyboard(lv_obj_t* ta, const KeyboardOptions& opts = {});
+    static void openKeyboard(lv_obj_t* ta);
     static void closeKeyboard();
+    static lv_obj_t* getActiveKeyboard();
 
     HeaderBar& getHeaderBar() { return m_headerBar; }
     lv_obj_t* getContentContainer() const { return m_contentContainer; }

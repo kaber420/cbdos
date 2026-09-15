@@ -6,6 +6,7 @@
 #include "cbdos/system.hpp"
 #include "PowerManager.hpp"
 #include "../../lua/LuaBridge.hpp"
+#include <unordered_map>
 
 namespace cbdos {
 
@@ -147,6 +148,11 @@ void UIManager::update() {
 }
 
 static lv_obj_t* s_activeKeyboard = nullptr;
+static std::unordered_map<lv_obj_t*, KeyboardOptions> s_kbOptions;
+
+lv_obj_t* UIManager::getActiveKeyboard() {
+    return (s_activeKeyboard && lv_obj_is_valid(s_activeKeyboard)) ? s_activeKeyboard : nullptr;
+}
 
 void UIManager::closeKeyboard() {
     if (s_activeKeyboard && lv_obj_is_valid(s_activeKeyboard)) {
@@ -162,7 +168,30 @@ void UIManager::closeKeyboard() {
 static void kb_event_cb(lv_event_t* ev) {
     lv_event_code_t c = lv_event_get_code(ev);
     lv_obj_t* kb = (lv_obj_t*)lv_event_get_target(ev);
-    if (c == LV_EVENT_READY || c == LV_EVENT_CANCEL) {
+    if (c == LV_EVENT_READY) {
+        lv_obj_t* ta = lv_keyboard_get_textarea(kb);
+        if (ta && lv_obj_is_valid(ta)) {
+            auto it = s_kbOptions.find(ta);
+            if (it != s_kbOptions.end()) {
+                const auto& opts = it->second;
+                if (opts.onSubmit) {
+                    const char* text = lv_textarea_get_text(ta);
+                    opts.onSubmit(text ? text : "");
+                }
+                if (opts.nextFocusTarget && lv_obj_is_valid(opts.nextFocusTarget)) {
+                    lv_keyboard_set_textarea(kb, opts.nextFocusTarget);
+                    lv_obj_send_event(opts.nextFocusTarget, LV_EVENT_FOCUSED, NULL);
+                    lv_obj_scroll_to_view(opts.nextFocusTarget, LV_ANIM_ON);
+                    return;
+                }
+                if (opts.autoCloseOnSubmit) {
+                    UIManager::closeKeyboard();
+                }
+                return;
+            }
+        }
+        UIManager::closeKeyboard();
+    } else if (c == LV_EVENT_CANCEL) {
         UIManager::closeKeyboard();
     } else if (c == LV_EVENT_DELETE) {
         if (s_activeKeyboard == kb) {
@@ -179,7 +208,15 @@ static void ta_event_cb(lv_event_t* e) {
         if (!s_activeKeyboard || !lv_obj_is_valid(s_activeKeyboard)) {
             lv_obj_t* topLayer = lv_layer_top();
             s_activeKeyboard = lv_keyboard_create(topLayer);
-            lv_obj_set_size(s_activeKeyboard, lv_pct(100), lv_pct(45));
+
+            int32_t screenH = 800;
+            lv_display_t* disp = lv_display_get_default();
+            if (disp) {
+                screenH = lv_display_get_vertical_resolution(disp);
+            }
+            int32_t kbHeight = (screenH >= 800) ? 280 : 190;
+
+            lv_obj_set_size(s_activeKeyboard, lv_pct(100), kbHeight);
             lv_obj_align(s_activeKeyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
             lv_obj_set_style_bg_color(s_activeKeyboard, lv_color_hex(0x11131A), 0);
             lv_obj_set_style_border_color(s_activeKeyboard, lv_color_hex(0x2E3444), 0);
@@ -199,7 +236,9 @@ static void ta_event_cb(lv_event_t* e) {
             lv_obj_move_to_index(s_activeKeyboard, -1);
         }
         lv_keyboard_set_textarea(s_activeKeyboard, targetTa);
+        lv_obj_scroll_to_view(targetTa, LV_ANIM_ON);
     } else if (code == LV_EVENT_DELETE) {
+        s_kbOptions.erase(targetTa);
         if (s_activeKeyboard && lv_obj_is_valid(s_activeKeyboard)) {
             if (lv_keyboard_get_textarea(s_activeKeyboard) == targetTa) {
                 UIManager::closeKeyboard();
@@ -208,9 +247,18 @@ static void ta_event_cb(lv_event_t* e) {
     }
 }
 
-void UIManager::attachKeyboard(lv_obj_t* ta) {
+void UIManager::attachKeyboard(lv_obj_t* ta, const KeyboardOptions& opts) {
     if (!ta) return;
-    lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_ALL, NULL);
+    bool alreadyAttached = (s_kbOptions.find(ta) != s_kbOptions.end());
+    s_kbOptions[ta] = opts;
+    if (!alreadyAttached) {
+        lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_ALL, NULL);
+    }
+}
+
+void UIManager::openKeyboard(lv_obj_t* ta) {
+    if (!ta || !lv_obj_is_valid(ta)) return;
+    lv_obj_send_event(ta, LV_EVENT_FOCUSED, NULL);
 }
 
 void UIManager::pushView(std::shared_ptr<BaseView> view) {
