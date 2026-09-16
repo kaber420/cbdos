@@ -1,4 +1,11 @@
 #pragma once
+
+extern "C" {
+#include "lua.h"
+#include "lualib.h"
+#include "lauxlib.h"
+}
+
 #include <cstdint>
 
 struct lua_State;
@@ -13,17 +20,4 @@ public:
     static bool isUIPaused();
     static bool checkAndClearNeedsRefresh();
 
-private:
-    static void registerAudioAPI(lua_State* L);
-    static void registerSystemAPI(lua_State* L);
-    static void registerGpioAPI(lua_State* L);
-    static void registerFsAPI(lua_State* L);
-    static void registerGfxAPI(lua_State* L);
-    static void registerUartAPI(lua_State* L);
-    static void registerUIAPI(lua_State* L);
-    static void registerCanvasAPI(lua_State* L);
-    static void registerHidAPI(lua_State* L);
-    static void registerDuckyAPI(lua_State* L);
-    static void registerSshAPI(lua_State* L);
-    static void registerNetAPI(lua_State* L);
 };

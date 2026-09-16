@@ -7,6 +7,7 @@ file(GLOB_RECURSE HELIX_SRCS
 
 file(GLOB_RECURSE LUA_SRCS
     "src/lua/liblua/*.c"
+    "src/lua/bindings/*.cpp"
 )
 
 file(GLOB_RECURSE PICOTTS_SRCS
