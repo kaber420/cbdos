@@ -53,8 +53,5 @@ private:
     std::atomic<bool> m_portsDirty{false};
     std::string m_lastSshHost;
 };
-
-using SerialTerminalView = TerminalView;
-
 } // namespace ui
 } // namespace cbdos

@@ -57,7 +57,6 @@ idf_component_register(
         "src/ui/modals/SshConnectModal.cpp"
         "src/ui/views/TerminalView.cpp"
         "src/ui/views/HidView.cpp"
-        "src/ui/views/SerialTerminalView.cpp"
         "src/ui/views/MeshCoreView.cpp"
         "src/ui/views/meshcore/MeshCoreView_Channels.cpp"
         "src/ui/views/meshcore/MeshCoreView_Radio.cpp"

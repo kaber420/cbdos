@@ -21,7 +21,6 @@ El sistema utiliza una arquitectura **Dual-Target desacoplada**:
 | **Core UI Engine** | Gestor de ciclo de vida de vistas (`BaseView`, `UIManager`) en LVGL 9.5 | ✅ 100% | ✅ | ✅ |
 | **Theme Engine** | Paletas de colores dinámicas, Cyberpunk, Dark, Light y acentos | ✅ 100% | ✅ | ✅ |
 | **Wallpaper Engine** | Gestor de fondos de pantalla dinámicos en PSRAM | ✅ 100% | ✅ | ✅ |
-| **Splash Screen View** | Animación de booteo y diagnóstico inicial de hardware | ✅ 100% | ✅ | ✅ |
 | **Dashboard View** | Vista principal tipo Cyberdeck con accesos directos y widgets | ✅ 100% | ✅ | ✅ |
 | **Config View** | Menú maestro de ajustes del sistema | ✅ 100% | ✅ | ✅ |
 | **WiFi Config View** | Escaneo, conexión y gestión de credenciales WiFi | ✅ 100% | ✅ | ✅ |
@@ -84,3 +83,10 @@ El sistema utiliza una arquitectura **Dual-Target desacoplada**:
 * 📖 **[Manual de Referencia de APIs del SDK](api/core_apis_reference.md)**
 * 🏛️ **[Arquitectura Agnóstica y HAL](architecture/hal_and_core_architecture.md)**
 * 🔌 **[Mapa de Pines y Puertos Hardware](hardware/pinouts_and_ports.md)**
+
+### 📊 Gestión y Seguimiento
+* 📓 **[Changelog (Historial de Versiones)](project_management/CHANGELOG.md)**
+* 📍 **[Estado Actual del Proyecto (Current Status)](project_management/CURRENT_STATUS.md)**
+* 🛠️ **[Estado de Refactorización y Modularización](project_management/REFACTORING_STATUS.md)**
+* 🐛 **[Registro de Errores (Known Bugs)](project_management/KNOWN_BUGS.md)**
+

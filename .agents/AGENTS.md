@@ -1,4 +1,4 @@
-# Reglas del Proyecto y Guía de Desarrollo (CBDos v0.2.1)
+# Reglas del Proyecto y Guía de Desarrollo (CBDos v0.2.3)
 
 
 
@@ -108,3 +108,9 @@ El proyecto opera bajo un modelo desacoplado:
     - **ESTRICTAMENTE PROHIBIDO** implementar temporizadores periódicos de sondeo (*polling*) para consultar el estado del hardware si la capa física, los buses (USB, SDIO, I2C/SPI) o el sistema operativo ya cuentan con eventos, interrupciones o callbacks nativos (ej. inserción/extracción USB, conexión/desconexión de red, llegada de paquetes, eventos de almacenamiento o cambios de batería).
     - **Prohibición de Atajos en la UI:** La interfaz gráfica (LVGL) no debe gastar ciclos de CPU ni recursos preguntando en bucle cada segundo si un periférico cambió. La UI debe operar mediante banderas reactivas (`m_statusDirty = true`) disparadas exclusivamente por eventos y callbacks legítimos del backend.
     - **Excepcionalidad del Polling:** El sondeo periódico solo se permite en buses o sensores *legacy* que carezcan físicamente de líneas de interrupción (ej. algunos sensores ambientales I2C básicos), justificando y documentando siempre dicha limitación física.
+
+13. **Seguimiento Local y Registro de Tareas (Project Management para Agentes):**
+    - El directorio `specs/project_management/` funciona como nuestro "tablero local" para el equipo (Usuario + Agentes IA).
+    - Al completar una tarea significativa, refactorización o corrección de bugs, la IA **DEBE actualizar proactivamente** `specs/project_management/CHANGELOG.md` y marcar el progreso en `specs/project_management/REFACTORING_STATUS.md`.
+    - Si se detecta o reporta un nuevo error, la IA debe registrarlo en `specs/project_management/KNOWN_BUGS.md`. Al solucionarlo, debe moverlo de dicho archivo al Changelog.
+    - Antes de iniciar un nuevo sprint o tarea compleja, la IA debe consultar y mantener actualizado `specs/project_management/CURRENT_STATUS.md` para evitar desviaciones.
