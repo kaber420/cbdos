@@ -233,9 +233,15 @@ enum class StrId : uint16_t {
 
     STR_HID_TITLE = 0x00BB,
     STR_HID_BTN_TEST = 0x00BC,
+    STR_HID_TAB_KB = 0x00BD,
+    STR_HID_TAB_PAD = 0x00BE,
+    STR_HID_TAB_DECK = 0x00BF,
+    STR_HID_BTN_CLEAR = 0x00C0,
+    STR_HID_KB_PH = 0x00C1,
+    STR_HID_PAD_HINT = 0x00C2,
 
     // Total Count
-    STR_COUNT = 0x00BD,
+    STR_COUNT = 0x00C3,
 };
 
 // Texto en idioma actual. Fallback a ES si falta clave. Nunca nullptr.

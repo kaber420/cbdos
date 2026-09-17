@@ -14,12 +14,19 @@ Este documento detalla el plan específico para aplicar la macro `cbdos::lang::t
    - Textos de las pestañas o tarjetas si las hubiera.
 
 ## Identificadores (StrId) a utilizar
-Los siguientes `StrId` ya fueron registrados en `language.hpp` para esta vista:
+Los siguientes `StrId` están registrados en `language.hpp` para esta vista:
 - `STR_HID_TITLE`
 - `STR_HID_BTN_TEST`
+- `STR_HID_TAB_KB`
+- `STR_HID_TAB_PAD`
+- `STR_HID_TAB_DECK`
+- `STR_HID_BTN_CLEAR`
+- `STR_HID_KB_PH`
+- `STR_HID_PAD_HINT`
 
 ## Tareas (Checklist)
-- [ ] Incorporar cabecera de lenguaje.
-- [ ] Sustituir título de la vista y botones.
-- [ ] Revisar si hay otras cadenas estáticas de interfaz que requieran nuevos identificadores.
-- [ ] Compilar y verificar consumo de memoria.
+- [x] Incorporar cabecera de lenguaje.
+- [x] Sustituir título de la vista y botones.
+- [x] Revisar si hay otras cadenas estáticas de interfaz que requieran nuevos identificadores.
+- [x] Compilar y verificar consumo de memoria.
+

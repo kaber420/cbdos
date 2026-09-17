@@ -207,6 +207,12 @@ static const char* const lang_es[] = {
     "Verificar",
     "Control HID / BadUSB",
     "Probar Inyeccion",
+    "Teclado",
+    "Touchpad",
+    "Deck",
+    "Limpiar",
+    "Teclado LIVE: pulsa y sale en el PC...",
+    "Arrastra para mover  -  tap = click izq.",
 };
 
 static const char* const lang_en[] = {
@@ -407,6 +413,12 @@ static const char* const lang_en[] = {
     "Verify",
     "HID Control / BadUSB",
     "Test Injection",
+    "Keyboard",
+    "Touchpad",
+    "Deck",
+    "Clear",
+    "LIVE Keyboard: type to send to PC...",
+    "Drag to move  -  tap = left click",
 };
 
 static_assert(sizeof(lang_es) / sizeof(lang_es[0]) == (size_t)StrId::STR_COUNT,

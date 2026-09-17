@@ -4,6 +4,7 @@
 #include "cbdos/hid.hpp"
 #include "cbdos/usb_manager.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/language.hpp"
 #include <cstdlib>
 #include <cstring>
 
@@ -60,7 +61,7 @@ HidView::HidView() : BaseView("HID Control") {}
 
 bool HidView::onCreate(lv_obj_t* parent) {
     if (!parent) return false;
-    UIManager::getInstance().getHeaderBar().setTitle("HID Control");
+    UIManager::getInstance().getHeaderBar().setTitle(cbdos::lang::tr(cbdos::lang::StrId::STR_HID_TITLE));
     UIManager::getInstance().getHeaderBar().showWifi(false);
 
     m_container = lv_obj_create(parent);
@@ -135,9 +136,9 @@ void HidView::buildTabs(lv_obj_t* parent) {
     lv_obj_t* tab_bar = lv_tabview_get_tab_bar(m_tabview);
     DefaultTheme::applySunkenCard(tab_bar, 10);
 
-    lv_obj_t* tKb = lv_tabview_add_tab(m_tabview, "Teclado");
-    lv_obj_t* tPad = lv_tabview_add_tab(m_tabview, "Touchpad");
-    lv_obj_t* tDeck = lv_tabview_add_tab(m_tabview, "Deck");
+    lv_obj_t* tKb = lv_tabview_add_tab(m_tabview, cbdos::lang::tr(cbdos::lang::StrId::STR_HID_TAB_KB));
+    lv_obj_t* tPad = lv_tabview_add_tab(m_tabview, cbdos::lang::tr(cbdos::lang::StrId::STR_HID_TAB_PAD));
+    lv_obj_t* tDeck = lv_tabview_add_tab(m_tabview, cbdos::lang::tr(cbdos::lang::StrId::STR_HID_TAB_DECK));
 
     lv_obj_t* content = lv_tabview_get_content(m_tabview);
     DefaultTheme::disableScroll(content);
@@ -156,7 +157,7 @@ void HidView::buildKeyboardTab(lv_obj_t* tab) {
     // Eco local de lo ya enviado por HID (solo lectura visual)
     m_textarea = lv_textarea_create(tab);
     lv_obj_set_size(m_textarea, LV_PCT(100), 72);
-    lv_textarea_set_placeholder_text(m_textarea, "Teclado LIVE: pulsa y sale en el PC...");
+    lv_textarea_set_placeholder_text(m_textarea, cbdos::lang::tr(cbdos::lang::StrId::STR_HID_KB_PH));
     lv_textarea_set_one_line(m_textarea, false);
 
     lv_obj_t* btnRow = lv_obj_create(tab);
@@ -169,7 +170,7 @@ void HidView::buildKeyboardTab(lv_obj_t* tab) {
     lv_obj_set_style_pad_row(btnRow, 6, 0);
     DefaultTheme::disableScroll(btnRow);
 
-    const char* quickLabels[] = {"Limpiar", "ENTER", "ESC", "TAB", "GUI+R", "CTRL+ALT+T", "ALT+F4"};
+    const char* quickLabels[] = {cbdos::lang::tr(cbdos::lang::StrId::STR_HID_BTN_CLEAR), "ENTER", "ESC", "TAB", "GUI+R", "CTRL+ALT+T", "ALT+F4"};
     for (int i = 0; i < 7; i++) {
         lv_obj_t* b = lv_button_create(btnRow);
         lv_obj_t* l = lv_label_create(b);
@@ -205,7 +206,7 @@ void HidView::buildTouchpadTab(lv_obj_t* tab) {
     lv_obj_add_event_cb(m_pad, padEventCb, LV_EVENT_ALL, this);
 
     lv_obj_t* hint = lv_label_create(m_pad);
-    lv_label_set_text(hint, "Arrastra para mover  -  tap = click izq.");
+    lv_label_set_text(hint, cbdos::lang::tr(cbdos::lang::StrId::STR_HID_PAD_HINT));
     lv_obj_set_style_text_font(hint, &lv_font_montserrat_12, 0);
     lv_obj_center(hint);
     lv_obj_remove_flag(hint, LV_OBJ_FLAG_CLICKABLE);
