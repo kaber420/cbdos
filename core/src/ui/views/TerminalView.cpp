@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include "cbdos/language.hpp"
 
 namespace cbdos {
 namespace ui {
@@ -171,7 +172,7 @@ void TerminalView::onDestroy() {
 void TerminalView::onShow() {
     BaseView::onShow();
     HeaderBar& hb = UIManager::getInstance().getHeaderBar();
-    hb.setTitle("Terminal Universal");
+    hb.setTitle(cbdos::lang::tr(cbdos::lang::StrId::STR_TERM_TITLE));
     hb.showWifi(m_activeStream == &m_sshStream);
     if (m_pollTimer) lv_timer_resume(m_pollTimer);
 }
@@ -193,11 +194,11 @@ void TerminalView::createModeSelector(lv_obj_t* parent) {
     DefaultTheme::disableScroll(m_modeRow);
 
     lv_obj_t* lbl = lv_label_create(m_modeRow);
-    lv_label_set_text(lbl, "Modo:");
+    lv_label_set_text(lbl, cbdos::lang::tr(cbdos::lang::StrId::STR_TERM_MODE));
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
 
     m_ddMode = lv_dropdown_create(m_modeRow);
-    lv_dropdown_set_options(m_ddMode, "UART / USB Serie\nSSH Remoto (Wi-Fi)");
+    lv_dropdown_set_options(m_ddMode, cbdos::lang::tr(cbdos::lang::StrId::STR_TERM_MODE_UART));
     lv_dropdown_set_selected(m_ddMode, 0);
     lv_obj_set_width(m_ddMode, 175);
     lv_obj_set_style_text_font(m_ddMode, &lv_font_montserrat_12, 0);

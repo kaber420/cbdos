@@ -2,39 +2,40 @@
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "PowerManager.hpp"
+#include "cbdos/language.hpp"
 #include <cstdio>
 
 namespace cbdos {
 namespace ui {
 
 PowerConfigView::PowerConfigView()
-    : BaseView("Sistema y Energia") {
+    : BaseView(cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_SYS_POWER)) {
 }
 
 void PowerConfigView::screen_off_btn_cb(lv_event_t* e) {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         cbdos::system::PowerManager::getInstance().turnOffScreen();
-        UIManager::showToast("Pantalla Apagada (Toque para encender)");
+        UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TOAST_SCR_OFF));
     }
 }
 
 void PowerConfigView::light_sleep_btn_cb(lv_event_t* e) {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        UIManager::showToast("Entrando a Suspesion (Light Sleep)...");
+        UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TOAST_LIGHT));
         cbdos::system::PowerManager::getInstance().enterLightSleep();
     }
 }
 
 void PowerConfigView::deep_sleep_btn_cb(lv_event_t* e) {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        UIManager::showToast("Entrando a Suspesion Profunda (Deep Sleep)...");
+        UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TOAST_DEEP));
         cbdos::system::PowerManager::getInstance().enterDeepSleep();
     }
 }
 
 void PowerConfigView::restart_btn_cb(lv_event_t* e) {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-        UIManager::showToast("Reiniciando sistema...");
+        UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TOAST_RESTART));
         cbdos::system::PowerManager::getInstance().restart();
     }
 }
@@ -56,10 +57,10 @@ void PowerConfigView::timeout_dropdown_cb(lv_event_t* e) {
 
         cbdos::system::PowerManager::getInstance().setIdleTimeoutSec(timeoutSec);
         if (timeoutSec == 0) {
-            UIManager::showToast("Auto-Apagado de Pantalla Desactivado");
+            UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TOAST_TOUT_OFF));
         } else {
             char msg[64];
-            snprintf(msg, sizeof(msg), "Auto-Apagado Pantalla: %u min", (unsigned int)(timeoutSec / 60));
+            snprintf(msg, sizeof(msg), cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TOAST_TOUT_ON), (unsigned int)(timeoutSec / 60));
             UIManager::showToast(msg);
         }
     }
@@ -78,7 +79,7 @@ bool PowerConfigView::onCreate(lv_obj_t* parent) {
 
     // ─── SECCIÓN 1: Controles de Inactividad ───
     lv_obj_t* sec1Lbl = lv_label_create(m_container);
-    lv_label_set_text(sec1Lbl, "Ahorro de Bateria por Inactividad:");
+    lv_label_set_text(sec1Lbl, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_SEC1));
     lv_obj_set_style_text_color(sec1Lbl, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(sec1Lbl, &lv_font_montserrat_14, 0);
 
@@ -90,11 +91,11 @@ bool PowerConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_flex_align(cardTout, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     lv_obj_t* lblTout = lv_label_create(cardTout);
-    lv_label_set_text(lblTout, "Auto-Apagado de Pantalla");
+    lv_label_set_text(lblTout, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TIMEOUT));
     lv_obj_set_style_text_color(lblTout, DefaultTheme::getTextColor(), 0);
 
     lv_obj_t* ddTout = lv_dropdown_create(cardTout);
-    lv_dropdown_set_options(ddTout, "Desactivado\n1 Minuto\n3 Minutos\n5 Minutos\n10 Minutos");
+    lv_dropdown_set_options(ddTout, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TIMEOUTS));
 
     uint32_t currentSec = cbdos::system::PowerManager::getInstance().getIdleTimeoutSec();
     uint16_t currentIdx = 1; // 1 min por defecto
@@ -109,7 +110,7 @@ bool PowerConfigView::onCreate(lv_obj_t* parent) {
 
     // ─── SECCIÓN 2: Acciones Directas de Energía ───
     lv_obj_t* sec2Lbl = lv_label_create(m_container);
-    lv_label_set_text(sec2Lbl, "Acciones de Energia:");
+    lv_label_set_text(sec2Lbl, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_SEC2));
     lv_obj_set_style_text_color(sec2Lbl, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(sec2Lbl, &lv_font_montserrat_14, 0);
     lv_obj_set_style_margin_top(sec2Lbl, 10, 0);
@@ -131,7 +132,7 @@ bool PowerConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_margin_right(iconScrOff, 12, 0);
 
     lv_obj_t* lblScrOff = lv_label_create(btnScreenOff);
-    lv_label_set_text(lblScrOff, "Apagar Pantalla (Mantener tareas fondo)");
+    lv_label_set_text(lblScrOff, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BTN_SCR_OFF));
     lv_obj_set_style_text_color(lblScrOff, DefaultTheme::getTextColor(), 0);
 
     // Botón 2: Suspensión (Light Sleep)
@@ -151,7 +152,7 @@ bool PowerConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_margin_right(iconLight, 12, 0);
 
     lv_obj_t* lblLight = lv_label_create(btnLightSleep);
-    lv_label_set_text(lblLight, "Suspesion (Light Sleep)");
+    lv_label_set_text(lblLight, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BTN_LIGHT));
     lv_obj_set_style_text_color(lblLight, DefaultTheme::getTextColor(), 0);
 
     // Botón 3: Suspensión Profunda (Deep Sleep - LP Core)
@@ -171,7 +172,7 @@ bool PowerConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_margin_right(iconDeep, 12, 0);
 
     lv_obj_t* lblDeep = lv_label_create(btnDeepSleep);
-    lv_label_set_text(lblDeep, "Suspesion Profunda (Deep Sleep - LP Core)");
+    lv_label_set_text(lblDeep, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BTN_DEEP));
     lv_obj_set_style_text_color(lblDeep, DefaultTheme::getTextColor(), 0);
 
     // Botón 4: Reiniciar Sistema
@@ -191,7 +192,7 @@ bool PowerConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_margin_right(iconRst, 12, 0);
 
     lv_obj_t* lblRst = lv_label_create(btnRestart);
-    lv_label_set_text(lblRst, "Reiniciar Sistema (Reboot)");
+    lv_label_set_text(lblRst, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BTN_RESTART));
     lv_obj_set_style_text_color(lblRst, DefaultTheme::getTextColor(), 0);
 
     return true;

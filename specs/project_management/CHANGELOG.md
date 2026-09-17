@@ -10,6 +10,7 @@ Todos los cambios notables del proyecto, características nuevas, refactorizacio
 
 ### Añadido
 - Nuevo directorio `specs/project_management/` para seguimiento del proyecto y refactorización.
+- Soporte integral de internacionalización de interfaz (i18n) usando `cbdos::lang::tr()`, abarcando todas las aplicaciones base y de sistema (Fase 1 y Fase 2).
 
 ### Modificado
 - Eliminación de código muerto (`WavPlayer.cpp` y `WavPlayer.hpp`), cuyas funciones ahora las maneja `AudioPlayer`.

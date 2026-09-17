@@ -4,6 +4,7 @@
 #include "cbdos/config_manager.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos/network.hpp"
+#include "cbdos/language.hpp"
 #include <cstdio>
 #include <cstring>
 
@@ -38,7 +39,7 @@ const std::vector<TimeConfigView::TzPreset>& TimeConfigView::getTzPresets() {
 }
 
 TimeConfigView::TimeConfigView()
-    : BaseView("Fecha y Hora"),
+    : BaseView(cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_DATETIME)),
       m_timeLabel(nullptr),
       m_dateLabel(nullptr),
       m_statusLabel(nullptr),
@@ -81,15 +82,15 @@ void TimeConfigView::updateClockDisplay() {
         if (cbdos::time::isSynced()) {
             cbdos::time::TimeSource src = cbdos::time::getSource();
             if (src == cbdos::time::TimeSource::SNTP) {
-                lv_label_set_text(m_statusLabel, LV_SYMBOL_OK " Sincronizado (Wi-Fi SNTP)");
+                lv_label_set_text_fmt(m_statusLabel, "%s %s", LV_SYMBOL_OK, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_ST_WIFI));
             } else if (src == cbdos::time::TimeSource::Tower) {
-                lv_label_set_text(m_statusLabel, LV_SYMBOL_OK " Sincronizado (Torre/Gateway)");
+                lv_label_set_text_fmt(m_statusLabel, "%s %s", LV_SYMBOL_OK, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_ST_TOWER));
             } else {
-                lv_label_set_text(m_statusLabel, LV_SYMBOL_OK " Sincronizado (Local)");
+                lv_label_set_text_fmt(m_statusLabel, "%s %s", LV_SYMBOL_OK, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_ST_LOCAL));
             }
             lv_obj_set_style_text_color(m_statusLabel, lv_color_hex(0x10B981), 0); // Verde
         } else {
-            lv_label_set_text(m_statusLabel, LV_SYMBOL_WARNING " Sin sincronizar / Reloj local");
+            lv_label_set_text_fmt(m_statusLabel, "%s %s", LV_SYMBOL_WARNING, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_ST_UNSYNC));
             lv_obj_set_style_text_color(m_statusLabel, lv_color_hex(0xF59E0B), 0); // Amarillo
         }
     }
@@ -207,7 +208,7 @@ bool TimeConfigView::onCreate(lv_obj_t* parent) {
     // 2. Selector de Zona Horaria
     // ──────────────────────────────────────────────────────────
     lv_obj_t* tzLabel = lv_label_create(m_container);
-    lv_label_set_text(tzLabel, "Zona Horaria (Huso Horario):");
+    lv_label_set_text(tzLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_TZ));
     lv_obj_set_style_text_color(tzLabel, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(tzLabel, &lv_font_montserrat_14, 0);
     lv_obj_set_style_margin_top(tzLabel, 4, 0);
@@ -253,12 +254,12 @@ bool TimeConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_remove_flag(dstTextCont, LV_OBJ_FLAG_CLICKABLE);
 
     lv_obj_t* dstTitle = lv_label_create(dstTextCont);
-    lv_label_set_text(dstTitle, "Horario de Verano (DST)");
+    lv_label_set_text(dstTitle, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_DST));
     lv_obj_set_style_text_color(dstTitle, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(dstTitle, &lv_font_montserrat_14, 0);
 
     lv_obj_t* dstSub = lv_label_create(dstTextCont);
-    lv_label_set_text(dstSub, "Adelanta 1 hora (+3600s)");
+    lv_label_set_text(dstSub, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_DST_SUB));
     lv_obj_set_style_text_color(dstSub, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(dstSub, &lv_font_montserrat_12, 0);
 
@@ -291,12 +292,12 @@ bool TimeConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_remove_flag(ntpTextCont, LV_OBJ_FLAG_CLICKABLE);
 
     lv_obj_t* ntpTitle = lv_label_create(ntpTextCont);
-    lv_label_set_text(ntpTitle, "Sincronización Automática Unificada");
+    lv_label_set_text(ntpTitle, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_NTP));
     lv_obj_set_style_text_color(ntpTitle, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(ntpTitle, &lv_font_montserrat_14, 0);
 
     lv_obj_t* ntpSub = lv_label_create(ntpTextCont);
-    lv_label_set_text(ntpSub, "Wi-Fi (Internet) o Balizas de Torre Federadas");
+    lv_label_set_text(ntpSub, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_NTP_SUB));
     lv_obj_set_style_text_color(ntpSub, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(ntpSub, &lv_font_montserrat_12, 0);
 
@@ -311,7 +312,7 @@ bool TimeConfigView::onCreate(lv_obj_t* parent) {
     // 5. Selector de Servidor NTP
     // ──────────────────────────────────────────────────────────
     lv_obj_t* ntpLabel = lv_label_create(m_container);
-    lv_label_set_text(ntpLabel, "Servidor de Tiempo NTP:");
+    lv_label_set_text(ntpLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_NTP_SRV));
     lv_obj_set_style_text_color(ntpLabel, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(ntpLabel, &lv_font_montserrat_14, 0);
 
@@ -346,7 +347,7 @@ bool TimeConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_add_event_cb(saveBtn, save_btn_cb, LV_EVENT_CLICKED, this);
 
     lv_obj_t* saveLbl = lv_label_create(saveBtn);
-    lv_label_set_text(saveLbl, LV_SYMBOL_SAVE "  Guardar Ajustes");
+    lv_label_set_text_fmt(saveLbl, "%s %s", LV_SYMBOL_SAVE, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_SAVE));
     lv_obj_set_style_text_color(saveLbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(saveLbl, &lv_font_montserrat_14, 0);
     lv_obj_center(saveLbl);
@@ -358,7 +359,7 @@ bool TimeConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_add_event_cb(syncBtn, sync_btn_cb, LV_EVENT_CLICKED, this);
 
     lv_obj_t* syncLbl = lv_label_create(syncBtn);
-    lv_label_set_text(syncLbl, LV_SYMBOL_REFRESH "  Sincronizar Ahora");
+    lv_label_set_text_fmt(syncLbl, "%s %s", LV_SYMBOL_REFRESH, cbdos::lang::tr(cbdos::lang::StrId::STR_TIME_SYNC_NOW));
     lv_obj_set_style_text_color(syncLbl, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(syncLbl, &lv_font_montserrat_14, 0);
     lv_obj_center(syncLbl);

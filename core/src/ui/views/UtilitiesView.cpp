@@ -5,6 +5,7 @@
 #include "utilities/PomodoroApp.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
+#include "cbdos/language.hpp"
 
 namespace cbdos {
 namespace ui {
@@ -26,7 +27,7 @@ bool UtilitiesView::onCreate(lv_obj_t* parent) {
     if (!parent) return false;
 
     // Configurar cabecera
-    UIManager::getInstance().getHeaderBar().setTitle("Utilidades");
+    UIManager::getInstance().getHeaderBar().setTitle(cbdos::lang::tr(cbdos::lang::StrId::STR_UTIL_TITLE));
     UIManager::getInstance().getHeaderBar().showWifi(false);
 
     // Contenedor principal de la vista (transparente para ver el fondo)
@@ -52,10 +53,10 @@ bool UtilitiesView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_pad_all(tab_bar, 2, 0);
     lv_obj_set_style_pad_column(tab_bar, 4, 0);
 
-    lv_obj_t* tab_todo = lv_tabview_add_tab(m_tabview, "Notas");
-    lv_obj_t* tab_calc = lv_tabview_add_tab(m_tabview, "Calc");
-    lv_obj_t* tab_sw   = lv_tabview_add_tab(m_tabview, "Crono");
-    lv_obj_t* tab_pomo = lv_tabview_add_tab(m_tabview, "Pomodoro");
+    lv_obj_t* tab_todo = lv_tabview_add_tab(m_tabview, cbdos::lang::tr(cbdos::lang::StrId::STR_UTIL_NOTES));
+    lv_obj_t* tab_calc = lv_tabview_add_tab(m_tabview, cbdos::lang::tr(cbdos::lang::StrId::STR_UTIL_CALC));
+    lv_obj_t* tab_sw   = lv_tabview_add_tab(m_tabview, cbdos::lang::tr(cbdos::lang::StrId::STR_UTIL_SW));
+    lv_obj_t* tab_pomo = lv_tabview_add_tab(m_tabview, cbdos::lang::tr(cbdos::lang::StrId::STR_UTIL_POMO));
 
     // Desactivar scroll en el contenedor principal de pestañas
     lv_obj_t* content = lv_tabview_get_content(m_tabview);

@@ -5,7 +5,7 @@ Este documento rastrea el progreso de la limpieza técnica del código, la tradu
 ## 🔄 En Progreso Actual
 - **RadioView**: Refactorizando para separar lógica de UI (`RadioViewUI`), estado (`RadioViewState`) y controlador HTTP/Icecast (`RadioView`). (Ver detalles en la conversación de modularización).
 
-## 🌍 Progreso de Traducción (Inglés/Español)
+## 🌍 Progreso de Traducción de Código (Inglés/Español)
 **Avance Global Estimado:** `[▓░░░░░░░░░] ~10%`
 *Registro de qué módulos ya tienen variables, métodos y comentarios estandarizados según la norma del proyecto.*
 
@@ -14,6 +14,13 @@ Este documento rastrea el progreso de la limpieza técnica del código, la tradu
 - [ ] **Apps Sistema** (`FileManager`, `ConfigView`, etc.)
 - [ ] **HAL / Interfaces** (`NetworkHAL`, `AudioHAL`, etc.)
 - [ ] **Componentes Base** (`HeaderBar`, `ThemeEngine`, etc.)
+
+## 🌐 Progreso de Internacionalización UI (i18n)
+**Avance Global Estimado:** `[▓▓▓▓▓▓▓▓▓▓] 100%`
+*Implementación del macro `cbdos::lang::tr()` en las vistas para soporte dinámico Inglés/Español.*
+
+- [x] **Fase 1:** Vistas Base (Dashboard, Config, About, NetworkManager, StorageConfig)
+- [x] **Fase 2:** Apps de Sistema y Herramientas (Power, Time, FileManager, TextEditor, MusicPlayer, Radio)
 
 ## 📝 Pendientes de Modularización (To-Do)
 *Añadir aquí las vistas o módulos del `core/` que aún tengan archivos monolíticos (ej. > 800 líneas).*

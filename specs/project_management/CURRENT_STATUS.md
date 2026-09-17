@@ -3,12 +3,13 @@
 Este archivo sirve como una "fotografía" rápida de dónde se encuentra el desarrollo en este momento, qué se está bloqueando, y cuáles son los siguientes pasos inmediatos.
 
 ## 📍 Fase Actual de Desarrollo
-**Fase 3 (Parcial) / Mantenimiento de Fase 2**
-- Actualmente el foco principal está en la **Refactorización, Modularización y Traducción** del código existente para asegurar una arquitectura sólida antes de agregar nuevas características complejas.
+**Fase 3 (Planificación) / Mantenimiento de Fase 2**
+- El foco actual está en la **Refactorización, Modularización y Traducción del código** existente, tras haber completado con éxito la migración integral de la Interfaz de Usuario al sistema de internacionalización (i18n).
 
 ## 🎯 Meta del Sprint Actual
-1. Modularizar archivos grandes (ej. `RadioView`) en componentes más pequeños (`UI`, `State`, etc.) sin romper el soporte Multi-Target (ESP32-P4 y ESP32-S3).
-2. Asegurar que no hayan pérdidas de memoria (memory leaks) por la refactorización de LVGL.
+1. Finalizar la Internacionalización (i18n) de la UI en la Fase 2 (Power, Time, FileManager, Editor) - **[✅ COMPLETADO]**
+2. Modularizar archivos grandes (ej. `RadioView`) en componentes más pequeños (`UI`, `State`, etc.) sin romper el soporte Multi-Target (ESP32-P4 y ESP32-S3).
+3. Asegurar que no hayan pérdidas de memoria (memory leaks) por la refactorización de LVGL.
 
 ## 🛑 Bloqueos / Riesgos Conocidos
 - Múltiples entornos de compilación obligan a verificar cada cambio con `idf.py` (P4) y `pio run` (S3).
