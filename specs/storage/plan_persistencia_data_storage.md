@@ -41,10 +41,10 @@ Tanto en el **ESP32-P4** como en el **ESP32-S3**, el mapa de memoria Flash inter
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`nvs`** | `nvs` | `0x009000` | **20 KB** (`0x005000`) | N/A | Ajustes básicos de arranque (brillo, volumen, WiFi SSID/Pass). |
 | **`otadata`** | `ota` | `0x00E000` | **8 KB** (`0x002000`) | N/A | Selector de partición de arranque OTA (`app0`, `app1`, `app2`). |
-| **`app0`** | `ota_0` | `0x010000` | **5 MB** (`0x500000`) | N/A | **CBDos OS Firmware Principal**. |
-| **`app1`** | `ota_1` | `0x510000` | **4 MB** (`0x400000`) | N/A | **Cartuchos Grandes** (Juegos pesados, Doom, emuladores nativos). |
-| **`app2`** | `ota_2` | `0x910000` | **2 MB** (`0x200000`) | N/A | **Cartuchos Chicos** (Emulador GBC, utilidades compactas). |
-| **`spiffs`** | `spiffs` | `0xB10000` | **~4.9 MB** (`0x4F0000`) | `/flash` o `/spiffs` | **Assets del sistema (wallpapers, fuentes) + Datos de Apps (MessagePack)**. |
+| **`app0`** | `ota_0` | `0x010000` | **6.5 MB** (`0x680000`) | N/A | **CBDos OS Firmware Principal / Firmware Pesado alternativo**. |
+| **`app1`** | `ota_1` | `0x690000` | **4.5 MB** (`0x480000`) | N/A | **Dual Boot CBDos / Cartuchos Grandes** (Juegos pesados, Doom, SO alternativo). |
+| **`app2`** | `ota_2` | `0xB10000` | **1.5 MB** (`0x180000`) | N/A | **Cartuchos Chicos** (Emuladores NES, GBC, Doom, utilidades compactas). |
+| **`spiffs`** | `spiffs` | `0xC90000` | **3.44 MB** (`0x370000`) | `/flash` o `/spiffs` | **Assets del sistema (wallpapers, fuentes) + Datos de Apps (MessagePack)**. |
 | **MicroSD** | Externa | N/A | Variable | `/sd` | Almacenamiento masivo (archivos MP3, ROMs, backups). |
 
 ---

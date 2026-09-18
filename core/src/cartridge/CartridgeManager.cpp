@@ -47,7 +47,7 @@ CartridgeSlotInfo CartridgeManager::getSlotInfo(esp_partition_subtype_t subtype)
     info.isInstalled = (subtype == ESP_PARTITION_SUBTYPE_APP_OTA_1);
     info.projectName = (subtype == ESP_PARTITION_SUBTYPE_APP_OTA_1) ? "DOOM Classic" : "Ranura Vacía";
     info.version = "1.0.0";
-    info.partitionSize = (subtype == ESP_PARTITION_SUBTYPE_APP_OTA_2) ? (2 * 1024 * 1024) : (4 * 1024 * 1024);
+    info.partitionSize = (subtype == ESP_PARTITION_SUBTYPE_APP_OTA_2) ? (size_t)(1.5 * 1024 * 1024) : (size_t)(4.5 * 1024 * 1024);
 #endif
 
     return info;

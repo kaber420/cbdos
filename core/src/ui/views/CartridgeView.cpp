@@ -74,13 +74,13 @@ void CartridgeView::refreshSlots() {
 
     lv_obj_clean(m_slotsContainer);
 
-    // 1. Ranura Grande (app1 - 4.0 MB, ej. DOOM)
+    // 1. Ranura Grande (app1 - 4.5 MB, ej. DOOM o Dual Boot)
     createSlotCard(m_slotsContainer, ESP_PARTITION_SUBTYPE_APP_OTA_1,
-                   "RANURA 1", "4.0 MB", 0x1A1F36, 0x3F68D9);
+                   "RANURA 1", "4.5 MB", 0x1A1F36, 0x3F68D9);
 
-    // 2. Ranura Pequeña (app2 - 2.0 MB, ej. Game Boy Color)
+    // 2. Ranura Normal (app2 - 1.5 MB, ej. DOOM, NES, Game Boy Color)
     createSlotCard(m_slotsContainer, ESP_PARTITION_SUBTYPE_APP_OTA_2,
-                   "RANURA 2", "2.0 MB", 0x142826, 0x1DB89C);
+                   "RANURA 2", "1.5 MB", 0x142826, 0x1DB89C);
 }
 
 void CartridgeView::createSlotCard(lv_obj_t* parent, esp_partition_subtype_t subtype, 
