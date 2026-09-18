@@ -40,12 +40,15 @@ public:
     static bool bootSlot(esp_partition_subtype_t subtype);
 
     // Listar todos los archivos .bin disponibles en la MicroSD
-    static std::vector<std::string> listBinFilesOnSD(const std::string& directory = "/sd/cartridges");
+    static std::vector<std::string> listBinFilesOnSD(const std::string& directory = "/sdcard/cartridges");
 
     // Flashear un archivo binario desde la SD a la partición OTA especificada
     static bool flashFromSD(const std::string& sdPath, 
                             esp_partition_subtype_t targetSlot, 
                             std::function<void(size_t written, size_t total)> progressCb = nullptr);
+
+    // Obtener el último mensaje de error detallado
+    static std::string getLastError();
 };
 
 } // namespace cartridge

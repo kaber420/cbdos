@@ -47,7 +47,7 @@ CartridgeSlotInfo CartridgeManager::getSlotInfo(esp_partition_subtype_t subtype)
     info.isInstalled = (subtype == ESP_PARTITION_SUBTYPE_APP_OTA_1);
     info.projectName = (subtype == ESP_PARTITION_SUBTYPE_APP_OTA_1) ? "DOOM Classic" : "Ranura Vacía";
     info.version = "1.0.0";
-    info.partitionSize = 4 * 1024 * 1024;
+    info.partitionSize = (subtype == ESP_PARTITION_SUBTYPE_APP_OTA_2) ? (2 * 1024 * 1024) : (4 * 1024 * 1024);
 #endif
 
     return info;
@@ -87,21 +87,48 @@ bool CartridgeManager::bootSlot(esp_partition_subtype_t subtype) {
 #endif
 }
 
+static std::string s_lastError = "";
+
+std::string CartridgeManager::getLastError() {
+    return s_lastError;
+}
+
+static std::string resolveSdPath(const std::string& path) {
+    if (path.empty()) return "";
+    
+    // Ya tiene /sdcard/ o es exactamente /sdcard
+    if (path.rfind("/sdcard/", 0) == 0 || path == "/sdcard") {
+        return path;
+    }
+    // Prefijos de alias /sd/ o /sd
+    if (path.rfind("/sd/", 0) == 0) {
+        return "/sdcard/" + path.substr(4);
+    }
+    if (path == "/sd") {
+        return "/sdcard";
+    }
+    // Prefijos de letra de unidad S:/ o A:/
+    if (path.rfind("S:/", 0) == 0 || path.rfind("A:/", 0) == 0) {
+        return "/sdcard/" + path.substr(3);
+    }
+    // Prefijo absoluto sin especificar /sdcard (ej. /cartridges/... o /doom.bin)
+    if (path.front() == '/') {
+        return "/sdcard" + path;
+    }
+    // Relativo (ej. cartridges/doom.bin)
+    return "/sdcard/" + path;
+}
+
 std::vector<std::string> CartridgeManager::listBinFilesOnSD(const std::string& directory) {
     std::vector<std::string> list;
 
-    // Directorios a escanear en orden de preferencia
     std::vector<std::string> searchDirs;
     if (!directory.empty()) {
-        searchDirs.push_back(directory);
+        searchDirs.push_back(resolveSdPath(directory));
     }
     searchDirs.push_back("/sdcard/cartridges");
     searchDirs.push_back("/sdcard/cartuchos");
     searchDirs.push_back("/sdcard");
-    searchDirs.push_back("/cartridges");
-    searchDirs.push_back("/cartuchos");
-    searchDirs.push_back("/sd/cartridges");
-    searchDirs.push_back("/sd");
 
     for (const auto& dir : searchDirs) {
         auto entries = cbdos::storage::listDir(dir.c_str());
@@ -133,40 +160,50 @@ std::vector<std::string> CartridgeManager::listBinFilesOnSD(const std::string& d
 bool CartridgeManager::flashFromSD(const std::string& sdPath, 
                                    esp_partition_subtype_t targetSlot, 
                                    std::function<void(size_t written, size_t total)> progressCb) {
+    s_lastError = "";
 #ifdef ESP_PLATFORM
     const esp_partition_t* part = esp_partition_find_first(ESP_PARTITION_TYPE_APP, targetSlot, NULL);
     if (!part) {
-        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "Particion de destino no encontrada en tabla");
+        s_lastError = "Particion destino no encontrada";
+        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "%s", s_lastError.c_str());
         return false;
     }
 
-    FILE* f = fopen(sdPath.c_str(), "rb");
+    std::string resolvedPath = resolveSdPath(sdPath);
+    FILE* f = fopen(resolvedPath.c_str(), "rb");
     if (!f) {
-        // Intentar con prefijo /sdcard si no lo tiene
-        std::string altPath = sdPath;
-        if (altPath.rfind("/sdcard", 0) != 0) {
-            altPath = (altPath[0] == '/') ? ("/sdcard" + altPath) : ("/sdcard/" + altPath);
-            f = fopen(altPath.c_str(), "rb");
+        s_lastError = "No se pudo abrir: " + resolvedPath;
+        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "%s", s_lastError.c_str());
+        return false;
+    }
+
+    size_t totalBytes = 0;
+    struct stat st;
+    if (fstat(fileno(f), &st) == 0 && st.st_size > 0) {
+        totalBytes = (size_t)st.st_size;
+    } else {
+        fseek(f, 0, SEEK_END);
+        long sz = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        if (sz > 0) {
+            totalBytes = (size_t)sz;
         }
     }
 
-    if (!f) {
-        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "Error al abrir %s", sdPath.c_str());
-        return false;
-    }
-
-    struct stat st;
-    if (stat(sdPath.c_str(), &st) != 0 || st.st_size == 0) {
+    if (totalBytes == 0) {
         fclose(f);
-        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "Archivo invalido o vacio: %s", sdPath.c_str());
+        s_lastError = "Archivo vacio o ilegible: " + resolvedPath;
+        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "%s", s_lastError.c_str());
         return false;
     }
 
-    size_t totalBytes = st.st_size;
     if (totalBytes > part->size) {
         fclose(f);
-        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "Tamano (%u bytes) excede particion (%u bytes)", 
-                           (unsigned)totalBytes, (unsigned)part->size);
+        char errBuf[64];
+        snprintf(errBuf, sizeof(errBuf), "Tamano (%u KB) excede particion (%u KB)", 
+                 (unsigned)(totalBytes / 1024), (unsigned)(part->size / 1024));
+        s_lastError = errBuf;
+        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "%s", s_lastError.c_str());
         return false;
     }
 
@@ -177,7 +214,8 @@ bool CartridgeManager::flashFromSD(const std::string& sdPath,
     esp_err_t err = esp_ota_begin(part, totalBytes, &ota_handle);
     if (err != ESP_OK) {
         fclose(f);
-        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "esp_ota_begin fallo: %s", esp_err_to_name(err));
+        s_lastError = std::string("esp_ota_begin: ") + esp_err_to_name(err);
+        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "%s", s_lastError.c_str());
         return false;
     }
 
@@ -186,7 +224,8 @@ bool CartridgeManager::flashFromSD(const std::string& sdPath,
     if (!buffer) {
         esp_ota_abort(ota_handle);
         fclose(f);
-        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "Sin memoria RAM para buffer de flasheo");
+        s_lastError = "Sin RAM para buffer de flasheo";
+        cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "%s", s_lastError.c_str());
         return false;
     }
 
@@ -197,13 +236,15 @@ bool CartridgeManager::flashFromSD(const std::string& sdPath,
         size_t toRead = std::min((size_t)(totalBytes - bytesWritten), CHUNK_SIZE);
         size_t bytesRead = fread(buffer, 1, toRead, f);
         if (bytesRead == 0) {
+            s_lastError = "Fallo de lectura en MicroSD";
             success = false;
             break;
         }
 
         err = esp_ota_write(ota_handle, (const void*)buffer, bytesRead);
         if (err != ESP_OK) {
-            cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "esp_ota_write fallo: %s", esp_err_to_name(err));
+            s_lastError = std::string("esp_ota_write: ") + esp_err_to_name(err);
+            cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "%s", s_lastError.c_str());
             success = false;
             break;
         }
@@ -223,13 +264,15 @@ bool CartridgeManager::flashFromSD(const std::string& sdPath,
     if (success && bytesWritten == totalBytes) {
         err = esp_ota_end(ota_handle);
         if (err != ESP_OK) {
-            cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "esp_ota_end fallo: %s", esp_err_to_name(err));
+            s_lastError = std::string("esp_ota_end (validacion): ") + esp_err_to_name(err);
+            cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "%s", s_lastError.c_str());
             return false;
         }
         cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "Flasheo completado y validado (%u bytes)", (unsigned)bytesWritten);
         return true;
     } else {
         esp_ota_abort(ota_handle);
+        if (s_lastError.empty()) s_lastError = "Escritura incompleta en Flash";
         return false;
     }
 #else

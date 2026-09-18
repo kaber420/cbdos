@@ -74,22 +74,27 @@ void CartridgeView::refreshSlots() {
 
     lv_obj_clean(m_slotsContainer);
 
-    auto caps = cbdos::display::getCapabilities();
-    const char* slot2Cap = (caps.width >= 480) ? "4.0 MB" : "2.0 MB";
-
-    // 1. Ranura Grande (app1 - 4MB, ej. DOOM)
+    // 1. Ranura Grande (app1 - 4.0 MB, ej. DOOM)
     createSlotCard(m_slotsContainer, ESP_PARTITION_SUBTYPE_APP_OTA_1,
                    "RANURA 1", "4.0 MB", 0x1A1F36, 0x3F68D9);
 
-    // 2. Ranura Pequeña (app2 - 2MB o 4MB, ej. Game Boy Color)
+    // 2. Ranura Pequeña (app2 - 2.0 MB, ej. Game Boy Color)
     createSlotCard(m_slotsContainer, ESP_PARTITION_SUBTYPE_APP_OTA_2,
-                   "RANURA 2", slot2Cap, 0x142826, 0x1DB89C);
+                   "RANURA 2", "2.0 MB", 0x142826, 0x1DB89C);
 }
 
 void CartridgeView::createSlotCard(lv_obj_t* parent, esp_partition_subtype_t subtype, 
                                   const char* slotTitle, const char* capacityStr, 
                                   uint32_t bgHex, uint32_t borderHex) {
     cbdos::cartridge::CartridgeSlotInfo info = cbdos::cartridge::CartridgeManager::getSlotInfo(subtype);
+
+    char capBuf[16];
+    const char* displayCap = capacityStr;
+    if (info.partitionSize > 0) {
+        float mb = (float)info.partitionSize / (1024.0f * 1024.0f);
+        snprintf(capBuf, sizeof(capBuf), "%.1f MB", mb);
+        displayCap = capBuf;
+    }
 
     lv_obj_t* card = lv_obj_create(parent);
     lv_obj_set_width(card, LV_PCT(100));
@@ -104,7 +109,7 @@ void CartridgeView::createSlotCard(lv_obj_t* parent, esp_partition_subtype_t sub
     // Cabecera de la Ranura
     lv_obj_t* tag = lv_label_create(card);
     char headerBuf[64];
-    snprintf(headerBuf, sizeof(headerBuf), "%s  [%s]", slotTitle, capacityStr);
+    snprintf(headerBuf, sizeof(headerBuf), "%s  [%s]", slotTitle, displayCap);
     lv_label_set_text(tag, headerBuf);
     lv_obj_set_style_text_font(tag, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(tag, lv_color_hex(borderHex), 0);
@@ -362,7 +367,9 @@ void CartridgeView::startFlashing(const std::string& binPath, esp_partition_subt
                     if (ok) {
                         UIManager::getInstance().showToast("Instalacion exitosa!");
                     } else {
-                        UIManager::getInstance().showToast("Fallo al escribir en Flash");
+                        std::string err = cbdos::cartridge::CartridgeManager::getLastError();
+                        if (err.empty()) err = "Fallo al escribir en Flash";
+                        UIManager::getInstance().showToast(err.c_str());
                     }
                     ctx->view->refreshSlots();
                 }

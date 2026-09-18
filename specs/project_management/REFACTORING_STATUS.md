@@ -25,7 +25,7 @@ Este documento rastrea el progreso de la limpieza técnica del código, la tradu
 ## 📝 Pendientes de Modularización (To-Do)
 *Añadir aquí las vistas o módulos del `core/` que aún tengan archivos monolíticos (ej. > 800 líneas).*
 
-- [ ] (Añadir aquí archivos o módulos pendientes de modularizar)
+- [ ] **Cartridge Module**: Desacoplar `CartridgeView` (UI LVGL pura), `CartridgeFlasher` (lógica OTA y particiones con errores tipificados) y `CartridgeScanner` (resolución canónica de almacenamiento SD).
 
 ## ✅ Completados Recientemente
 - [x] Desacoplamiento total de `core/` y `bsp/` (Fase 1 completada).
