@@ -15,6 +15,7 @@ Todos los cambios notables del proyecto, características nuevas, refactorizacio
 
 ### Modificado
 - Eliminación de código muerto (`WavPlayer.cpp` y `WavPlayer.hpp`), cuyas funciones ahora las maneja `AudioPlayer`.
+- **Redistribución de Flash 16 MB**: Eliminación de partición huérfana `fatfs` (896 KB) y reconfiguración a `app0` de 6.5 MB (soporte para firmwares pesados de terceros), `app1` de 4.5 MB (margen de 1.2 MB para Dual Boot de CBDos), `app2` de 1.5 MB (cartuchos de emuladores) y `spiffs` de 3.44 MB con aprovechamiento del 100% de la memoria Flash.
 
 ### Solucionado
 - **CartridgeView**: Corrección de la capacidad mostrada en ranuras de cartuchos; se eliminó el condicional basado en la resolución de pantalla que forzaba 4.0 MB en ambas ranuras y se añadió detección dinámica del tamaño real de partición (`info.partitionSize`) con fallbacks nominales (4.0 MB para Slot 1 y 2.0 MB para Slot 2).
