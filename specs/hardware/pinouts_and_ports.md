@@ -93,7 +93,7 @@ Este documento centraliza **toda la información de hardware, pinouts GPIO, buse
 | **8** | Conector Cámara CSI | MIPI CSI 2-Lanes | Interfaz de cámara de alta velocidad |
 | **9** | MX 1.25 4P UART Interface | TX / RX dedicado, VCC, GND | Segundo puerto UART físico para periféricos externos |
 | **10** | MX 1.25 4P RS485 Interface | RS485 A, B, VCC, GND | Bus diferencial industrial RS485 |
-| **11** | SH 1.0 4P I2C Interface | SDA: GPIO 7, SCL: GPIO 8, 3V3, GND | Bus I2C externo para sensores y periféricos |
+
 | **12** | Módulo Core JC-ESP32P4-M3 | ESP32-P4 + ESP32-C6 | SoC Dual-Core 400MHz + 32MB PSRAM + Coprocesador WiFi 6 |
 
 ---

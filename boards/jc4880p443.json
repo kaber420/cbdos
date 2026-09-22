@@ -1,0 +1,19 @@
+{
+  "board": "JC4880P443C",
+  "version": "1.3",
+  "devices": {
+    "display": {
+      "driver": "st7701s",
+      "bus": "mipi_dpi",
+      "resolution": [480, 800],
+      "fps": 60,
+      "pins": {
+        "rst": 5,
+        "bl": 23
+      }
+    }
+  },
+  "expansion": {
+    "jp1_allowed": [28, 29, 30, 31, 32, 33, 34, 35, 49, 50, 51, 52]
+  }
+}

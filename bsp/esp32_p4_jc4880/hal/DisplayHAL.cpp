@@ -10,6 +10,7 @@
 #include <cstring>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include "cbdos_device_tree.h"
 
 static const char *TAG = "DisplayHAL";
 
@@ -48,7 +49,7 @@ DisplayHAL::DisplayHAL() {}
 DisplayHAL::~DisplayHAL() {}
 
 esp_err_t DisplayHAL::initBacklight() {
-    ESP_LOGI(TAG, "Inicializando Retroiluminación PWM en GPIO %d (%d Hz)...", BOARD_DISP_BL_GPIO, LCD_LEDC_FREQ);
+    ESP_LOGI(TAG, "Inicializando Retroiluminación PWM en GPIO %d (%d Hz)...", cbdos::board::DEVICE_TREE_DISPLAY_PIN_BL, LCD_LEDC_FREQ);
 
     ledc_timer_config_t timer_conf = {};
     timer_conf.speed_mode = LCD_LEDC_MODE;
@@ -63,7 +64,7 @@ esp_err_t DisplayHAL::initBacklight() {
     }
 
     ledc_channel_config_t channel_conf = {};
-    channel_conf.gpio_num = BOARD_DISP_BL_GPIO;
+    channel_conf.gpio_num = cbdos::board::DEVICE_TREE_DISPLAY_PIN_BL;
     channel_conf.speed_mode = LCD_LEDC_MODE;
     channel_conf.channel = LCD_LEDC_CHANNEL;
     channel_conf.intr_type = LEDC_INTR_DISABLE;
@@ -171,15 +172,16 @@ esp_err_t DisplayHAL::initMipiDsi() {
         return ret;
     }
 
-    // 4. Pulso de Reset por Hardware en GPIO 5
-    ESP_LOGI(TAG, "Ejecutando pulso de Reset en GPIO %d...", BOARD_DISP_RST_GPIO);
+    // 4. Pulso de Reset por Hardware en GPIO (leído del CDT)
+    int rst_pin = cbdos::board::DEVICE_TREE_DISPLAY_PIN_RST;
+    ESP_LOGI(TAG, "Ejecutando pulso de Reset en GPIO %d...", rst_pin);
     gpio_config_t rst_conf = {};
-    rst_conf.pin_bit_mask = (1ULL << BOARD_DISP_RST_GPIO);
+    rst_conf.pin_bit_mask = (1ULL << rst_pin);
     rst_conf.mode = GPIO_MODE_OUTPUT;
     gpio_config(&rst_conf);
-    gpio_set_level((gpio_num_t)BOARD_DISP_RST_GPIO, 0);
+    gpio_set_level((gpio_num_t)rst_pin, 0);
     vTaskDelay(pdMS_TO_TICKS(20));
-    gpio_set_level((gpio_num_t)BOARD_DISP_RST_GPIO, 1);
+    gpio_set_level((gpio_num_t)rst_pin, 1);
     vTaskDelay(pdMS_TO_TICKS(120));
 
     // 5. Transmisión de tabla de inicialización DCS verificada para ST7701S
@@ -228,10 +230,11 @@ esp_err_t DisplayHAL::initMipiDsi() {
 esp_err_t DisplayHAL::init(int h_res, int v_res) {
     if (initialized) return ESP_OK;
 
-    width = h_res;
-    height = v_res;
+    // Ignoramos h_res y v_res hardcodeados y leemos la verdad absoluta del CDT
+    width = cbdos::board::DEVICE_TREE_DISPLAY_WIDTH;
+    height = cbdos::board::DEVICE_TREE_DISPLAY_HEIGHT;
 
-    ESP_LOGI(TAG, "=== Inicializando DisplayHAL (JC4880P443C ST7701S MIPI-DSI) ===");
+    ESP_LOGI(TAG, "=== Inicializando DisplayHAL (Driver: %s MIPI-DSI) ===", cbdos::board::DEVICE_TREE_DISPLAY_DRIVER);
 
     esp_err_t ret = initMipiDsi();
     if (ret != ESP_OK) {

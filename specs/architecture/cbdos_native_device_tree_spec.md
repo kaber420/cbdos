@@ -17,7 +17,7 @@ El CDT trabajará en conjunto con el **GPIO Resource Manager (GRM)**. El núcleo
 
 ## 2. Conceptos Clave
 
-1. **CDT (Sistema Base):** Un archivo `cbdos.dtb` (JSON) que describe los componentes fijos de la placa base (Pantalla, I2S Audio, I2C Touch, MicroSD). 
+1. **CDT (Sistema Base):** Un archivo `cbdos.cdt` (JSON) que describe los componentes fijos de la placa base (Pantalla, I2S Audio, I2C Touch, MicroSD).
 2. **Mini-DT (Mochilas NFC):** Un descriptor supercompacto (MsgPack) almacenado en el tag NFC de las mochilas de expansión, que describe los pines que la mochila necesita de la cabecera de expansión libre (JP1).
 3. **GRM (Árbitro Central):** El único subsistema autorizado para conceder o denegar el uso de un pin.
 

@@ -13,6 +13,7 @@
 #include <esp_log.h>
 #include <cstring>
 #include <vector>
+#include "cbdos_device_tree.h"
 
 static const char* TAG_UART = "HAL_UART_P4";
 static const char* TAG_SERIAL = "HAL_SERIAL_P4";
@@ -784,11 +785,14 @@ public:
 
     bool isPinAvailable(int pin) const override {
         if (pin < 0 || pin > 54) return false;
-        if (pin == 5 || pin == 23 || pin == 7 || pin == 8 || pin == 3 || pin == 4) return false;
-        if (pin == 13 || pin == 12 || pin == 10 || pin == 9 || pin == 48 || pin == 11) return false;
-        if (pin >= 39 && pin <= 44) return false;
-        if (pin == 18 || pin == 19 || (pin >= 14 && pin <= 17) || pin == 54) return false;
-        return true;
+        
+        // Verificar si está en la lista de pines permitidos (Whitelist)
+        for (size_t i = 0; i < cbdos::board::NUM_ALLOWED_PINS; ++i) {
+            if (pin == cbdos::board::BOARD_ALLOWED_PINS[i]) {
+                return true;
+            }
+        }
+        return false; // Si no está en la lista blanca, acceso denegado
     }
 };
 

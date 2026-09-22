@@ -9,6 +9,7 @@ Todos los cambios notables del proyecto, características nuevas, refactorizacio
 - Limpieza y organización de código.
 
 ### Añadido
+- **Arquitectura Device Tree (Fase 0):** Implementación de scripts de codegen (en Python) acoplados al CMake para extraer la lista de pines bloqueados desde un archivo de configuración (`boards/jc4880p443.json`) hacia el nuevo header auto-generado (`cbdos_device_tree.h`), eliminando el hardcoding de pines en el C++.
 - Nuevo directorio `specs/project_management/` para seguimiento del proyecto y refactorización.
 - Soporte integral de internacionalización de interfaz (i18n) usando `cbdos::lang::tr()`, abarcando todas las aplicaciones base y de sistema (Fase 1 y Fase 2).
 - Internacionalización completa de `HidView` (título, pestañas, botones de acción y ayudas).

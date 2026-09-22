@@ -42,7 +42,7 @@ static const char* const lang_es[] = {
     "Sistema",                                     // 0x001D
     "Diagnostico de hardware y memoria",           // 0x001E
     "Acerca de CBDos",                             // 0x001F
-    "v0.2.3-dev, Licencia GPLv3 y Repo",           // 0x0020
+    "v0.2.4-dev, Licencia GPLv3 y Repo",           // 0x0020
     "Resetear NVS",                                // 0x0021
     "Manten presionado 3s para borrar",            // 0x0022
     "Soltar para cancelar (%.1fs)",                // 0x0023 formato
@@ -58,7 +58,7 @@ static const char* const lang_es[] = {
     "Language: English. Rebooting...",             // 0x002D
     "Idioma: Espanol. Reiniciando...",             // 0x002E
     "CyBerDeck OS",                                // 0x002F
-    "Version 0.2.3-dev (Universal Core)",          // 0x0030
+    "Version 0.2.4-dev (Universal Core)",          // 0x0030
     "Autor / Mantenedor",                          // 0x0031
     "Repositorio Oficial",                         // 0x0032
     "Sitio Web",                                   // 0x0033
@@ -248,7 +248,7 @@ static const char* const lang_en[] = {
     "System",
     "Hardware and memory diagnostics",
     "About CBDos",
-    "v0.2.3-dev, GPLv3 License and Repo",
+    "v0.2.4-dev, GPLv3 License and Repo",
     "Reset NVS",
     "Hold 3s to erase",
     "Release to cancel (%.1fs)",
@@ -264,7 +264,7 @@ static const char* const lang_en[] = {
     "Language: English. Rebooting...",
     "Idioma: Espanol. Reiniciando...",
     "CyBerDeck OS",
-    "Version 0.2.3-dev (Universal Core)",
+    "Version 0.2.4-dev (Universal Core)",
     "Author / Maintainer",
     "Official Repository",
     "Website",

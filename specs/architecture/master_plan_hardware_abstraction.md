@@ -11,7 +11,7 @@ La meta es dotar a CBDos de una capa de abstracción de hardware que sea:
 - **Segura por diseño (Zero Trust):** Un cortafuegos de hardware estricto.
 - **Rápida y Eficiente:** Cero alocaciones de memoria (heap) durante el arranque temprano.
 - **Dinámica y Modular:** Soporte Plug & Play para mochilas NFC sin recompilar el núcleo.
-- **Distribución Descentralizada (Estilo CoreELEC):** Capacidad de soportar nuevas placas permitiendo a usuarios no técnicos inyectar un archivo `.dtb` compilado en una partición de la memoria flash, sin necesidad de compilar código fuente en C++.
+- **Distribución Descentralizada (Estilo CoreELEC):** Capacidad de soportar nuevas placas permitiendo a usuarios no técnicos inyectar un archivo `.cdt` compilado en una partición de la memoria flash, sin necesidad de compilar código fuente en C++.
 
 Para lograr esto, tres subsistemas trabajarán en conjunto:
 1. **CDTc (Compiled Device Tree):** La fuente de la verdad estática.
@@ -27,8 +27,8 @@ En lugar de parsear JSON en tiempo de ejecución (lo cual fragmenta la memoria R
 - **Entrada:** Archivos YAML legibles (`boards/jc4880p443.yaml`). Define qué hardware tiene la placa (Display, Audio, MicroSD) y **define estrictamente el pool de pines permitidos para expansión (`JP1_ALLOWED_PINS`)**.
 - **Modelo Híbrido (Salida Dual):** El script (`cdtc.py`) convierte este YAML en dos artefactos para distintos casos de uso:
   1. **Placas Oficiales (Seguridad y Fallback):** Cabeceras C++ con estructuras `constexpr`. El OS oficial lleva esto compilado para garantizar un arranque a prueba de balas en 0 milisegundos.
-  2. **Placas Genéricas/Comunidad:** Un binario súper compacto `.dtb` (Device Tree Blob) que los usuarios cargan en una partición flash (ej. `SPIFFS` o NVS). 
-- **Lógica de Arranque:** El OS busca primero si el usuario ha inyectado un `.dtb` válido en la partición dedicada. Si lo encuentra, lo usa. Si no lo encuentra o está corrupto, el OS usa su configuración oficial en `.h` como *salvavidas* (Fallback) para no quedar inutilizado.
+  2. **Placas Genéricas/Comunidad:** Un binario súper compacto `.cdt` (CBDos Device Tree). A diferencia de las mochilas, este archivo usa un formato **Flat Binary (C-Struct crudo)** para que el ESP32 lo lea directamente mediante *memory mapping* desde la partición flash, requiriendo 0 milisegundos de parsing y cero dependencias.
+- **Lógica de Arranque:** El OS busca primero si el usuario ha inyectado un `.cdt` válido en la partición dedicada. Si lo encuentra, lo usa. Si no lo encuentra o está corrupto, el OS usa su configuración oficial en `.h` como *salvavidas* (Fallback) para no quedar inutilizado.
 
 ### 2.2 Universal Resource Manager (URM)
 Evolución del Gestor de GPIOs. Actúa como el Kernel de recursos de la placa.
@@ -54,9 +54,9 @@ Este plan desglosa la construcción de la arquitectura paso a paso. Cada fase de
 ### Fase 0: Extracción de Configuración Estática (Codegen)
 *El objetivo es limpiar el código fuente de "números mágicos" sin alterar la lógica de arranque actual.*
 - **Tarea 0.1:** Definir el esquema (Schema) exacto del archivo `board.yaml`.
-- **Tarea 0.2:** Especificar el funcionamiento del script `cdtc.py` (cómo leerá YAML y qué estructuras C++ o binarios `.dtb` generará).
+- **Tarea 0.2:** Especificar el funcionamiento del script `cdtc.py` (cómo leerá YAML y qué estructuras C++ o binarios `.cdt` generará).
 - **Tarea 0.3:** Especificar cómo los BSPs actuales (`hal_uart_p4.cpp`, `hal_uart_s3.cpp`) reemplazarán sus listas duras por llamadas a la nueva estructura generada `board_config_generated.h`.
-- **Tarea 0.4:** Definir el mecanismo de inyección para usuarios no técnicos: cómo cargar el `.dtb` a una partición de la flash de forma fácil (ej. herramienta web o esptool) y cómo el SO temprano leerá esa partición antes de arrancar los drivers.
+- **Tarea 0.4:** Definir el mecanismo de inyección para usuarios no técnicos: cómo cargar el `.cdt` a una partición de la flash de forma fácil (ej. herramienta web o esptool) y cómo el SO temprano leerá esa partición antes de arrancar los drivers.
 
 ### Fase 1: Núcleo del Universal Resource Manager (URM)
 *Construir el árbitro antes de que alguien lo necesite.*

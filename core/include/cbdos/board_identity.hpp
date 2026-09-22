@@ -20,7 +20,7 @@ namespace cbdos {
 namespace board_identity {
 
 // Versión única del firmware. Actualizar en cada release.
-inline const char* version() { return "0.2.3-dev"; }
+inline const char* version() { return "0.2.4-dev"; }
 
 // Comandos / prefijos del protocolo v1.
 inline const char* kBannerPrefix = "CBDOS:BOARD=";
@@ -51,7 +51,7 @@ inline const BoardInfo* findBoard(const char* boardId) {
     return nullptr;
 }
 
-// "CBDOS:BOARD=jc4880p443 SOC=esp32-p4 VER=0.2.3-dev"
+// "CBDOS:BOARD=jc4880p443 SOC=esp32-p4 VER=0.2.4-dev"
 inline std::string bannerFor(const BoardInfo& b) {
     std::string s(kBannerPrefix);
     s += b.boardId;

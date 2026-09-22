@@ -93,6 +93,7 @@ idf_component_register(
         "src/ui/views/LuappView.cpp"
         "src/ui/views/PowerConfigView.cpp"
         "src/system/storage.cpp"
+        "src/system/urm.cpp"
         "src/system/audio.cpp"
         "src/system/uart.cpp"
         "src/system/gpio.cpp"
@@ -178,6 +179,8 @@ idf_component_register(
         "app_update"
         "esp_partition"
         "mbedtls"
+    PRIV_REQUIRES
+        "main"
     EMBED_FILES
         "assets/icons/app_recorder.bin"
         "assets/icons/app_radio.bin"
