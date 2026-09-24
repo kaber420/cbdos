@@ -1,161 +1,110 @@
-# 📋 Referencia Técnica Completa de Hardware y Mapa de Pines (CBDos)
+> ⚠️ **AVISO DE ESPECIFICACIÓN:** Las asignaciones de pines del sistema y del Device Tree se rigen de forma canónica por [CDT_CANONICAL.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/CDT_CANONICAL.md).
+> Nota: El Touch Goodix GT911 opera en **GPIO 22 (RST)** y **GPIO 21 (INT)** verificado contra los esquemáticos de ingeniería (`JC4880P443_V1.0`).
 
-Este documento centraliza **toda la información de hardware, pinouts GPIO, buses, periféricos y direcciones I2C** de las placas soportadas para evitar búsquedas repetitivas y asegurar la precisión del desarrollo.
+# Especificación Oficial de Hardware y Conectores (CBDos)
+
+> **Documento Oficial Limpio:** Datos 100% reales contrastados directamente contra los esquemáticos de ingeniería (`JC4880P443_V1.0`), la fotografía y guía oficial de fábrica (`JC4880P443C_I_W Specifications-EN-V1.0.pdf`, pág. 5) y el código BSP oficial de Guition.
 
 ---
 
-## 1. Target ESP32-P4: Guition JC4880P443C (4.3" 480×800 IPS MIPI-DSI)
+## 1. Target Principal: Guition JC4880P443C (ESP32-P4 RISC-V @ 400 MHz)
 
-* **SoC Principal:** ESP32-P4-M3 (Dual-core RISC-V @ 400 MHz + LP Core, 16 MB Flash, 32 MB Hexal-PSRAM @ 200 MHz, PPA 2D Accelerator).
-* **Coprocesador Inalámbrico:** ESP32-C6 (WiFi 6, Bluetooth 5 BLE, Zigbee/Thread vía SPI/SDIO).
+### 📍 A. Pines Internos Soldados (Motherboard / Internal)
+Periféricos soldados fijos en el PCB. Manejados por drivers del SO (`system:*`). No reasignables.
 
-### 📍 Tabla Completa de Pines GPIO (JC4880P443C)
-
-| Periférico / Función | Señal / Pin | GPIO ESP32-P4 | Protocolo / Configuración | Notas de Hardware |
+| Periférico / Subsistema | Función / Señal | GPIO ESP32-P4 | Protocolo / Configuración | Notas de Hardware |
 | :--- | :--- | :--- | :--- | :--- |
-| **Pantalla LCD (ST7701S)** | MIPI DSI D0+ / D0- | Pines DSI Dedicados | MIPI-DSI 2-Lanes D-PHY | 480×800 @ 60 FPS, Color RGB565 |
-| | MIPI DSI CLK+ / CLK- | Pines DSI Dedicados | MIPI-DSI Clock | LDO VO3 configurado a 2.5V |
-| | **LCD Reset (RST)** | **GPIO 5** | Salida Digital (Active LOW) | Pulso de reset inicial 10ms |
-| | **Backlight PWM** | **GPIO 23** | LEDC PWM @ 1000 Hz | Control de brillo 0-100% |
-| **Touchscreen (GT911)** | **I2C SDA** | **GPIO 7** | Bus I2C Maestro (Puerto 0) | Compartido con códec ES8311 |
-| | **I2C SCL** | **GPIO 8** | Bus I2C Maestro (400 kHz) | Pull-ups internos habilitados |
-| | **Touch Reset (RST)** | **GPIO 3** | Salida Digital | Pulso reset inicial 10ms |
-| | **Touch INT** | **GPIO 4** | Entrada Digital / Interrupción | Detección de pulsación táctil |
-| | *Dirección I2C Touch* | `0x5D` (Backup: `0x14`) | I2C 7-bit | GT911 detectado en `0x5D` |
-| **Audio (ES8311 + PA)** | **I2S MCLK** | **GPIO 13** | I2S Master Clock (256 × Fs) | 11.2896 MHz @ 44.1 kHz |
+| **Pantalla LCD (ST7701S)** | MIPI DSI 2-Lanes | Pines Dedicados | DSI D0+, D0-, CLK+, CLK- | 480×800 @ 60 FPS, LDO VO3 (2.5V) |
+| | **LCD Reset (RST)** | **GPIO 5** | Salida Digital (Active LOW) | Pulso inicial 10ms |
+| | **Backlight PWM** | **GPIO 23** | LEDC PWM @ 1000 Hz | Driver step-up MP3202 (`IC1`) |
+| **Touchscreen (Goodix GT911)** | **I2C SDA** | **GPIO 7** | Bus I2C Maestro 0 | Compartido con Códec ES8311 |
+| | **I2C SCL** | **GPIO 8** | Bus I2C Maestro 0 (400 kHz) | Pull-ups 5.1k a 3.3V (R65/R71) |
+| | **Touch Reset (RST)** | **GPIO 22** | Salida Digital | Pin 23 del módulo P4 |
+| | **Touch INT** | **GPIO 21** | Entrada Digital / Interrupción | Pin 22 del módulo P4 |
+| | *Dirección I2C* | `0x5D` (Backup: `0x14`) | I2C 7-bit | GT911 detectado en `0x5D` |
+| **Audio (ES8311 + NS4150)** | **I2S MCLK** | **GPIO 13** | I2S Master Clock | Reloj maestro DAC/ADC |
 | | **I2S BCLK** | **GPIO 12** | I2S Bit Clock | Bit clock estéreo 16-bit |
 | | **I2S WS / LRCK** | **GPIO 10** | I2S Word Select / Frame Sync | 44.1 kHz / 48 kHz |
-| | **I2S DOUT (Speaker)** | **GPIO 9** | I2S Data Out | Salida de audio hacia DAC ES8311 |
-| | **I2S DIN (Mic)** | **GPIO 48** | I2S Data In | Entrada de audio desde Micrófono |
-| | **PA Enable (Amplificador)** | **GPIO 11** | Salida Digital (Active HIGH) | Habilita el amplificador de altavoz |
-| | *Dirección I2C Códec* | `0x18` (7-bit) / `0x30` (8-bit) | Bus I2C Maestro (Puerto 0) | Everest Semi ES8311 |
-| | *Conector de Altavoz* | JST MX 1.25 2P | Salida Analógica Mono/Estéreo | Altavoces 4Ω 2W / 8Ω 1W |
-| **MicroSD (Slot SDMMC)** | **SDMMC CLK** | **GPIO 43** | SDMMC Slot 0 (Bus 4-bit) | Alimentado por LDO VO4 (3.3V) |
-| | **SDMMC CMD** | **GPIO 44** | SDMMC Slot 0 | Pull-up integrado |
-| | **SDMMC D0** | **GPIO 39** | SDMMC Data 0 | Velocidad estándar 20/40 MHz |
-| | **SDMMC D1** | **GPIO 40** | SDMMC Data 1 | Slot 0 exclusivo de MicroSD |
-| | **SDMMC D2** | **GPIO 41** | SDMMC Data 2 | Soporte nativo FAT32 y **exFAT** |
-| | **SDMMC D3** | **GPIO 42** | SDMMC Data 3 | Compatible con SDSC, SDHC y SDXC (16GB a 2TB) |
-| **Coprocesador Inalámbrico (ESP32-C6)** | **SDIO CLK** | **GPIO 18** | Bus SDIO 4-bit (Host Slot 1) | Reloj SDIO hacia C6 (20 MHz) |
-| | **SDIO CMD** | **GPIO 19** | Bus SDIO 4-bit (Slot 1) | Línea de comando SDIO |
-| | **SDIO D0** | **GPIO 14** | Bus SDIO 4-bit (Slot 1) | Línea de datos 0 |
-| | **SDIO D1** | **GPIO 15** | Bus SDIO 4-bit (Slot 1) | Línea de datos 1 |
-| | **SDIO D2** | **GPIO 16** | Bus SDIO 4-bit (Slot 1) | Línea de datos 2 |
-| | **SDIO D3** | **GPIO 17** | Bus SDIO 4-bit (Slot 1) | Línea de datos 3 |
-| | **C6 Reset (RST)** | **GPIO 54** | Salida Digital | Reset hardware del ESP32-C6 |
-| | **C6 Power (ESP_3V3)** | **GPIO 36 / Pin 18** | VCC 3.3V | Carril de alimentación del C6 |
-| **Consola Serial / Debug (USB 1)** | **USB D+ / D-** | Pines Dedicados | USB Serial/JTAG nativo (Full-Speed) | Flasheo de firmware, consola y monitor serie |
-| | **UART TX** | **GPIO 38** | UART0 TX @ 115200 bps | Terminal interactivo / ESP-IDF Monitor |
-| | **UART RX** | **GPIO 37** | UART0 RX @ 115200 bps | |
-| **USB Host / OTG (USB 2)** | **USB_OTG D+ / D-** | Pines Dedicados | **USB 2.0 High-Speed OTG (480 Mbps)** | Host para Android Fastboot/ADB, CDC, HID |
-| **Alimentación LDO P4** | **LDO VO3** | Canal 3 | Salida 2.5V fija | Alimentación carril MIPI DSI |
-| | **LDO VO4** | Canal 4 | Salida 3.3V conmutable | Alimentación carril MicroSD / VDD_SD |
+| | **I2S DOUT (Speaker)** | **GPIO 9** | I2S Data Out | Salida al DAC del códec ES8311 |
+| | **I2S DIN (Mic)** | **GPIO 48** | I2S Data In (`ES7210_SDOUT`) | Entrada del micrófono integrado |
+| | **PA Enable (Amp)** | **GPIO 11** | Salida Digital (`PA_CTRL`) | Habilita amplificador de altavoz NS4150 |
+| | *Control I2C Códec* | Bus I2C 0 (GPIO 7 / 8) | Dirección `0x18` (7-bit) | Configuración de volumen y etapas |
+| **MicroSD (Slot SDMMC 4-bit)** | **SDMMC D0** | **GPIO 39** | Bus SDMMC 4-bit | Slot MicroSD integrado |
+| | **SDMMC D1** | **GPIO 40** | Bus SDMMC 4-bit | |
+| | **SDMMC D2** | **GPIO 41** | Bus SDMMC 4-bit | |
+| | **SDMMC D3** | **GPIO 42** | Bus SDMMC 4-bit | |
+| | **SDMMC CLK** | **GPIO 43** | Reloj SDMMC | 20 / 40 MHz |
+| | **SDMMC CMD** | **GPIO 44** | Línea de Comando | Pull-up integrado |
+| | **Alimentación MicroSD** | LDO VO4 (3.3V) | Regulador interno ESP32-P4 | Conmutado vía MOSFET Q1 |
+| **Sensor de Batería** | **BAT_ADC** | **GPIO 53** | Entrada Analógica (ADC) | Divisor resistivo R52 (68k) / R57 (100k) |
+| **Coprocesador C6 (Interno U3)** | **SDIO D0..D3** | **GPIO 14, 15, 16, 17** | Bus SDIO interno | Comunicación de alta velocidad (oculta en módulo) |
+| | **SDIO CLK / CMD** | **GPIO 18 / 19** | Reloj y Comando | Bus SDIO interno hacia C6 |
+| | **Alimentación C6** | **GPIO 36** | Salida Digital (`ESP_3V3`) | Control interno de energía del C6 (según código) |
+| | **Reset C6** | **GPIO 54** | Salida Digital (`C6_CHIP_PU`) | Reset por hardware interno del C6 (según código) |
+| | **Handshake P4-C6** | **GPIO 6** | `C6_IO2` | Interrupción/handshake directo P4 $\leftrightarrow$ C6 |
+| | **C6 UART0 TX** | **Expuesto en JP1** | `C6_U0TXD` | Pin 22 de cabecera externa JP1 |
+| | **C6 UART0 RX** | **Expuesto en JP1** | `C6_U0RXD` | Pin 20 de cabecera externa JP1 |
+| | **C6 Boot Mode** | **Expuesto en JP1** | `C6_IO9` | Pin 24 de cabecera externa JP1 (Pull-up 5.1K) |
+| | **C6 Reset Ext** | **Expuesto en JP1** | `C6_CHIP_PU` | Pin 26 de cabecera externa JP1 (RC 10K/1uF) |
+| | **Antena RF** | **Pista LAN_OUT** | Pin 2 Módulo `U3` | Hacia antena cerámica ANT1 |
+| **Botón Físico BOOT** | **BOOTMODE** | **GPIO 35** | Entrada Digital con Pull-up | Pulsador SW1 en placa |
 
-### 📍 Conector de Expansión JP1 (Pin Header 2×13)
+---
 
-![Diagrama de Flasheo ESP32-C6](images/esp32_c6_flasher_diagram.png)
+### 🔌 B. Conectores Físicos Reales (Fotografía Oficial de Fábrica)
 
-| Pin Izq (P4 / Host) | Pin Der (C6 / Power) | Función / Conexión de Flasheo |
-| :--- | :--- | :--- |
-| **3V3** (Pin 1) | **5V** (Pin 2) | Alimentación principal |
-| **3V3** (Pin 3) | **5V** (Pin 4) | Líneas de potencia (No se requiere cable para C6) |
-| **GND** (Pin 5) | **GND** (Pin 6) | Masa de referencia |
-| **GPIO 52** (Pin 7) | **GPIO 33** (Pin 8) | GPIOs de propósito general |
-| **GPIO 51** (Pin 9) | **GPIO 31** (Pin 10) | GPIOs de propósito general |
-| **GPIO 50** (Pin 11) | **GPIO 30** (Pin 12) | GPIOs de propósito general |
-| **GPIO 49** (Pin 13) | **GPIO 29** (Pin 14) | GPIOs de propósito general |
-| **GPIO 35** (Pin 15) | **GND** (Pin 16) | Masa de referencia |
-| **GPIO 34** (Pin 17) | **ESP_3V3** (Pin 18) | **GPIO 34 (Cable Celeste)** ➔ a **C6_IO9** (Auto-Bootloader) \| `ESP_3V3` alimentado internamente |
-| **GPIO 32** (Pin 19) | **C6_U0RXD** (Pin 20) | **Jumper 1 Horizontal Verde** (P4 TX ➔ C6 RX) |
-| **GPIO 28** (Pin 21) | **C6_U0TXD** (Pin 22) | **Jumper 2 Horizontal Magenta** (P4 RX 🠄 C6 TX) |
-| **I2C_SDA** (Pin 23) | **C6_IO9** (Pin 24) | **C6_IO9 (Cable Celeste)** ➔ conectado a **GPIO 34** |
-| **I2C_SCL** (Pin 25) | **C6_CHIP_PU** (Pin 26) | Línea Enable C6 (Controlada por GPIO 54 interno / Dejar libre) |
+| Nº en Foto Oficial | Conector / Puerto | Tipo Físico | Señales / Pines Asignados | Función en el Sistema |
+| :---: | :--- | :--- | :--- | :--- |
+| **1** | **Micrófono** | Integrado en PCB | I2S DIN: **GPIO 48** | Entrada de micrófono analógico con códec ES8311 |
+| **2** | **Altavoz** | Conector 2 Pines | Salida NS4150 (`SPEAKER_P`, `SPEAKER_N`) | Altavoz mono 4Ω 2W / 8Ω 1W |
+| **3** | **Batería LiPo** | Conector 2 Pines | `BAT+`, `BAT-` | Entrada de batería 3.7V con cargador IP5306 |
+| **4** | **USB 1 (Full-Speed)** | USB Type-C | D+ / D- nativos | Flasheo, consola interactiva y monitor serie nativo |
+| **5** | **USB 2 (High-Speed)** | USB Type-C | D+ / D- nativos (480 Mbps) | Host USB OTG (BadUSB, Teclados, Fastboot, Mass Storage) |
+| **6** | **Cabecera JP1** | Header 2×13 (2.54mm) | GPIOs: `28, 29, 30, 31, 32, 33, 34, 35, 49, 50, 51, 52`<br>I2C: `7 (SDA), 8 (SCL)`<br>Control C6: `RXD, TXD, IO9, CHIP_PU`<br>Potencia: `3.3V, 5.0V, GND` | Cabecera principal para módulos externos y periféricos |
+| **7** | **CN2 (UART0 Debug)** | Conector 4 Pines | Pin 1: `VIN (5V)`<br>Pin 2: **GPIO 38 (TX0)**<br>Pin 3: **GPIO 37 (RX0)**<br>Pin 4: `GND` | Puerto de depuración serie y alimentación externa |
+| **8** | **Cámara CSI** | FPC 15 Pines | MIPI CSI 2-Lanes + I2C (`GPIO 7, 8`) + `CSI_IO0, CSI_IO1` | Interfaz de cámara de alta resolución |
+| **9** | **J5 (UART Aux)** | Conector 4 Pines | Pin 1: `5V`<br>Pin 2: **GPIO 26 (TX1)**<br>Pin 3: **GPIO 27 (RX1)**<br>Pin 4: `GND` | Segundo puerto serie físico para periféricos |
+| **10** | **J4 (RS-485)** | Conector 4 Pines | Pin 1: `5V`<br>Pin 2: **Ao (Diferencial +)**<br>Pin 3: **Bo (Diferencial -)**<br>Pin 4: `GND` | Bus industrial RS-485 (Transceptor MAX485 en GPIO 26/27 con dirección automática) |
+| **11** | **CN3 (I2C Externo)** | **Conector HS 1.0mm 4 Pines** | Pin 1: `GND`<br>Pin 2: `ESP_3V3`<br>Pin 3: **GPIO 8 (SCL)**<br>Pin 4: **GPIO 7 (SDA)** | Puerto I2C externo para sensores/módulos *(el folleto decía 2P por errata, el esquemático confirma 4P)* |
+| **12** | **Módulo Core** | Módulo JC-ESP32P4-M3 | ESP32-P4 + ESP32-C6 | SoC Principal + Coprocesador inalámbrico |
 
-### 🔌 Flasheador Universal y Presets de Programación
-| Preset / Plataforma | TX (Host->Target) | RX (Host<-Target) | BOOT (IO0/IO9) | RST / EN | Baudrate | Firmware Origen |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ESP32-C6 Coprocesador (P4)** | **GPIO 32** | **GPIO 28** | **GPIO 34** | **GPIO 54** | 115200 / 460800 | Embebido SDIO / MicroSD |
-| **ESP Externo (Header JP1 P4)** | **GPIO 32** | **GPIO 28** | **GPIO 34** | **GPIO 54** | 115200-921600 | `/sdcard/firmware.bin` |
-| **ESP Externo (JC3248W535 S3)** | **GPIO 15** | **GPIO 16** | **GPIO 0** | Manual / -1 | 115200 | `/sdcard/firmware.bin` |
-| **Personalizado / Manual** | Configurable | Configurable | Configurable | Configurable | Configurable | Embebido / MicroSD |
+---
 
-### 🔌 Tabla de Conectores Físicos de la Placa (JC4880P443C)
+### ⚠️ C. Pines Físicamente No Conectados (NC / Unconnected)
+Pines del procesador ESP32-P4 que no tienen ruteo de pistas en el PCB de esta placa:
+* **GPIO 1, GPIO 2, GPIO 3, GPIO 4**
+* Se registran como `NC` para que el sistema rechace asignarlos.
 
-| Nº en Diagrama | Tipo de Conector / Puerto | Pines / Señales | Función en CBDos |
+---
+
+## 2. Target Secundario: Guition JC3248W535 (ESP32-S3)
+
+* **SoC:** ESP32-S3 Dual-Core Xtensa LX7 @ 240 MHz (16 MB Flash, 8 MB Octal-PSRAM).
+* **Conectividad:** Wi-Fi 2.4 GHz + BLE 5 nativos en el chip.
+
+| Periférico | Señal | GPIO ESP32-S3 | Tipo / Protocolo |
 | :--- | :--- | :--- | :--- |
-| **1** | Micrófono Integrado | I2S DIN: GPIO 48 | Grabación de notas de voz (`IAudioSource` / ES8311) |
-| **2** | MX 1.25 2P Speaker | Salida DAC ES8311 + PA (GPIO 11) | Altavoz principal 4Ω/8Ω (`IAudioSink`) |
-| **3** | MX 1.25 2P Batería Litio | VBAT / GND | Entrada de batería LiPo 3.7V con circuito de carga |
-| **4** | Type-C (Full-Speed USB 1) | USB D+ / D- nativo | Consola serie/JTAG, flasheo inicial y CLI en caliente |
-| **5** | Type-C (High-Speed USB 2) | USB OTG 2.0 (480 Mbps) | Host USB (Fastboot, Teclado/Ratón, USB CDC-ACM) |
-| **6** | Pin Header 2×13 2.54 (JP1) | GPIOs 52, 51, 50, 49, 35, 34, 32, 28, I2C, 3V3, 5V, GND | Expansión para Mochilas/Backpacks (NFC, LoRa) y Flasheo C6 |
-| **7** | MX 1.25 4P UART0 | TX: GPIO 38, RX: GPIO 37, 3V3, GND | Puerto serie de depuración / telemetría externa |
-| **8** | Conector Cámara CSI | MIPI CSI 2-Lanes | Interfaz de cámara de alta velocidad |
-| **9** | MX 1.25 4P UART Interface | TX / RX dedicado, VCC, GND | Segundo puerto UART físico para periféricos externos |
-| **10** | MX 1.25 4P RS485 Interface | RS485 A, B, VCC, GND | Bus diferencial industrial RS485 |
-
-| **12** | Módulo Core JC-ESP32P4-M3 | ESP32-P4 + ESP32-C6 | SoC Dual-Core 400MHz + 32MB PSRAM + Coprocesador WiFi 6 |
+| **Pantalla (AXS15231B)** | QSPI CS / CLK / D0..D3 | GPIO 45, 47, 21, 48, 40, 39 | Bus gráfico QSPI |
+| | LCD Reset / Backlight | GPIO 4 / GPIO 1 | Salida Digital / PWM |
+| **Touchscreen** | I2C SDA / SCL / INT | GPIO 8 / GPIO 4 / GPIO 3 | I2C Bus |
+| **Audio I2S** | BCLK / WS / DOUT | GPIO 42 / GPIO 2 / GPIO 41 | I2S0 TX Master |
+| **MicroSD Slot** | SPI CS / MOSI / MISO / SCK | GPIO 10, 11, 13, 12 | Bus SPI |
+| **Puerto Serie Ext** | UART TX / RX | GPIO 15 / 16 | Cabecera externa JC3248 |
+| **USB Serial** | USB D+ / D- | GPIO 20 / 19 | USB Serial/JTAG nativo |
 
 ---
 
-### 📟 Presets de Puertos Serie UART (`SerialTerminalView`)
+## 3. Registros del Códec ES8311 (I2C Bus 0 - Dirección 0x18)
 
-| Plataforma | Puerto Físico | Pin TX | Pin RX | Preset UI | Velocidades |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **ESP32-P4** | **Cabecera JP1 (C6/Mochila)** | **GPIO 32** | **GPIO 28** | `JP1 (TX:32 RX:28)` | 9600 - 921600 bps |
-| **ESP32-P4** | **Cabecera JP1 (Alt 1)** | **GPIO 50** | **GPIO 49** | `JP1 Alt (TX:50 RX:49)` | 9600 - 921600 bps |
-| **ESP32-P4** | **Conector MX 1.25 UART0 (7)** | **GPIO 38** | **GPIO 37** | `MX 1.25 UART0 (TX:38 RX:37)` | 9600 - 921600 bps |
-| **ESP32-P4** | **Conector MX 1.25 UART (9)** | Configurable | Configurable | `MX 1.25 UART Aux` | 9600 - 921600 bps |
-| **ESP32-S3** | **Header Externo JC3248** | **GPIO 15** | **GPIO 16** | `S3 Ext (TX:15 RX:16)` | 9600 - 921600 bps |
-
----
-
-
-## 2. Target ESP32-S3: Guition JC3248W535 (3.5" 320×480 IPS QSPI)
-
-* **SoC Principal:** ESP32-S3 (Dual-core Xtensa LX7 @ 240 MHz, 16 MB Octal-Flash, 8 MB Octal-PSRAM).
-* **Conectividad:** WiFi 2.4 GHz 802.11 b/g/n + Bluetooth 5 (LE) integrados en el SoC.
-
-### 📍 Tabla Completa de Pines GPIO (JC3248W535)
-
-| Periférico / Función | Señal / Pin | GPIO ESP32-S3 | Protocolo / Configuración | Notas de Hardware |
-| :--- | :--- | :--- | :--- | :--- |
-| **Pantalla LCD (AXS15231B)** | **QSPI CS** | **GPIO 45** | QSPI Bus | Chip Select LCD |
-| | **QSPI CLK** | **GPIO 47** | QSPI Clock (40/80 MHz) | Bus gráfico de alta velocidad |
-| | **QSPI D0** | **GPIO 21** | QSPI Data 0 | |
-| | **QSPI D1** | **GPIO 48** | QSPI Data 1 | |
-| | **QSPI D2** | **GPIO 40** | QSPI Data 2 | |
-| | **QSPI D3** | **GPIO 39** | QSPI Data 3 | |
-| | **LCD Reset (RST)** | **GPIO 4** | Salida Digital | Active LOW |
-| | **Backlight (BL)** | **GPIO 1** | PWM / Salida Digital | Control de brillo |
-| **Touchscreen (AXS15231B)** | **I2C SDA** | **GPIO 8** | I2C Maestro (Puerto 0) | Touch integrado en controlador AXS |
-| | **I2C SCL** | **GPIO 4** | I2C Maestro | |
-| | **Touch INT** | **GPIO 3** | Entrada Digital / Interrupción | |
-| **Audio / Salida Sonido (I2S)** | **I2S BCLK (Bit Clock)** | **GPIO 42** | I2S0 TX Master | Bit clock estéreo 16-bit |
-| | **I2S WS / LRC (Word Select)** | **GPIO 2** | I2S0 TX Master | Frame Sync (44.1 kHz / 48 kHz) |
-| | **I2S DOUT (Data Out)** | **GPIO 41** | I2S0 Data Out | Audio PCM 16-bit / Helix MP3 al altavoz |
-| | **SPI MOSI** | **GPIO 11** | SPI Bus | |
-| | **SPI MISO** | **GPIO 13** | SPI Bus | |
-| | **SPI SCK** | **GPIO 12** | SPI Bus | |
-| **USB / UART Debug** | **USB D+ / D-** | **GPIO 20 / 19** | USB Serial/JTAG nativo | Carga PlatformIO y monitor serie |
-
----
-
-## 3. Registros Clave del Códec ES8311 (JC4880P443C)
-
-* **Dirección I2C 7-bit:** `0x18` (0b0011000)
-* **Dirección I2C 8-bit (esp_codec_dev / Write):** `0x30` (0b00110000)
-* **Dirección I2C 8-bit (Read):** `0x31` (0b00110001)
-
-| Registro | Nombre | Valor Estándar | Función |
-| :--- | :--- | :--- | :--- |
-| `0x00` | CSM_RESET | `0x80` -> `0x00` | Reset de máquina de estados y arranque |
-| `0x01` | CLK_MANAGER | `0x3F` / `0x30` | Modo Esclavo I2S, reloj MCLK habilitado |
-| `0x09` | SDP_IN_FMT | `0x0C` | Formato I2S 16-bit Estándar para DAC |
-| `0x0A` | SDP_OUT_FMT | `0x0C` | Formato I2S 16-bit Estándar para ADC (Mic) |
-| `0x12` | SYSTEM_PWR | `0x00` | Encender todos los bloques digitales |
-| `0x13` | BIAS_PWR | `0x10` | Encender circuito de bias analógico |
-| `0x14` | CODEC_PWR | `0x1A` | Encender DAC y etapas de salida analógicas |
-| `0x32` | DAC_VOLUME | `0x00` a `0xBF` | Control de volumen DAC (`0x00`=-95.5dB, `0xBF`=0dB, `0xFF`=+32dB) |
-| `0x37` | DAC_OUT_CTRL | `0x08` | Desmutear etapa de salida del DAC |
-| `0x44` | ADC_DAC_MIX | `0x48` | Mezcla loopback para AEC / cancelación de eco |
+| Registro | Nombre | Valor | Función en CBDos |
+| :---: | :--- | :---: | :--- |
+| `0x00` | CSM_RESET | `0x00` | Arranque normal de máquina de estados |
+| `0x01` | CLK_MANAGER | `0x3F` / `0x30` | Modo Esclavo I2S con MCLK activo |
+| `0x09` | SDP_IN_FMT | `0x0C` | Formato I2S estándar 16-bit DAC |
+| `0x0A` | SDP_OUT_FMT | `0x0C` | Formato I2S estándar 16-bit ADC (Mic) |
+| `0x12` | SYSTEM_PWR | `0x00` | Bloques digitales encendidos |
+| `0x13` | BIAS_PWR | `0x10` | Circuito analógico de bias encendido |
+| `0x14` | CODEC_PWR | `0x1A` | Salidas analógicas y DAC encendidos |
+| `0x32` | DAC_VOLUME | `0xBF` (0dB) | Control de volumen máster del DAC |
+| `0x37` | DAC_OUT_CTRL | `0x08` | Desmutear salida analógica al altavoz |
+| `0x44` | ADC_DAC_MIX | `0x48` | Canal de mezcla loopback / cancelación de eco |

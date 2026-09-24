@@ -1,3 +1,7 @@
+> ⚠️ **DOCUMENTO OBSOLETO / HISTÓRICO**
+> Este documento ha sido superado y reemplazado por la especificación canónica:
+> [CDT_CANONICAL.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/CDT_CANONICAL.md).
+
 # Plan de Implementación: Fase 0 para ESP32-P4 (Extracción de Pines y Codegen)
 
 Este plan detalla los pasos de ejecución técnica para implementar la **Fase 0** de la arquitectura en la placa `ESP32-P4 (JC4880P443C)`. 

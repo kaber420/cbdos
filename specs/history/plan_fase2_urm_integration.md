@@ -1,3 +1,7 @@
+> ⚠️ **DOCUMENTO OBSOLETO / HISTÓRICO**
+> Este documento ha sido superado y reemplazado por la especificación canónica:
+> [CDT_CANONICAL.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/CDT_CANONICAL.md).
+
 # Plan de Ejecución Unificado: Reparación Fase 0 + Integración Fase 2 (URM)
 
 Este documento unifica las dos etapas necesarias para asegurar la arquitectura de hardware del OS. Se ejecutará de forma secuencial: primero sanear los cimientos (Fase 0) y luego conectar el URM (Fase 2).

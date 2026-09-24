@@ -1,3 +1,7 @@
+> ⚠️ **DOCUMENTO OBSOLETO / HISTÓRICO**
+> Este documento ha sido superado y reemplazado por la especificación canónica:
+> [CDT_CANONICAL.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/CDT_CANONICAL.md).
+
 # Plan de Reparación de la Fase 0 (Saneamiento de Device Tree)
 
 Debido a que la migración original de la Fase 0 se hizo de manera incompleta y generó archivos huérfanos y falta de información, este plan detalla paso a paso cómo restauraremos la "Fuente de la Verdad" antes de tocar ningún archivo de la arquitectura principal o intentar integrar la Fase 2.

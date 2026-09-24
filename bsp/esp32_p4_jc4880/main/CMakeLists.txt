@@ -70,7 +70,7 @@ idf_component_register(
 # Generación del device tree
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_LIST_DIR}/../hal/cbdos_device_tree.h
-    COMMAND python ${CMAKE_CURRENT_LIST_DIR}/../../../tools/cdtc.py ${CMAKE_CURRENT_LIST_DIR}/../../../boards/jc4880p443.json ${CMAKE_CURRENT_LIST_DIR}/../hal/cbdos_device_tree.h
+    COMMAND python3 ${CMAKE_CURRENT_LIST_DIR}/../../../tools/cdtc.py ${CMAKE_CURRENT_LIST_DIR}/../../../boards/jc4880p443.json ${CMAKE_CURRENT_LIST_DIR}/../hal/cbdos_device_tree.h
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/../../../boards/jc4880p443.json ${CMAKE_CURRENT_LIST_DIR}/../../../tools/cdtc.py
     COMMENT "Generando cbdos_device_tree.h desde el JSON"
 )

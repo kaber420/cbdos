@@ -22,6 +22,7 @@ Todos los cambios notables del proyecto, características nuevas, refactorizacio
 - **CartridgeView**: Corrección de la capacidad mostrada en ranuras de cartuchos; se eliminó el condicional basado en la resolución de pantalla que forzaba 4.0 MB en ambas ranuras y se añadió detección dinámica del tamaño real de partición (`info.partitionSize`) con fallbacks nominales (4.0 MB para Slot 1 y 2.0 MB para Slot 2).
 - **CartridgeManager**: Corrección en `flashFromSD()` donde la ruta resuelta (`resolvedPath` con prefijo `/sdcard`) no se preservaba para `stat()`, provocando falsos positivos de archivo inválido o vacío al flashear binarios. Se implementó `fstat(fileno(f))` con respaldo `fseek`/`ftell` sobre el flujo abierto.
 - **CartridgeManager (Simulación)**: Asignación adecuada de 2.0 MB a `ESP_PARTITION_SUBTYPE_APP_OTA_2` en modo host/simulación.
+- **TouchHAL (ESP32-P4)**: Corrección en la inicialización del controlador táctil Goodix GT911 (`ESP_ERR_INVALID_STATE` / error I2C `0x103`). Se eliminó el pulso manual redundante de reset y se integró la configuración oficial de `driver_data` (`esp_lcd_touch_io_gt911_config_t`) con fijación de dirección I2C por hardware strapping (`0x5D`) y tiempos de estabilización adecuados (datasheet GT911).
 
 ---
 ## [v0.2.3] - Hito Anterior

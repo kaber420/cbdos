@@ -1,8 +1,12 @@
+> ⚠️ **DOCUMENTO OBSOLETO / HISTÓRICO**
+> Este documento ha sido superado y reemplazado por la especificación canónica:
+> [CDT_CANONICAL.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/CDT_CANONICAL.md).
+
 # Especificación Técnica: GPIO Resource Manager (GRM) para CBDos
 
 **Fecha:** 2026-09-03  
 **Versión:** 1.0.0  
-**Estado:** Especificación Técnica / Diseño Arquitectónico  
+**Estado:** OBSOLETO (Ver CDT_CANONICAL.md)  
 **Autor:** Equipo CBDos  
 **Target:** ESP32-P4 / ESP32-S3 (FreeRTOS, Bare-Metal)
 

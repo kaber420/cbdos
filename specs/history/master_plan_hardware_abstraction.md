@@ -1,6 +1,10 @@
+> ⚠️ **DOCUMENTO OBSOLETO / HISTÓRICO**
+> Este documento ha sido superado y reemplazado por la especificación canónica:
+> [CDT_CANONICAL.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/CDT_CANONICAL.md).
+
 # Plan Maestro: Arquitectura de Abstracción de Hardware y Modularidad (CBDos)
 
-**Estado:** Plan Maestro Consolidado (Borrador)  
+**Estado:** OBSOLETO (Ver CDT_CANONICAL.md)  
 **Objetivo:** Unificar las especificaciones de Device Tree (CDTc), Universal Resource Manager (URM) y Backpack Manager en una única hoja de ruta coherente y por fases. **No contiene código, solo especificaciones y planificación.**
 
 ---

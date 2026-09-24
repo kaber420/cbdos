@@ -4,16 +4,11 @@
 #include <esp_err.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_mipi_dsi.h>
+#include "cbdos_device_tree.h"
 
-#define BOARD_DISP_H_RES       480
-#define BOARD_DISP_V_RES       800
 #define BOARD_DISP_DSI_LANES   2
 #define BOARD_DISP_DSI_LDO_CH  3
 #define BOARD_DISP_SD_LDO_CH   4
-
-// Guition JC4880P443C Pinout
-#define BOARD_DISP_BL_GPIO     23
-#define BOARD_DISP_RST_GPIO    5
 
 class DisplayHAL {
 public:
@@ -22,7 +17,7 @@ public:
         return instance;
     }
 
-    esp_err_t init(int h_res = BOARD_DISP_H_RES, int v_res = BOARD_DISP_V_RES);
+    esp_err_t init(int h_res = cbdos::board::display::WIDTH, int v_res = cbdos::board::display::HEIGHT);
     
     void setBrightness(uint8_t percent);
     uint8_t getBrightness() const { return currentBrightness; }
@@ -54,8 +49,8 @@ private:
     void* fb0 = nullptr;
     void* fb1 = nullptr;
 
-    int width = BOARD_DISP_H_RES;
-    int height = BOARD_DISP_V_RES;
+    int width = cbdos::board::display::WIDTH;
+    int height = cbdos::board::display::HEIGHT;
     uint8_t currentBrightness = 70;
     bool initialized = false;
 };

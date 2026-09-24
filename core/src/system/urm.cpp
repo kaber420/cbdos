@@ -13,7 +13,7 @@ UniversalResourceManager& UniversalResourceManager::getInstance() {
 }
 
 UniversalResourceManager::UniversalResourceManager() {
-    cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "URM Inicializado (Whitelist mode). Pines permitidos: %d", cbdos::board::NUM_ALLOWED_PINS);
+    cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "URM Inicializado (Whitelist mode). Pines permitidos: %d", cbdos::board::NUM_EXPANSION_PINS);
 }
 
 UniversalResourceManager::~UniversalResourceManager() {}
@@ -23,8 +23,8 @@ bool UniversalResourceManager::isGpioAvailable(int pin) const {
     
     // Whitelist check
     bool isAllowed = false;
-    for (size_t i = 0; i < cbdos::board::NUM_ALLOWED_PINS; ++i) {
-        if (cbdos::board::BOARD_ALLOWED_PINS[i] == pin) {
+    for (size_t i = 0; i < cbdos::board::NUM_EXPANSION_PINS; ++i) {
+        if (cbdos::board::EXPANSION_PINS[i] == pin) {
             isAllowed = true;
             break;
         }
@@ -48,8 +48,8 @@ bool UniversalResourceManager::claimGpio(int pin, const std::string& owner, Reso
     
     // Firewall Check (Whitelist)
     bool isAllowed = false;
-    for (size_t i = 0; i < cbdos::board::NUM_ALLOWED_PINS; ++i) {
-        if (cbdos::board::BOARD_ALLOWED_PINS[i] == pin) {
+    for (size_t i = 0; i < cbdos::board::NUM_EXPANSION_PINS; ++i) {
+        if (cbdos::board::EXPANSION_PINS[i] == pin) {
             isAllowed = true;
             break;
         }

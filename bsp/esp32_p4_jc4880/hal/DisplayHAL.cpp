@@ -49,7 +49,7 @@ DisplayHAL::DisplayHAL() {}
 DisplayHAL::~DisplayHAL() {}
 
 esp_err_t DisplayHAL::initBacklight() {
-    ESP_LOGI(TAG, "Inicializando Retroiluminación PWM en GPIO %d (%d Hz)...", cbdos::board::DEVICE_TREE_DISPLAY_PIN_BL, LCD_LEDC_FREQ);
+    ESP_LOGI(TAG, "Inicializando Retroiluminación PWM en GPIO %d (%d Hz)...", cbdos::board::display::PIN_BL, LCD_LEDC_FREQ);
 
     ledc_timer_config_t timer_conf = {};
     timer_conf.speed_mode = LCD_LEDC_MODE;
@@ -64,7 +64,7 @@ esp_err_t DisplayHAL::initBacklight() {
     }
 
     ledc_channel_config_t channel_conf = {};
-    channel_conf.gpio_num = cbdos::board::DEVICE_TREE_DISPLAY_PIN_BL;
+    channel_conf.gpio_num = cbdos::board::display::PIN_BL;
     channel_conf.speed_mode = LCD_LEDC_MODE;
     channel_conf.channel = LCD_LEDC_CHANNEL;
     channel_conf.intr_type = LEDC_INTR_DISABLE;
@@ -173,7 +173,7 @@ esp_err_t DisplayHAL::initMipiDsi() {
     }
 
     // 4. Pulso de Reset por Hardware en GPIO (leído del CDT)
-    int rst_pin = cbdos::board::DEVICE_TREE_DISPLAY_PIN_RST;
+    int rst_pin = cbdos::board::display::PIN_RST;
     ESP_LOGI(TAG, "Ejecutando pulso de Reset en GPIO %d...", rst_pin);
     gpio_config_t rst_conf = {};
     rst_conf.pin_bit_mask = (1ULL << rst_pin);
@@ -231,10 +231,10 @@ esp_err_t DisplayHAL::init(int h_res, int v_res) {
     if (initialized) return ESP_OK;
 
     // Ignoramos h_res y v_res hardcodeados y leemos la verdad absoluta del CDT
-    width = cbdos::board::DEVICE_TREE_DISPLAY_WIDTH;
-    height = cbdos::board::DEVICE_TREE_DISPLAY_HEIGHT;
+    width = cbdos::board::display::WIDTH;
+    height = cbdos::board::display::HEIGHT;
 
-    ESP_LOGI(TAG, "=== Inicializando DisplayHAL (Driver: %s MIPI-DSI) ===", cbdos::board::DEVICE_TREE_DISPLAY_DRIVER);
+    ESP_LOGI(TAG, "=== Inicializando DisplayHAL (Driver: %s MIPI-DSI) ===", cbdos::board::display::DRIVER);
 
     esp_err_t ret = initMipiDsi();
     if (ret != ESP_OK) {

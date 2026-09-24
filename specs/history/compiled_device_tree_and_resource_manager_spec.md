@@ -1,6 +1,11 @@
+> ⚠️ **DOCUMENTO OBSOLETO / HISTÓRICO**
+> Este documento ha sido superado y reemplazado por la especificación canónica:
+> [CDT_CANONICAL.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/CDT_CANONICAL.md).
+> No utilizar las asignaciones de pines, esquemas YAML o modelos descritos aquí.
+
 # Especificación Técnica: Compiled Device Tree (CDTc) y Universal Resource Manager
 
-**Estado:** Especificación V2 (Basada en Revisión de Seguridad y Rendimiento)
+**Estado:** OBSOLETO (Ver CDT_CANONICAL.md)
 **Target:** ESP32-P4 / ESP32-S3 (Agnóstico, Bare-Metal)
 
 ---

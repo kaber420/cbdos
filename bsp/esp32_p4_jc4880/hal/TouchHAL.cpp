@@ -18,13 +18,14 @@ esp_err_t TouchHAL::init(int h_res, int v_res) {
     height = v_res;
 
     ESP_LOGI(TAG, "=== Inicializando TouchHAL (Goodix GT911 I2C SDA=%d SCL=%d RST=%d INT=%d) ===",
-             BOARD_TOUCH_SDA_GPIO, BOARD_TOUCH_SCL_GPIO, BOARD_TOUCH_RST_GPIO, BOARD_TOUCH_INT_GPIO);
+             cbdos::board::touch::PIN_SDA, cbdos::board::touch::PIN_SCL,
+             cbdos::board::touch::PIN_RST, cbdos::board::touch::PIN_INT);
 
     // 1. Configurar Bus I2C Maestro
     i2c_master_bus_config_t i2c_bus_config = {
         .i2c_port = (i2c_port_num_t)BOARD_TOUCH_I2C_PORT,
-        .sda_io_num = (gpio_num_t)BOARD_TOUCH_SDA_GPIO,
-        .scl_io_num = (gpio_num_t)BOARD_TOUCH_SCL_GPIO,
+        .sda_io_num = (gpio_num_t)cbdos::board::touch::PIN_SDA,
+        .scl_io_num = (gpio_num_t)cbdos::board::touch::PIN_SCL,
         .clk_source = I2C_CLK_SRC_DEFAULT,
         .glitch_ignore_cnt = 7,
         .intr_priority = 0,
@@ -40,36 +41,10 @@ esp_err_t TouchHAL::init(int h_res, int v_res) {
     }
     i2c_master_bus_handle_t i2c_bus_handle = i2cBusHandle;
 
-    // 2. Pulso de Reset por Hardware para despertar el GT911
-    if (BOARD_TOUCH_RST_GPIO >= 0) {
-        gpio_config_t rst_conf = {
-            .pin_bit_mask = (1ULL << BOARD_TOUCH_RST_GPIO),
-            .mode = GPIO_MODE_OUTPUT,
-            .pull_up_en = GPIO_PULLUP_DISABLE,
-            .pull_down_en = GPIO_PULLDOWN_DISABLE,
-            .intr_type = GPIO_INTR_DISABLE,
-        };
-        gpio_config(&rst_conf);
-        gpio_set_level((gpio_num_t)BOARD_TOUCH_RST_GPIO, 0);
-        vTaskDelay(pdMS_TO_TICKS(10));
-        gpio_set_level((gpio_num_t)BOARD_TOUCH_RST_GPIO, 1);
-        vTaskDelay(pdMS_TO_TICKS(50));
-        ESP_LOGI(TAG, "Pulso de Reset GT911 completado en GPIO %d", BOARD_TOUCH_RST_GPIO);
-    }
-
-    // 3. Sondear dirección I2C del GT911 (0x5D o 0x14)
+    // 2. Configuración de dirección I2C (Strapping oficial GT911 en 0x5D)
     uint8_t tp_addr = ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS; // 0x5D
-    if (i2c_master_probe(i2c_bus_handle, ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS, 100) == ESP_OK) {
-        tp_addr = ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS;
-        ESP_LOGI(TAG, "GT911 detectado en dirección 0x5D");
-    } else if (i2c_master_probe(i2c_bus_handle, ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP, 100) == ESP_OK) {
-        tp_addr = ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP;
-        ESP_LOGI(TAG, "GT911 detectado en dirección backup 0x14");
-    } else {
-        ESP_LOGW(TAG, "Aviso: No se recibió ACK del GT911 en 0x5D ni en 0x14 (intentando 0x5D)");
-    }
 
-    // 4. Configurar Panel IO I2C para GT911
+    // 3. Configurar Panel IO I2C para GT911
     esp_lcd_panel_io_handle_t tp_io_handle = nullptr;
     esp_lcd_panel_io_i2c_config_t tp_io_config = {};
     tp_io_config.dev_addr = tp_addr;
@@ -84,12 +59,16 @@ esp_err_t TouchHAL::init(int h_res, int v_res) {
         return ret;
     }
 
-    // 5. Inicializar controlador Goodix GT911
+    // 4. Inicializar controlador Goodix GT911 con driver_data oficial
+    esp_lcd_touch_io_gt911_config_t tp_gt911_config = {
+        .dev_addr = tp_addr,
+    };
+
     esp_lcd_touch_config_t tp_cfg = {
         .x_max = (uint16_t)width,
         .y_max = (uint16_t)height,
-        .rst_gpio_num = (gpio_num_t)BOARD_TOUCH_RST_GPIO,
-        .int_gpio_num = (gpio_num_t)BOARD_TOUCH_INT_GPIO,
+        .rst_gpio_num = (gpio_num_t)cbdos::board::touch::PIN_RST,
+        .int_gpio_num = (gpio_num_t)cbdos::board::touch::PIN_INT,
         .levels = {
             .reset = 0,
             .interrupt = 0,
@@ -99,6 +78,7 @@ esp_err_t TouchHAL::init(int h_res, int v_res) {
             .mirror_x = 0,
             .mirror_y = 0,
         },
+        .driver_data = &tp_gt911_config,
     };
 
     ret = esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &touchHandle);

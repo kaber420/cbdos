@@ -786,9 +786,9 @@ public:
     bool isPinAvailable(int pin) const override {
         if (pin < 0 || pin > 54) return false;
         
-        // Verificar si está en la lista de pines permitidos (Whitelist)
-        for (size_t i = 0; i < cbdos::board::NUM_ALLOWED_PINS; ++i) {
-            if (pin == cbdos::board::BOARD_ALLOWED_PINS[i]) {
+        // Verificar si está en la lista de pines de expansión (Whitelist JP1)
+        for (size_t i = 0; i < cbdos::board::NUM_EXPANSION_PINS; ++i) {
+            if (pin == cbdos::board::EXPANSION_PINS[i]) {
                 return true;
             }
         }

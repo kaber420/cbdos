@@ -11,9 +11,65 @@
         "rst": 5,
         "bl": 23
       }
+    },
+    "touch_i2c0": {
+      "pins": {
+        "sda": 7,
+        "scl": 8,
+        "rst": 22,
+        "int": 21
+      }
+    },
+    "audio_i2s": {
+      "pins": {
+        "mclk": 13,
+        "bclk": 12,
+        "ws": 10,
+        "dout": 9,
+        "din": 48,
+        "pa": 11
+      }
+    },
+    "sdmmc": {
+      "pins": {
+        "d0": 39,
+        "d1": 40,
+        "d2": 41,
+        "d3": 42,
+        "clk": 43,
+        "cmd": 44
+      }
+    },
+    "console_uart0": {
+      "pins": {
+        "tx": 38,
+        "rx": 37
+      }
+    },
+    "power_control": {
+      "pins": {
+        "en": 36
+      }
+    },
+    "coprocessor_c6": {
+      "pins": {
+        "sdio": [14, 15, 16, 17, 18, 19],
+        "reset": 54,
+        "handshake": 6
+      }
+    },
+    "battery_sensor": {
+      "pins": {
+        "bat_adc": 53
+      }
+    },
+    "system_buttons": {
+      "pins": {
+        "boot": 35
+      }
     }
   },
   "expansion": {
-    "jp1_allowed": [28, 29, 30, 31, 32, 33, 34, 35, 49, 50, 51, 52]
+    "jp1_allowed": [28, 29, 30, 31, 32, 33, 34, 49, 50, 51, 52]
   }
 }

@@ -1,9 +1,14 @@
 # Reglas de Desarrollo CBDos (AGENTS.md)
 
-1. **Persistencia Obligatoria (`specs/`):**
-   - Hardware: Actualizar siempre `/home/kaber420/Documentos/proyectos/cbdos/specs/hardware/pinouts_and_ports.md`.
-   - Arquitectura: Documentar HAL y core en `/home/kaber420/Documentos/proyectos/cbdos/specs/architecture/hal_and_core_architecture.md`.
-   - APIs: Registrar en `/home/kaber420/Documentos/proyectos/cbdos/specs/api/core_apis_reference.md`.
+0. **Dirección Absoluta del Usuario (El Asistente Solo Propone):**
+   - El usuario dirige el proyecto con autoridad total y toma todas las decisiones.
+   - El asistente tiene un rol estrictamente de soporte y proposición: **SOLO PROPONE** y pregunta.
+   - Queda terminantemente prohibido asumir, adelantarse o tomar cualquier iniciativa que no haya sido expresamente solicitada y autorizada por el usuario.
+
+1. **Persistencia y Fuente de la Verdad (`specs/`):**
+   - Toda la arquitectura, planes, decisiones técnicas, hardware e interfaces deben quedar documentados en su respectiva categoría dentro de `specs/` (ej. `specs/hardware/`, `specs/architecture/`, `specs/api/`, `specs/history/`, etc.).
+   - La información histórica, respaldos y versiones previas deben preservarse en `specs/history/` en lugar de ser eliminados.
+   - Ninguna decisión técnica o asignación de hardware se asume; se consulta y actualiza en la especificación correspondiente según indique el usuario.
 
 2. **Arquitectura Core y UI:**
    - La carpeta `core/` es pura lógica C++ y LVGL agnóstica a la plataforma.
@@ -12,7 +17,14 @@
 
 3. **Ejecución y Flujo de Trabajo (Zero Acciones Silenciosas):**
    - **Prohibido** editar, borrar archivos o flashear sin proponerlo primero y recibir autorización explícita del usuario.
-   - **Multi-Target:** Cualquier cambio en `core/` debe compilar limpio tanto para ESP32-P4 (`idf.py build`) como para ESP32-S3 (`pio run`).
+   - **ESTRICTAMENTE PROHIBIDO REVERTIR CÓDIGO:** El asistente tiene estrictamente prohibido revertir o deshacer cambios de código, incluso si se equivocó inicialmente. Si se comete un error, se debe corregir hacia adelante (fix-forward). Bajo ninguna circunstancia se debe dar marcha atrás a las modificaciones sin una orden explícita del usuario.
+   - **Multi-Target y Comandos de Compilación:**  debe compilar limpio para ambas plataformas:
+     - **ESP32-P4 (ESP-IDF):**
+       - Build: `. /home/kaber420/esp/esp-idf/export.sh && idf.py -C bsp/esp32_p4_jc4880 build`
+       - Flash y Monitor: `. /home/kaber420/esp/esp-idf/export.sh && idf.py -C bsp/esp32_p4_jc4880 -p /dev/ttyACM0 flash monitor`
+     - **ESP32-S3 (PlatformIO):**
+       - Build: `pio run -d bsp/esp32_s3_jc3248`
+       - Flash: `pio run -d bsp/esp32_s3_jc3248 -t upload`
    - **Depuración en Caliente:** Usar la consola interactiva por puerto serie para validar APIs y comandos en caliente (`/dev/ttyACM0`). Evitar el ciclo lento de compilar y flashear repetitivamente para pruebas menores.
 
 4. **Desacoplamiento y Sistema Reactivo:**

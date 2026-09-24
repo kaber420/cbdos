@@ -1,6 +1,11 @@
+> ⚠️ **DOCUMENTO OBSOLETO / HISTÓRICO**
+> Este documento ha sido superado y reemplazado por la especificación canónica:
+> [CDT_CANONICAL.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/CDT_CANONICAL.md).
+> No utilizar las propuestas de parseo JSON en runtime ni los modelos descritos aquí.
+
 # Especificación Técnica: CBDos Native Device Tree (CDT) y Gestor Unificado de Hardware
 
-**Estado:** Propuesta de Arquitectura (Borrador)  
+**Estado:** OBSOLETO (Ver CDT_CANONICAL.md)  
 **Target:** ESP32-P4 / ESP32-S3 (Agnóstico)  
 
 ---

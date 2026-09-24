@@ -5,12 +5,9 @@
 #include <esp_lcd_touch.h>
 
 #include <driver/i2c_master.h>
+#include "cbdos_device_tree.h"
 
 #define BOARD_TOUCH_I2C_PORT    0
-#define BOARD_TOUCH_SDA_GPIO    7
-#define BOARD_TOUCH_SCL_GPIO    8
-#define BOARD_TOUCH_RST_GPIO    3
-#define BOARD_TOUCH_INT_GPIO    4
 
 class TouchHAL {
 public:
