@@ -110,12 +110,12 @@ Símbolos renombrados en `cdtc.py`/header sin actualizar consumidores.
 - **Conservar** `DSI_LANES/LDO_CH/SD_LDO_CH` hasta Paso 7-9.
 - **Éxito:** build OK; cero `#define BOARD_DISP_*_GPIO`.
 
-### 🔹 Paso 3: AudioHAL ⬜
-- `AudioHAL.h`: eliminar `BOARD_AUDIO_MCLK...PA_GPIO`; + include DT.
-- `AudioHAL.cpp`: → `audio::PIN_*`.
-- **Dejar para Paso 7:** `I2S_PORT`, `CODEC_ADDR` (hoy macros; **0x30 = write-addr 8-bit = 0x18<<1 — sin conflicto real**; confirmar en esquemático `6_CODEC&TFCARD.png` solo si se duda al meter el JSON).
-- **Resolver:** dependencia `BOARD_TOUCH_I2C_PORT` (¿compartido o al JSON en Paso 7?).
-- **Éxito:** build OK.
+### 🔹 Paso 3: AudioHAL ✅ (2026-09-24)
+- `AudioHAL.h`: eliminadas macros `BOARD_AUDIO_MCLK...PA_GPIO`; include `cbdos_device_tree.h`.
+- `AudioHAL.cpp`: migrado a `cbdos::board::audio::PIN_*`.
+- **Conservados para Paso 7:** `I2S_PORT`, `CODEC_ADDR` (0x30 write-addr 8-bit).
+- **Dependencia I2C compartida:** bus preservado mediante `TouchHAL`.
+- **Éxito:** build limpio en ESP-IDF (`Project build complete`). Cero referencias a `BOARD_AUDIO_*_GPIO`.
 
 ### 🔹 Paso 4: hal_uart_p4 consola ⬜
 - Líneas 506, 539-542, 614: `38/37` → `console::PIN_TX/RX`.
@@ -253,3 +253,4 @@ Si algún paso obliga a tocar esos .cpp para una placa nueva, la Fase B no está
 | | Verificación Touch RST/INT = 22/21 | ✅ esquemático `JC4880P443_V1.0`; codec 0x18=0x30<<1 resuelto; docs actualizados |
 | | 1 — TouchHAL → DT | ✅ `idf.py build` OK; TouchHAL migrado a `cbdos::board::touch::PIN_*`; RST/INT=22/21 en JSON y DT |
 | | 2 — DisplayHAL.h → DT | ✅ `idf.py build` OK; `BOARD_DISP_H_RES/V_RES/BL/RST` eliminados; defaults migrados a DT |
+| 2026-09-24 | 3 — AudioHAL → DT | ✅ `idf.py build` OK; AudioHAL migrado a `cbdos::board::audio::PIN_*`; eliminados `BOARD_AUDIO_*_GPIO` |

@@ -26,17 +26,17 @@ esp_err_t AudioHAL::init(uint32_t sampleRate) {
     currentSampleRate = sampleRate;
 
     // 1. Configurar Pin PA (Power Amplifier) en nivel bajo para evitar pop
-    if (BOARD_AUDIO_PA_GPIO >= 0) {
+    if (cbdos::board::audio::PIN_PA >= 0) {
         gpio_config_t pa_conf = {
-            .pin_bit_mask = (1ULL << BOARD_AUDIO_PA_GPIO),
+            .pin_bit_mask = (1ULL << cbdos::board::audio::PIN_PA),
             .mode = GPIO_MODE_OUTPUT,
             .pull_up_en = GPIO_PULLUP_DISABLE,
             .pull_down_en = GPIO_PULLDOWN_DISABLE,
             .intr_type = GPIO_INTR_DISABLE,
         };
         gpio_config(&pa_conf);
-        gpio_set_level((gpio_num_t)BOARD_AUDIO_PA_GPIO, 0);
-        ESP_LOGI(TAG, "Amplificador de audio configurado en silencio (GPIO %d)", BOARD_AUDIO_PA_GPIO);
+        gpio_set_level((gpio_num_t)cbdos::board::audio::PIN_PA, 0);
+        ESP_LOGI(TAG, "Amplificador de audio configurado en silencio (GPIO %d)", cbdos::board::audio::PIN_PA);
     }
 
     // 2. Configurar Interfaz de Control I2C usando el bus compartido
@@ -68,11 +68,11 @@ esp_err_t AudioHAL::init(uint32_t sampleRate) {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sampleRate),
         .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
         .gpio_cfg = {
-            .mclk = (gpio_num_t)BOARD_AUDIO_MCLK_GPIO,
-            .bclk = (gpio_num_t)BOARD_AUDIO_BCLK_GPIO,
-            .ws = (gpio_num_t)BOARD_AUDIO_WS_GPIO,
-            .dout = (gpio_num_t)BOARD_AUDIO_DOUT_GPIO,
-            .din = (gpio_num_t)BOARD_AUDIO_DIN_GPIO,
+            .mclk = (gpio_num_t)cbdos::board::audio::PIN_MCLK,
+            .bclk = (gpio_num_t)cbdos::board::audio::PIN_BCLK,
+            .ws = (gpio_num_t)cbdos::board::audio::PIN_WS,
+            .dout = (gpio_num_t)cbdos::board::audio::PIN_DOUT,
+            .din = (gpio_num_t)cbdos::board::audio::PIN_DIN,
             .invert_flags = {
                 .mclk_inv = false,
                 .bclk_inv = false,
@@ -110,7 +110,7 @@ esp_err_t AudioHAL::init(uint32_t sampleRate) {
     es8311_cfg.ctrl_if = i2c_ctrl;
     es8311_cfg.gpio_if = audio_codec_new_gpio();
     es8311_cfg.codec_mode = ESP_CODEC_DEV_WORK_MODE_BOTH;
-    es8311_cfg.pa_pin = BOARD_AUDIO_PA_GPIO;
+    es8311_cfg.pa_pin = cbdos::board::audio::PIN_PA;
     es8311_cfg.pa_reverted = false;
     es8311_cfg.master_mode = false;
     es8311_cfg.use_mclk = true;
@@ -172,8 +172,8 @@ esp_err_t AudioHAL::init(uint32_t sampleRate) {
     }
 
     // Habilitar PA una vez configurado y estabilizado el códec
-    if (BOARD_AUDIO_PA_GPIO >= 0) {
-        gpio_set_level((gpio_num_t)BOARD_AUDIO_PA_GPIO, 1);
+    if (cbdos::board::audio::PIN_PA >= 0) {
+        gpio_set_level((gpio_num_t)cbdos::board::audio::PIN_PA, 1);
     }
 
     // 7. Aplicar volumen inicial
@@ -209,8 +209,8 @@ esp_err_t AudioHAL::setSampleRate(uint32_t sampleRate) {
     if (ret == ESP_OK) {
         currentSampleRate = sampleRate;
         ESP_LOGI(TAG, "I2S Hardware Sample Rate actualizado a %lu Hz", sampleRate);
-        if (BOARD_AUDIO_PA_GPIO >= 0) {
-            gpio_set_level((gpio_num_t)BOARD_AUDIO_PA_GPIO, 1);
+        if (cbdos::board::audio::PIN_PA >= 0) {
+            gpio_set_level((gpio_num_t)cbdos::board::audio::PIN_PA, 1);
         }
         setVolume(currentVolume);
     } else {

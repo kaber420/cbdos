@@ -6,14 +6,9 @@
 #include <driver/i2s_std.h>
 #include <driver/i2c_master.h>
 #include "esp_codec_dev.h"
+#include "cbdos_device_tree.h"
 
 #define BOARD_AUDIO_I2S_PORT       I2S_NUM_0
-#define BOARD_AUDIO_MCLK_GPIO      13
-#define BOARD_AUDIO_BCLK_GPIO      12
-#define BOARD_AUDIO_WS_GPIO        10
-#define BOARD_AUDIO_DOUT_GPIO      9
-#define BOARD_AUDIO_DIN_GPIO       48
-#define BOARD_AUDIO_PA_GPIO        11
 #define BOARD_AUDIO_CODEC_ADDR     0x30
 
 class AudioHAL {
