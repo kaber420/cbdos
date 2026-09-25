@@ -52,9 +52,9 @@ bsp/esp32_p4_jc4880/hal/
 | 0 | Reparación build (rename símbolos) | ✅ 2026-09-23 |
 | 1 | TouchHAL → DT | ✅ 2026-09-23 |
 | 2 | DisplayHAL.h split-brain + DT | ✅ 2026-09-23 |
-| 3 | AudioHAL → DT (pins + port + addr) | ⬜ |
+| 3 | AudioHAL → DT (pins + port + addr) | ✅ 2026-09-24 |
 | 4 | hal_uart consola/defaults → DT | ⬜ |
-| 5 | hal_storage SDMMC → DT | ⬜ |
+| 5 | hal_storage SDMMC → DT | ✅ 2026-09-24 |
 | 6 | hal_flasher power → DT | ⬜ |
 | **7** | **Ampliar JSON: LDO, DSI, I2S port, codec addr, i2c_port** | ⬜ |
 | **8** | **Ampliar cdtc.py: namespaces display::dsi, display::ldo, audio::i2s...** | ⬜ |
@@ -123,9 +123,12 @@ Símbolos renombrados en `cdtc.py`/header sin actualizar consumidores.
 - Whitelist ya hecha en Paso 0.
 - **Éxito:** build OK; serie en 38/37.
 
-### 🔹 Paso 5: hal_storage SDMMC ⬜
-- Líneas 158-162, 172-177, 228-232, 241-246: `GPIO_NUM_39..44` → `sdcard::PIN_D0..D3/CLK/CMD`.
-- **Éxito:** build OK.
+### 🔹 Paso 5: hal_storage SDMMC ✅ (2026-09-24)
+- Pines `GPIO_NUM_39..44` confinados a `mountSd()` y migrados a `cbdos::board::sdcard::PIN_D0..D3/CLK/CMD`.
+- `formatSd()` saneado: eliminada la reconfiguración y fuga de hardware, formateo delegado a FatFS y retorno fiel de errores.
+- Plan técnico cumplido: `specs/architecture/plan_arquitectura_storage_sdmmc_device_tree.md`.
+- Hoja de ruta posterior (Core Storage): Desacoplamiento de formateo fuera del BSP en `specs/architecture/plan_rediseño_arquitectura_storage_core.md`.
+- **Éxito:** build limpio en ESP-IDF (`Project build complete`). Cero referencias a `GPIO_NUM_39..44`.
 
 ### 🔹 Paso 6: hal_flasher power ⬜
 - Líneas 275, 279: `GPIO_NUM_36` → `power::PIN_EN`.
@@ -254,3 +257,4 @@ Si algún paso obliga a tocar esos .cpp para una placa nueva, la Fase B no está
 | | 1 — TouchHAL → DT | ✅ `idf.py build` OK; TouchHAL migrado a `cbdos::board::touch::PIN_*`; RST/INT=22/21 en JSON y DT |
 | | 2 — DisplayHAL.h → DT | ✅ `idf.py build` OK; `BOARD_DISP_H_RES/V_RES/BL/RST` eliminados; defaults migrados a DT |
 | 2026-09-24 | 3 — AudioHAL → DT | ✅ `idf.py build` OK; AudioHAL migrado a `cbdos::board::audio::PIN_*`; eliminados `BOARD_AUDIO_*_GPIO` |
+| 2026-09-24 | 5 — hal_storage SDMMC → DT | ✅ `idf.py build` OK; Pines migrados a `cbdos::board::sdcard::PIN_*` en `mountSd()`; `formatSd()` saneado sin tocar hardware |

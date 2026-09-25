@@ -7,7 +7,9 @@
 #include <sdmmc_cmd.h>
 #include <driver/sdmmc_host.h>
 #include <driver/sdmmc_types.h>
+#include <driver/gpio.h>
 #include <esp_ldo_regulator.h>
+#include "cbdos_device_tree.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -154,27 +156,27 @@ public:
             .disk_status_check_enable = false
         };
 
-        // Habilitar pull-ups internos explícitos en las líneas de datos y comando
-        gpio_pullup_en(GPIO_NUM_44); // CMD
-        gpio_pullup_en(GPIO_NUM_39); // D0
-        gpio_pullup_en(GPIO_NUM_40); // D1
-        gpio_pullup_en(GPIO_NUM_41); // D2
-        gpio_pullup_en(GPIO_NUM_42); // D3
+        // Pull-ups en líneas de comando y datos desde Device Tree
+        gpio_pullup_en(static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_CMD));
+        gpio_pullup_en(static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_D0));
+        gpio_pullup_en(static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_D1));
+        gpio_pullup_en(static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_D2));
+        gpio_pullup_en(static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_D3));
 
         sdmmc_host_t host = SDMMC_HOST_DEFAULT();
         host.slot = SDMMC_HOST_SLOT_0;
         host.max_freq_khz = 10000; // 10 MHz para máxima compatibilidad con SDHC/SDXC
 
-        // Slot 0 nativo en ESP32-P4 (GPIO 39-44)
+        // Slot 0 nativo en ESP32-P4 mapeado a Device Tree
         sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
         slot_config.width = 4;
         slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
-        slot_config.clk = GPIO_NUM_43;
-        slot_config.cmd = GPIO_NUM_44;
-        slot_config.d0 = GPIO_NUM_39;
-        slot_config.d1 = GPIO_NUM_40;
-        slot_config.d2 = GPIO_NUM_41;
-        slot_config.d3 = GPIO_NUM_42;
+        slot_config.clk = static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_CLK);
+        slot_config.cmd = static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_CMD);
+        slot_config.d0  = static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_D0);
+        slot_config.d1  = static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_D1);
+        slot_config.d2  = static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_D2);
+        slot_config.d3  = static_cast<gpio_num_t>(cbdos::board::sdcard::PIN_D3);
 
         ESP_LOGI(TAG, "Intentando montar MicroSD (Slot 0, 4-bit) en %s...", SD_MOUNT_POINT);
         esp_err_t ret = esp_vfs_fat_sdmmc_mount(SD_MOUNT_POINT, &host, &slot_config, &mount_config, &s_cardHandle);
@@ -218,64 +220,28 @@ public:
     }
 
     bool formatSd() override {
-        ESP_LOGI(TAG, "Iniciando formateo destructivo de MicroSD a FAT32...");
-        if (s_sdMounted) {
-            unmountSd();
-        }
+        ESP_LOGI(TAG, "Iniciando formateo de MicroSD a FAT32...");
 
-        ensureLdoPower();
-
-        gpio_pullup_en(GPIO_NUM_44); // CMD
-        gpio_pullup_en(GPIO_NUM_39); // D0
-        gpio_pullup_en(GPIO_NUM_40); // D1
-        gpio_pullup_en(GPIO_NUM_41); // D2
-        gpio_pullup_en(GPIO_NUM_42); // D3
-
-        sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-        host.slot = SDMMC_HOST_SLOT_0;
-        host.max_freq_khz = 10000;
-
-        sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-        slot_config.width = 4;
-        slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
-        slot_config.clk = GPIO_NUM_43;
-        slot_config.cmd = GPIO_NUM_44;
-        slot_config.d0 = GPIO_NUM_39;
-        slot_config.d1 = GPIO_NUM_40;
-        slot_config.d2 = GPIO_NUM_41;
-        slot_config.d3 = GPIO_NUM_42;
-
-        esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-            .format_if_mount_failed = true,
-            .max_files = 8,
-            .allocation_unit_size = 32 * 1024, // 32 KB clusters para compatibilidad FAT32
-            .disk_status_check_enable = false
-        };
-
-        // Paso 1: Montar para obtener handle
-        esp_err_t ret = esp_vfs_fat_sdmmc_mount(SD_MOUNT_POINT, &host, &slot_config, &mount_config, &s_cardHandle);
-        if (ret != ESP_OK) {
-            ESP_LOGW(TAG, "Montaje 4-bit fallo (0x%x), reintentando en modo 1-bit...", ret);
-            slot_config.width = 1;
-            ret = esp_vfs_fat_sdmmc_mount(SD_MOUNT_POINT, &host, &slot_config, &mount_config, &s_cardHandle);
-        }
-
-        if (ret == ESP_OK && s_cardHandle != nullptr) {
-            ESP_LOGI(TAG, "Ejecutando formateo nativo FatFS a bajo nivel...");
-            esp_err_t fmt_ret = esp_vfs_fat_sdcard_format(SD_MOUNT_POINT, s_cardHandle);
-            if (fmt_ret == ESP_OK) {
-                s_sdMounted = true;
-                ESP_LOGI(TAG, "MicroSD formateada exitosamente a FAT32!");
-                return true;
-            } else {
-                ESP_LOGW(TAG, "Aviso al formatear directamente: %s. Reintentando montaje limpio...", esp_err_to_name(fmt_ret));
-                s_sdMounted = true;
-                return true;
+        // Si la tarjeta no está montada, intentar montarla primero para validar conexión y handle
+        if (!s_sdMounted) {
+            if (!mountSd()) {
+                ESP_LOGE(TAG, "No se puede formatear: la tarjeta MicroSD no esta conectada o no responde.");
+                return false;
             }
+        }
+
+        if (!s_cardHandle) {
+            ESP_LOGE(TAG, "Handle de tarjeta nulo, cancelando formateo.");
+            return false;
+        }
+
+        ESP_LOGI(TAG, "Ejecutando formateo nativo FatFS a bajo nivel...");
+        esp_err_t fmt_ret = esp_vfs_fat_sdcard_format(SD_MOUNT_POINT, s_cardHandle);
+        if (fmt_ret == ESP_OK) {
+            ESP_LOGI(TAG, "MicroSD formateada exitosamente a FAT32!");
+            return true;
         } else {
-            s_sdMounted = false;
-            s_cardHandle = nullptr;
-            ESP_LOGE(TAG, "Fallo critico al acceder a la MicroSD para formateo: 0x%x (%s)", ret, esp_err_to_name(ret));
+            ESP_LOGE(TAG, "Fallo al formatear MicroSD: %s", esp_err_to_name(fmt_ret));
             return false;
         }
     }
