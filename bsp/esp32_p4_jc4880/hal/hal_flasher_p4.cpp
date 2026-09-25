@@ -268,16 +268,6 @@ void FlasherServiceP4::runFlashTask() {
         return;
     }
 
-    // Asegurar que el carril ESP_3V3 (GPIO 36) este energizado
-    gpio_config_t pwr_conf = {};
-    pwr_conf.intr_type = GPIO_INTR_DISABLE;
-    pwr_conf.mode = GPIO_MODE_OUTPUT;
-    pwr_conf.pin_bit_mask = (1ULL << GPIO_NUM_36);
-    pwr_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    pwr_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-    gpio_config(&pwr_conf);
-    gpio_set_level(GPIO_NUM_36, 1);
-
     // 2. Configurar transporte según el tipo seleccionado (USB Host CDC o UART Pins)
     bool isUsbNative = (m_activeConfig.transport == cbdos::flasher::FlasherTransport::USB_CDC_NATIVE);
 

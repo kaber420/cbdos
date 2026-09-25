@@ -39,8 +39,8 @@ Periféricos soldados fijos en el PCB. Manejados por drivers del SO (`system:*`)
 | **Sensor de Batería** | **BAT_ADC** | **GPIO 53** | Entrada Analógica (ADC) | Divisor resistivo R52 (68k) / R57 (100k) |
 | **Coprocesador C6 (Interno U3)** | **SDIO D0..D3** | **GPIO 14, 15, 16, 17** | Bus SDIO interno | Comunicación de alta velocidad (oculta en módulo) |
 | | **SDIO CLK / CMD** | **GPIO 18 / 19** | Reloj y Comando | Bus SDIO interno hacia C6 |
-| | **Alimentación C6** | **GPIO 36** | Salida Digital (`ESP_3V3`) | Control interno de energía del C6 (según código) |
-| | **Reset C6** | **GPIO 54** | Salida Digital (`C6_CHIP_PU`) | Reset por hardware interno del C6 (según código) |
+| | **Reset / Power-Down C6** | **GPIO 54** | Salida Digital (`C6_CHIP_PU`) | Control de reset y bajo consumo del C6 (carril 3.3V es permanente vía TLV62569) |
+| **Strapping / ROM Boot** | **Boot Mode Strapping** | **GPIO 36** | Entrada Strapping con Pull-up 10k (R44 a 3.3V) | Pin interno de configuración de ROM boot del ESP32-P4. Fijado a HIGH por hardware según especificación Espressif. No controla potencia. |
 | | **Handshake P4-C6** | **GPIO 6** | `C6_IO2` | Interrupción/handshake directo P4 $\leftrightarrow$ C6 |
 | | **C6 UART0 TX** | **Expuesto en JP1** | `C6_U0TXD` | Pin 22 de cabecera externa JP1 |
 | | **C6 UART0 RX** | **Expuesto en JP1** | `C6_U0RXD` | Pin 20 de cabecera externa JP1 |
@@ -70,10 +70,9 @@ Periféricos soldados fijos en el PCB. Manejados por drivers del SO (`system:*`)
 
 ---
 
-### ⚠️ C. Pines Físicamente No Conectados (NC / Unconnected)
-Pines del procesador ESP32-P4 que no tienen ruteo de pistas en el PCB de esta placa:
-* **GPIO 1, GPIO 2, GPIO 3, GPIO 4**
-* Se registran como `NC` para que el sistema rechace asignarlos.
+### ⚠️ C. Pines No Conectados (NC) o Reservados Internos
+* **GPIO 1, GPIO 2, GPIO 3, GPIO 4:** No tienen ruteo de pistas en el PCB de esta placa (NC).
+* **GPIO 36:** Pin interno de *strapping* del ESP32-P4, polarizado a 3.3V mediante resistor R44 (10k). Inaccesible externamente (no presente en JP1 ni conectores MX) y reservado por hardware para el arranque seguro del SoC.
 
 ---
 

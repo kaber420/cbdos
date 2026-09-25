@@ -55,7 +55,7 @@ bsp/esp32_p4_jc4880/hal/
 | 3 | AudioHAL → DT (pins + port + addr) | ✅ 2026-09-24 |
 | 4 | hal_uart consola/defaults → DT | ⬜ |
 | 5 | hal_storage SDMMC → DT | ✅ 2026-09-24 |
-| 6 | hal_flasher power → DT | ⬜ |
+| 6 | hal_flasher power → DT | ✅ 2026-09-24 |
 | **7** | **Ampliar JSON: LDO, DSI, I2S port, codec addr, i2c_port** | ⬜ |
 | **8** | **Ampliar cdtc.py: namespaces display::dsi, display::ldo, audio::i2s...** | ⬜ |
 | **9** | **DisplayHAL profundo: timings/LDO/lanes desde DT** | ⬜ |
@@ -130,9 +130,17 @@ Símbolos renombrados en `cdtc.py`/header sin actualizar consumidores.
 - Hoja de ruta posterior (Core Storage): Desacoplamiento de formateo fuera del BSP en `specs/architecture/plan_rediseño_arquitectura_storage_core.md`.
 - **Éxito:** build limpio en ESP-IDF (`Project build complete`). Cero referencias a `GPIO_NUM_39..44`.
 
-### 🔹 Paso 6: hal_flasher power ⬜
-- Líneas 275, 279: `GPIO_NUM_36` → `power::PIN_EN`.
-- **Éxito:** build OK.
+### 🔹 Paso 6: hal_flasher power y auditoría de hardware ✅ (2026-09-24)
+- **Auditoría física (2026-09-24):** Verificado contra esquemáticos (`1_PWR.png`, `3_ESP32-P4.png`) y *ESP32-P4 Technical Reference Manual* (Apéndice A, págs. 81-82).
+  - El carril 3.3V es permanente vía convertidor reductor TLV62569 (EN soldado a VIN).
+  - `GPIO 36` es pin de *strapping* de arranque de la ROM con pull-up pasivo R44 (10k) a 3.3V, sin control de potencia y no ruteado a conectores.
+- **Especificación técnica:** Detallada en [plan_arquitectura_power_flasher_device_tree.md](plan_arquitectura_power_flasher_device_tree.md).
+- **Ejecución completada:**
+  1. `hal_flasher_p4.cpp`: eliminado código huérfano de líneas 271-280 (`GPIO_NUM_36`).
+  2. `boards/jc4880p443.json`: retirado bloque ficticio `"power_control"`.
+  3. `tools/cdtc.py` y `cbdos_device_tree.h`: eliminado `namespace power`.
+  4. Bitácora y specs de pines actualizados ([pinouts_and_ports.md](../hardware/pinouts_and_ports.md)).
+- **Éxito:** build limpio en ESP-IDF (`Project build complete`). Cero referencias a control ficticio de energía.
 
 ---
 

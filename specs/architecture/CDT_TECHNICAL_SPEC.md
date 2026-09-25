@@ -189,8 +189,8 @@ Estado resumido:
 | `DisplayHAL.h` split-brain | 2 | ⬜ | `BOARD_DISP_*` → DT |
 | `AudioHAL` | 3 | ⬜ | pines → `audio::*`; port/addr hasta Paso 7 |
 | `hal_uart_p4` consola | 4 | ⬜ | `38/37` → `console::*` |
-| `hal_storage_p4` | 5 | ⬜ | `GPIO_NUM_39..44` → `sdcard::*` |
-| `hal_flasher_p4` | 6 | ⬜ | `GPIO_NUM_36` → `power::PIN_EN` |
+| `hal_storage_p4` | 5 | ✅ | `GPIO_NUM_39..44` → `sdcard::*` (2026-09-24) |
+| `hal_flasher_p4` | 6 | ✅ | Código muerto `GPIO_NUM_36` eliminado (auditoría TLV62569) |
 | JSON + cdtc ampliación (LDO/DSI/I2S...) | 7-8 | ⬜ | Nivel 2 |
 | Display profundo + `panels/` | 9-11 | ⬜ | multi-placa |
 
@@ -227,6 +227,6 @@ Estado resumido:
   - `cbdos::board::console::PIN_TX`, `PIN_RX`
 - Whitelist JP1 ya migrada (Paso 0).
 
-### 3.5 Storage y Flasher — Pasos 5-6
-- `hal_storage_p4.cpp`: `GPIO_NUM_39..44` → `sdcard::*`
-- `hal_flasher_p4.cpp`: `GPIO_NUM_36` → `power::PIN_EN`
+### 3.5 Storage y Flasher — Pasos 5-6 ✅
+- `hal_storage_p4.cpp`: `GPIO_NUM_39..44` → `sdcard::*` (completado 2026-09-24).
+- `hal_flasher_p4.cpp`: Eliminado bloque huérfano de `GPIO_NUM_36` tras comprobar en esquemático `1_PWR.png` que 3.3V es permanente y `GPIO 36` es pin de strapping de arranque de la ROM (`plan_arquitectura_power_flasher_device_tree.md`).

@@ -17,9 +17,9 @@ constexpr std::array<int, NUM_EXPANSION_PINS> EXPANSION_PINS = {
 };
 
 // Pines asignados a perifericos del sistema base
-constexpr size_t NUM_SYSTEM_PINS = 31;
+constexpr size_t NUM_SYSTEM_PINS = 30;
 constexpr std::array<int, NUM_SYSTEM_PINS> SYSTEM_PINS = {
-    5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 48, 53, 54
+    5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 35, 37, 38, 39, 40, 41, 42, 43, 44, 48, 53, 54
 };
 
 // 1. Pantalla
@@ -66,12 +66,7 @@ namespace console {
     constexpr int PIN_RX = 37;
 }
 
-// 6. Control de Alimentacion
-namespace power {
-    constexpr int PIN_EN = 36;
-}
-
-// 7. Coprocesador ESP32-C6 (SDIO)
+// 6. Coprocesador ESP32-C6 (SDIO)
 namespace coprocessor {
     constexpr size_t NUM_SDIO_PINS = 6;
     constexpr std::array<int, NUM_SDIO_PINS> PINS_SDIO = {14, 15, 16, 17, 18, 19};
@@ -79,12 +74,12 @@ namespace coprocessor {
     constexpr int PIN_HANDSHAKE = 6;
 }
 
-// 8. Sensores
+// 7. Sensores
 namespace sensors {
     constexpr int PIN_BATTERY_ADC = 53;
 }
 
-// 9. Botones Fisicos
+// 8. Botones Fisicos
 namespace buttons {
     constexpr int PIN_BOOT = 35;
 }

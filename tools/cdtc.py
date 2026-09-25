@@ -43,7 +43,6 @@ def main():
     audio = devices.get("audio_i2s", {}).get("pins", {})
     sdmmc = devices.get("sdmmc", {}).get("pins", {})
     console = devices.get("console_uart0", {}).get("pins", {})
-    power = devices.get("power_control", {}).get("pins", {})
     c6 = devices.get("coprocessor_c6", {}).get("pins", {})
     battery = devices.get("battery_sensor", {}).get("pins", {})
     buttons = devices.get("system_buttons", {}).get("pins", {})
@@ -118,12 +117,7 @@ namespace console {{
     constexpr int PIN_RX = {console.get('rx', -1)};
 }}
 
-// 6. Control de Alimentacion
-namespace power {{
-    constexpr int PIN_EN = {power.get('en', -1)};
-}}
-
-// 7. Coprocesador ESP32-C6 (SDIO)
+// 6. Coprocesador ESP32-C6 (SDIO)
 namespace coprocessor {{
     constexpr size_t NUM_SDIO_PINS = {len(c6_sdio)};
     constexpr std::array<int, NUM_SDIO_PINS> PINS_SDIO = {{{', '.join(map(str, c6_sdio))}}};
@@ -131,12 +125,12 @@ namespace coprocessor {{
     constexpr int PIN_HANDSHAKE = {c6.get('handshake', -1)};
 }}
 
-// 8. Sensores
+// 7. Sensores
 namespace sensors {{
     constexpr int PIN_BATTERY_ADC = {battery.get('bat_adc', -1)};
 }}
 
-// 9. Botones Fisicos
+// 8. Botones Fisicos
 namespace buttons {{
     constexpr int PIN_BOOT = {buttons.get('boot', -1)};
 }}

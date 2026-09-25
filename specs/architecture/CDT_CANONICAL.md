@@ -122,16 +122,17 @@ graph TD
 | **MicroSD (SDMMC 4-bit)** | D0..D3 | **GPIO 39, 40, 41, 42** | `cbdos::board::sdcard::PIN_D0..D3` |
 | | CLK, CMD | **GPIO 43, 44** | `cbdos::board::sdcard::PIN_CLK, PIN_CMD` |
 | **Consola UART0** | TX, RX | **GPIO 38, 37** | `cbdos::board::console::PIN_TX, PIN_RX` |
-| **Control de Energía** | LDO / EN | **GPIO 36** | `cbdos::board::power::PIN_EN` |
+| **Alimentación (Hardware)** | Carril 3.3V Fijo (TLV62569) | **N/A (EN soldado a VIN)** | Permanente por hardware (no conmutable). GPIO 36 es strapping ROM con pull-up pasivo. |
 | **Coprocesador ESP32-C6** | SDIO D0..D3, CLK, CMD | **GPIO 14, 15, 16, 17, 18, 19** | `cbdos::board::coprocessor::PINS_SDIO` |
 | | C6 Reset | **GPIO 54** | `cbdos::board::coprocessor::PIN_RESET` |
 | | C6 Handshake | **GPIO 6** | `cbdos::board::coprocessor::PIN_HANDSHAKE` |
 | **Sensor de Batería** | BAT_ADC | **GPIO 53** | `cbdos::board::sensors::PIN_BATTERY_ADC` |
 | **Botón BOOT** | BOOTMODE | **GPIO 35** | `cbdos::board::buttons::PIN_BOOT` |
 
-✅ **Datos verificados (2026-09-23) contra esquemático `JC4880P443_V1.0`:**
+✅ **Datos verificados (2026-09-23 / 2026-09-24) contra esquemático `JC4880P443_V1.0`:**
 - **Touch RST/INT = 22/21** (`3_ESP32-P4.png` nets TOUCH_*; `2_LCD&CSI.png` FPC 23/26). El JSON/TouchHAL **viejos** decían 3,4 — incorrecto (3,4 = NC). Corregir en **Paso 1** del plan.
 - **Códec ES8311:** 0x18 = addr 7-bit (docs) · 0x30 = 0x18<<1 write-addr (IDF I2C). Mismo dispositivo, no hay conflicto.
+- **Alimentación 3.3V:** El regulador TLV62569 tiene su pin EN soldado a VIN (`1_PWR.png`). GPIO 36 es pin de strapping de arranque de la ROM con pull-up R44 (10k) a 3.3V; no conmuta potencia (`plan_arquitectura_power_flasher_device_tree.md`).
 
 ### 2.2 Pines de Expansión (`EXPANSION_PINS` / Cabecera JP1)
 

@@ -46,11 +46,6 @@
         "rx": 37
       }
     },
-    "power_control": {
-      "pins": {
-        "en": 36
-      }
-    },
     "coprocessor_c6": {
       "pins": {
         "sdio": [14, 15, 16, 17, 18, 19],
