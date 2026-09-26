@@ -50,6 +50,7 @@ static constexpr uint16_t kLanReconPorts[] = {
     9100,  // Impresoras RAW
     1883,  // MQTT (IoT)
     5357,  // WSDAPI (Windows discovery)
+    8060,  // Roku ECP
 };
 static constexpr std::size_t kLanReconPortCount =
     sizeof(kLanReconPorts) / sizeof(kLanReconPorts[0]);

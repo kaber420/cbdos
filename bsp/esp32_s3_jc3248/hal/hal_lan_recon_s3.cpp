@@ -508,14 +508,24 @@ public:
         dst.sin_port = htons(1900);
         inet_pton(AF_INET, "239.255.255.250", &dst.sin_addr);
 
-        const char* msearch =
+        const char* msearch_all =
             "M-SEARCH * HTTP/1.1\r\n"
             "HOST: 239.255.255.250:1900\r\n"
-            "MAN: \"ns=01; ns=01\"\r\n"
+            "MAN: \"ssdp:discover\"\r\n"
             "MX: 2\r\n"
             "ST: ssdp:all\r\n"
             "USER-AGENT: CBDos-Recon/2.0\r\n\r\n";
-        sendto(sock, msearch, strlen(msearch), 0,
+        sendto(sock, msearch_all, strlen(msearch_all), 0,
+               reinterpret_cast<struct sockaddr*>(&dst), sizeof(dst));
+
+        const char* msearch_roku =
+            "M-SEARCH * HTTP/1.1\r\n"
+            "HOST: 239.255.255.250:1900\r\n"
+            "MAN: \"ssdp:discover\"\r\n"
+            "MX: 2\r\n"
+            "ST: roku:ecp\r\n"
+            "USER-AGENT: CBDos-Recon/2.0\r\n\r\n";
+        sendto(sock, msearch_roku, strlen(msearch_roku), 0,
                reinterpret_cast<struct sockaddr*>(&dst), sizeof(dst));
 
         const uint32_t t0 = millis();

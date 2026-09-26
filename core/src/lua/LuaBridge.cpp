@@ -20,6 +20,7 @@ void LuaBridge::registerAll(lua_State* L) {
     registerDuckyAPI(L);
     registerSshAPI(L);
     registerNetAPI(L);
+    registerHttpAPI(L);
 
     // Guardar tabla como global "cbdos"
     lua_setglobal(L, "cbdos");
@@ -40,6 +41,9 @@ void LuaBridge::registerAll(lua_State* L) {
     lua_getglobal(L, "cbdos");
     lua_getfield(L, -1, "net");
     lua_setglobal(L, "net");
+    lua_getglobal(L, "cbdos");
+    lua_getfield(L, -1, "http");
+    lua_setglobal(L, "http");
 
     printf("[LuaBridge] Bindings registrados.\\n");
 }

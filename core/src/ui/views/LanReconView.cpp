@@ -676,6 +676,7 @@ const char* LanReconView::portShortName(uint16_t port) {
         case 9100: return "Print";
         case 1883: return "MQTT";
         case 5357: return "WSD";
+        case 8060: return "Roku";
         default: return "";
     }
 }

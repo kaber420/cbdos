@@ -1,0 +1,181 @@
+-- @name: Roku Remote
+-- @icon: play
+-- @accent: #8B5CF6
+-- @author: CBDos
+-- @version: 1.0.0
+-- @description: Control remoto WiFi inteligente para televisores Roku (ECP :8060)
+
+local current_ip = ""
+local lbl_status = nil
+local lbl_target = nil
+
+-- Función para enviar comandos de teclado ECP
+local function send_key(key)
+    if current_ip == "" then
+        cbdos.ui.show_toast("Escanea o selecciona una IP de Roku primero")
+        return
+    end
+
+    local url = "http://" .. current_ip .. ":8060/keypress/" .. key
+    print("[RokuRemote] Enviando: " .. url)
+    
+    local ok, status = cbdos.http.post(url, "", "application/x-www-form-urlencoded", 1500)
+    if ok then
+        print("[RokuRemote] Comando " .. key .. " ejecutado con éxito")
+    else
+        cbdos.ui.show_toast("Fallo al enviar " .. key)
+    end
+end
+
+-- Función para lanzar canales o apps
+local function launch_app(app_id, app_name)
+    if current_ip == "" then
+        cbdos.ui.show_toast("Sin Roku conectado")
+        return
+    end
+
+    local url = "http://" .. current_ip .. ":8060/launch/" .. app_id
+    local ok = cbdos.http.post(url, "", "application/x-www-form-urlencoded", 2000)
+    if ok then
+        cbdos.ui.show_toast("Abriendo " .. app_name)
+    end
+end
+
+-- Función para buscar Roku en los resultados del escáner de red
+local function auto_detect_roku()
+    local hosts = cbdos.net.results()
+    if not hosts or #hosts == 0 then
+        return nil
+    end
+
+    -- 1. Prioridad: Host con puerto 8060 abierto
+    for i = 1, #hosts do
+        local h = hosts[i]
+        if h.ports then
+            for p = 1, #h.ports do
+                if h.ports[p] == 8060 then
+                    return h.ip
+                end
+            end
+        end
+    end
+
+    -- 2. Prioridad: Host con server o vendor Roku
+    for i = 1, #hosts do
+        local h = hosts[i]
+        local srv = string.lower(h.server or "")
+        local ven = string.lower(h.vendor or "")
+        if string.find(srv, "roku") or string.find(ven, "roku") then
+            return h.ip
+        end
+    end
+
+    -- 3. Prioridad: TV con puerto 7000 (AirPlay de Roku)
+    for i = 1, #hosts do
+        local h = hosts[i]
+        if h.is_tv and h.ports then
+            for p = 1, #h.ports do
+                if h.ports[p] == 7000 then
+                    return h.ip
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+function on_create(parent)
+    -- Contenedor principal
+    local card = cbdos.ui.create_card(parent, -1, -1)
+    
+    -- Encabezado de la App
+    local row_head = cbdos.ui.create_row(card)
+    local title = cbdos.ui.create_label(row_head, "ROKU REMOTE")
+    cbdos.ui.set_font_size(title, 16)
+    cbdos.ui.set_color(title, 0x8B5CF6)
+
+    lbl_status = cbdos.ui.create_label(row_head, " [Buscando...]")
+    cbdos.ui.set_font_size(lbl_status, 12)
+    cbdos.ui.set_color(lbl_status, 0x94A3B8)
+
+    -- Tarjeta de Dispositivo / IP
+    local row_dev = cbdos.ui.create_row(card)
+    lbl_target = cbdos.ui.create_label(row_dev, "TV: Desconectado")
+    cbdos.ui.set_font_size(lbl_target, 14)
+    cbdos.ui.set_color(lbl_target, 0x00F5D4)
+
+    cbdos.ui.create_button(row_dev, "Autodetectar", function()
+        local detected = auto_detect_roku()
+        if detected then
+            current_ip = detected
+            cbdos.ui.set_text(lbl_target, "Roku IP: " .. current_ip)
+            cbdos.ui.set_text(lbl_status, " [Conectado]")
+            cbdos.ui.set_color(lbl_status, 0x00FF66)
+            cbdos.ui.show_toast("Roku encontrado: " .. current_ip)
+        else
+            cbdos.ui.show_toast("No se encontró Roku en LAN. Escanea la red.")
+        end
+    end)
+
+    -- ── FILA 1: Encendido, Home e Info ──
+    local row1 = cbdos.ui.create_row(card)
+    cbdos.ui.create_button(row1, "Power", function() send_key("Power") end)
+    cbdos.ui.create_button(row1, "Atras", function() send_key("Back") end)
+    cbdos.ui.create_button(row1, "Home", function() send_key("Home") end)
+    cbdos.ui.create_button(row1, "* Info", function() send_key("Info") end)
+
+    -- ── D-PAD VIRTUAL ──
+    -- Arriba
+    local row_up = cbdos.ui.create_row(card)
+    cbdos.ui.create_button(row_up, "      ▲      ", function() send_key("Up") end)
+
+    -- Izquierda / OK / Derecha
+    local row_mid = cbdos.ui.create_row(card)
+    cbdos.ui.create_button(row_mid, "  ◀  ", function() send_key("Left") end)
+    cbdos.ui.create_button(row_mid, "  [ OK ]  ", function() send_key("Select") end)
+    cbdos.ui.create_button(row_mid, "  ▶  ", function() send_key("Right") end)
+
+    -- Abajo
+    local row_down = cbdos.ui.create_row(card)
+    cbdos.ui.create_button(row_down, "      ▼      ", function() send_key("Down") end)
+
+    -- ── FILA REPRODUCCIÓN (Rev, Play, Fwd) ──
+    local row_media = cbdos.ui.create_row(card)
+    cbdos.ui.create_button(row_media, "⏪ Rev", function() send_key("Rev") end)
+    cbdos.ui.create_button(row_media, "⏯ Play/Pausa", function() send_key("Play") end)
+    cbdos.ui.create_button(row_media, "⏩ Fwd", function() send_key("Fwd") end)
+    cbdos.ui.create_button(row_media, "↺ Replay", function() send_key("InstantReplay") end)
+
+    -- ── FILA VOLUMEN ──
+    local row_vol = cbdos.ui.create_row(card)
+    cbdos.ui.create_button(row_vol, "Vol -", function() send_key("VolumeDown") end)
+    cbdos.ui.create_button(row_vol, "Silencio", function() send_key("VolumeMute") end)
+    cbdos.ui.create_button(row_vol, "Vol +", function() send_key("VolumeUp") end)
+
+    -- ── CANALES DIRECTOS ──
+    local row_apps = cbdos.ui.create_row(card)
+    cbdos.ui.create_button(row_apps, "YouTube", function() launch_app("837", "YouTube") end)
+    cbdos.ui.create_button(row_apps, "Netflix", function() launch_app("12", "Netflix") end)
+
+    -- Intento de autodetección inicial
+    local initial_ip = auto_detect_roku()
+    if initial_ip then
+        current_ip = initial_ip
+        cbdos.ui.set_text(lbl_target, "Roku IP: " .. current_ip)
+        cbdos.ui.set_text(lbl_status, " [Listo]")
+        cbdos.ui.set_color(lbl_status, 0x00FF66)
+    end
+end
+
+function on_show()
+    print("[RokuRemote] Vista abierta")
+end
+
+function on_hide()
+    print("[RokuRemote] Vista minimizada")
+end
+
+function on_destroy()
+    print("[RokuRemote] Cerrada")
+end

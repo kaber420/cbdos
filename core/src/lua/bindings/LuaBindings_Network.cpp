@@ -2,6 +2,7 @@
 #include "cbdos/system.hpp"
 #include "cbdos/storage.hpp"
 #include "cbdos/network.hpp"
+#include "cbdos/http.hpp"
 #include "cbdos/display.hpp"
 #include "cbdos/input.hpp"
 #include "cbdos/uart.hpp"
@@ -255,6 +256,30 @@ void registerSshAPI(lua_State* L) {
     lua_setfield(L, -2, "ssh");
 }
 
+static int lua_http_get(lua_State* L) {
+    const char* url = luaL_checkstring(L, 1);
+    uint32_t timeoutMs = (uint32_t)luaL_optinteger(L, 2, 5000);
+    cbdos::http::HttpResponse res = cbdos::http::get(url, timeoutMs);
+
+    lua_pushboolean(L, res.success);
+    lua_pushinteger(L, res.statusCode);
+    lua_pushstring(L, res.body.c_str());
+    return 3;
+}
+
+static int lua_http_post(lua_State* L) {
+    const char* url = luaL_checkstring(L, 1);
+    const char* payload = luaL_optstring(L, 2, "");
+    const char* contentType = luaL_optstring(L, 3, "application/json");
+    uint32_t timeoutMs = (uint32_t)luaL_optinteger(L, 4, 5000);
+    cbdos::http::HttpResponse res = cbdos::http::post(url, payload, contentType, timeoutMs);
+
+    lua_pushboolean(L, res.success);
+    lua_pushinteger(L, res.statusCode);
+    lua_pushstring(L, res.body.c_str());
+    return 3;
+}
+
 void registerNetAPI(lua_State* L) {
     lua_newtable(L);
     lua_pushcfunction(L, lua_net_ping);
@@ -269,5 +294,18 @@ void registerNetAPI(lua_State* L) {
     lua_setfield(L, -2, "scanning");
     lua_pushcfunction(L, lua_net_results);
     lua_setfield(L, -2, "results");
+    lua_pushcfunction(L, lua_http_get);
+    lua_setfield(L, -2, "http_get");
+    lua_pushcfunction(L, lua_http_post);
+    lua_setfield(L, -2, "http_post");
     lua_setfield(L, -2, "net");
+}
+
+void registerHttpAPI(lua_State* L) {
+    lua_newtable(L);
+    lua_pushcfunction(L, lua_http_get);
+    lua_setfield(L, -2, "get");
+    lua_pushcfunction(L, lua_http_post);
+    lua_setfield(L, -2, "post");
+    lua_setfield(L, -2, "http");
 }

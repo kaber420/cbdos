@@ -779,7 +779,8 @@ void LanScannerService::runScan() {
         for (auto& entry : m_results) {
             if (!entry.isTv &&
                 (entry.hasPort(8008) || entry.hasPort(8009) ||
-                 entry.hasPort(1400) || entry.hasPort(7000))) {
+                 entry.hasPort(1400) || entry.hasPort(7000) ||
+                 entry.hasPort(8060))) {
                 entry.isTv = true;
             }
             if (!entry.isTv && isTvVendorName(entry.vendor)) {

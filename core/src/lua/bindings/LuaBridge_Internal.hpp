@@ -20,6 +20,7 @@ void registerHidAPI(lua_State* L);
 void registerDuckyAPI(lua_State* L);
 void registerSshAPI(lua_State* L);
 void registerNetAPI(lua_State* L);
+void registerHttpAPI(lua_State* L);
 
 inline uint16_t colorToRGB565(uint32_t c) {
     uint8_t r = (c >> 16) & 0xFF;
