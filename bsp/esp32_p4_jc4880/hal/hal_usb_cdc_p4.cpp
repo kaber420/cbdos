@@ -1,4 +1,7 @@
 #include "hal_usb_cdc_p4.hpp"
+#include "hal_usb_host_p4.hpp"
+#include "usb/vcp_cp210x.h"
+#include "usb/vcp_ch34x.h"
 #include <esp_log.h>
 #include <cstring>
 
@@ -64,9 +67,16 @@ bool P4UsbCdcChannel::onAttach(const cbdos::usb::UsbDeviceInfo& dev) {
         .user_arg = this,
     };
 
-    esp_err_t err = cdc_acm_host_open(dev.vid, dev.pid, 0, &dev_config, &m_cdcDev);
-    if (err != ESP_OK) {
-        err = cdc_acm_host_open_vendor_specific(dev.vid, dev.pid, 0, &dev_config, &m_cdcDev);
+    esp_err_t err = ESP_FAIL;
+    if (dev.vid == 0x10C4) {
+        err = cp210x_vcp_open(dev.pid, 0, &dev_config, &m_cdcDev);
+    } else if (dev.vid == 0x1A86) {
+        err = ch34x_vcp_open(dev.pid, 0, &dev_config, &m_cdcDev);
+    } else {
+        err = cdc_acm_host_open(dev.vid, dev.pid, 0, &dev_config, &m_cdcDev);
+        if (err != ESP_OK) {
+            err = cdc_acm_host_open_vendor_specific(dev.vid, dev.pid, 0, &dev_config, &m_cdcDev);
+        }
     }
 
     if (err != ESP_OK || !m_cdcDev) {
@@ -133,6 +143,17 @@ void P4UsbCdcChannel::cdcDevEventCallback(const cdc_acm_host_dev_event_data_t *e
         ESP_LOGW(TAG, "Evento nativo: Dispositivo CDC desconectado");
         self->m_isAttached = false;
         self->m_isOpen = false;
+        self->m_owner = cbdos::usb::CdcOwner::None;
+        if (self->m_cdcDev) {
+            cdc_acm_host_close(self->m_cdcDev);
+            self->m_cdcDev = nullptr;
+        }
+        self->purge();
+
+        auto* backend = getP4UsbHostBackend();
+        if (backend) {
+            backend->postEvent(false);
+        }
     } else if (event->type == CDC_ACM_HOST_ERROR) {
         ESP_LOGE(TAG, "Evento nativo: Error en bus CDC (%d)", event->data.error);
     }
@@ -249,7 +270,11 @@ bool P4UsbCdcChannel::setLineCoding(uint32_t baud, uint8_t dataBits, uint8_t par
         .bParityType = parity,
         .bDataBits = dataBits,
     };
-    return (cdc_acm_host_line_coding_set(m_cdcDev, &line_coding) == ESP_OK);
+    esp_err_t err = cdc_acm_host_line_coding_set(m_cdcDev, &line_coding);
+    if (err != ESP_OK) {
+        ESP_LOGD(TAG, "cdc_acm_host_line_coding_set retorno %s (ignorado para targets USB-JTAG)", esp_err_to_name(err));
+    }
+    return true;
 }
 
 // ────────────────────────────────────────────────────────────────

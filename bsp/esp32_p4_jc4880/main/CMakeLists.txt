@@ -47,6 +47,8 @@ idf_component_register(
         "espressif__esp_lvgl_port"
         "espressif__esp-serial-flasher"
         "espressif__usb_host_cdc_acm"
+        "espressif__usb_host_cp210x_vcp"
+        "espressif__usb_host_ch34x_vcp"
         "espressif__esp_tinyusb"
         "usb"
         "lvgl__lvgl"

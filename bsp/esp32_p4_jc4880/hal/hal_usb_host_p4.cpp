@@ -35,7 +35,7 @@ static void on_native_new_dev_cb(usb_device_handle_t usb_dev) {
                  desc->idVendor, desc->idProduct, desc->bDeviceClass);
 
         if (s_backendInstance) {
-            s_backendInstance->handleDeviceConnected(desc->idVendor, desc->idProduct, desc->bDeviceClass);
+            s_backendInstance->postEvent(true, desc->idVendor, desc->idProduct, desc->bDeviceClass);
         }
     }
 }
@@ -47,6 +47,23 @@ static void p4_usb_host_lib_task(void* arg) {
         esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(10), &event_flags);
         if (err != ESP_OK && err != ESP_ERR_TIMEOUT) {
             ESP_LOGD(TAG, "usb_host_lib_handle_events: %s", esp_err_to_name(err));
+        }
+    }
+    vTaskDelete(NULL);
+}
+
+static void p4_usb_mgr_task(void* arg) {
+    auto* backend = static_cast<P4UsbHostBackend*>(arg);
+    UsbEvtMsg msg;
+    while (backend && backend->getEventQueue()) {
+        if (xQueueReceive(backend->getEventQueue(), &msg, portMAX_DELAY) == pdTRUE) {
+            if (msg.type == EVT_CONNECTED) {
+                // Dar 50ms para permitir que el driver cdc_acm cierre el handle temporal
+                vTaskDelay(pdMS_TO_TICKS(50));
+                backend->handleDeviceConnected(msg.vid, msg.pid, msg.dev_class);
+            } else if (msg.type == EVT_DISCONNECTED) {
+                backend->handleDeviceDisconnected();
+            }
         }
     }
     vTaskDelete(NULL);
@@ -92,6 +109,14 @@ bool P4UsbHostBackend::init() {
 
     cbdos::usb::setUsbHostBackend(this);
 
+    // 0. Crear cola de eventos y tarea gestora asíncrona para desacoplar el event loop USB
+    if (!m_eventQueue) {
+        m_eventQueue = xQueueCreate(10, sizeof(UsbEvtMsg));
+    }
+    if (!m_mgrTaskHdl) {
+        xTaskCreatePinnedToCore(p4_usb_mgr_task, "usb_mgr_p4", 4096, this, 5, &m_mgrTaskHdl, 0);
+    }
+
     // 1. Instalar la librería central de USB Host (única en todo el sistema)
     if (!m_hostInstalled) {
         usb_host_config_t host_config = {};
@@ -133,6 +158,14 @@ bool P4UsbHostBackend::init() {
 void P4UsbHostBackend::deinit() {
     if (!m_initialized) return;
     handleDeviceDisconnected();
+    if (m_mgrTaskHdl) {
+        vTaskDelete(m_mgrTaskHdl);
+        m_mgrTaskHdl = nullptr;
+    }
+    if (m_eventQueue) {
+        vQueueDelete(m_eventQueue);
+        m_eventQueue = nullptr;
+    }
     m_initialized = false;
 }
 
@@ -313,6 +346,16 @@ void P4UsbHostBackend::handleDeviceDisconnected() {
 
     m_activeDevice = cbdos::usb::UsbDeviceInfo();
     xSemaphoreGive(m_mutex);
+}
+
+void P4UsbHostBackend::postEvent(bool connected, uint16_t vid, uint16_t pid, uint8_t dev_class) {
+    if (!m_eventQueue) return;
+    UsbEvtMsg msg;
+    msg.type = connected ? EVT_CONNECTED : EVT_DISCONNECTED;
+    msg.vid = vid;
+    msg.pid = pid;
+    msg.dev_class = dev_class;
+    xQueueSend(m_eventQueue, &msg, 0);
 }
 
 } // namespace bsp

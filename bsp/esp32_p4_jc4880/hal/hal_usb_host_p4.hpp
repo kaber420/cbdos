@@ -36,6 +36,10 @@ public:
     void enterQuarantine(uint32_t durationMs = 1500);
     bool isQuarantined() const;
 
+    // Enviar evento a la cola del backend y obtener handle de cola
+    void postEvent(bool connected, uint16_t vid = 0, uint16_t pid = 0, uint8_t dev_class = 0);
+    QueueHandle_t getEventQueue() const { return m_eventQueue; }
+
 private:
     SemaphoreHandle_t m_mutex = nullptr;
     bool m_initialized = false;
