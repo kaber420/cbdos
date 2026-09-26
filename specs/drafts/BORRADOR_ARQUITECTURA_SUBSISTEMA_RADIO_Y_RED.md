@@ -151,35 +151,7 @@ void stopScan();
 
 ## ⚡ 3. Secuencia de Arranque Determinista (Boot Lifecycle)
 
-El microcontrolador sigue un orden estricto de inicialización donde la radio es configurada exclusivamente por su configuración persistente en NVS:
-
-```
-[ Encendido / Reset Hardware ]
-               │
-               ▼
-[ 1. Inyectar Backend NVS (initPersistenceBackend) ]
-               │
-               ▼
-[ 2. Inyectar Backend de Radio (initRadioBackend) ]
-               │
-               ▼
-[ 3. Inyectar Backend de Transporte de Paquetes (initMeshTransport) ]
-               │
-               ▼
-[ 4. cbdos::radio::init() ] ──▶ Cargar RadioConfig desde NVS ("cbdos_radio")
-               │
-               ├───────────────────────────────┬───────────────────────────────┐
-               ▼                               ▼                               ▼
-      [ enabled == false ]            [ mode == EspNow / LR ]        [ mode == WifiSta ]
-               │                               │                               │
-               ▼                               ▼                               ▼
-       [ esp_wifi_stop() ]            [ esp_wifi_set_channel(ch) ]   [ Modo Wi-Fi STA ]
-       [ WiFi.mode(WIFI_OFF) ]        [ Protocolo LR / 11BGN ]                 │
-       (Cero emisión RF)              [ init MeshEngine(ch) ]                  ▼
-                                      (NO conecta a routers)         ¿sysCfg.autoConnectWifi?
-                                                                      ├── Sí: Conectar a SSID
-                                                                      └── No: Modo reposo
-               │
+E
                ▼
 [ 5. Inicializar Display, Touch, Audio y UI Core (LVGL 9.5) ]
 ```

@@ -19,7 +19,6 @@
 #include "PicoTTSService.hpp"
 #include <esp_log.h>
 #include <nvs_flash.h>
-#include "usb_device_manager.hpp"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -38,6 +37,7 @@ namespace bsp {
     void initNetworkAdapterP4();
     void init_lan_recon_p4();
     void initRadioBackendP4();
+    void initUsbHostBackendP4();
     cbdos::time::ITimeProvider* getEspIdfTimeProvider();
 }
 }
@@ -85,7 +85,7 @@ extern "C" void app_main(void) {
     cbdos::usb::UsbManager::getInstance().init();
     if (cbdos::usb::UsbManager::getInstance().getBootMode() ==
         cbdos::usb::UsbMode::Host) {
-        cbdos::usb::UsbDeviceManager::getInstance().init();
+        cbdos::bsp::initUsbHostBackendP4();
     } else {
         cbdos::system::log(cbdos::system::LogLevel::Info, TAG,
                            "USB modo HID: stack Host no iniciado (PHY libre para TinyUSB)");

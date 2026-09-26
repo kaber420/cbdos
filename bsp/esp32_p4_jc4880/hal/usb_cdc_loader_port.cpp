@@ -1,249 +1,110 @@
 #include "usb_cdc_loader_port.hpp"
+#include "hal_usb_cdc_p4.hpp"
+#include "hal_usb_host_p4.hpp"
+#include "cbdos/usb_host.hpp"
 #include <esp_loader_io.h>
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <freertos/semphr.h>
-#include <usb/usb_host.h>
-#include <usb/cdc_acm_host.h>
-#include <cstring>
 
 static const char* TAG = "USB_LOADER_PORT";
 
-static cdc_acm_dev_hdl_t s_cdc_dev = NULL;
-static SemaphoreHandle_t s_rx_sem = NULL;
-static uint8_t* s_rx_buf = NULL;
-static size_t s_rx_data_len = 0;
-static bool s_usb_host_installed = false;
-static bool s_cdc_driver_installed = false;
-static TaskHandle_t s_usb_host_task_hdl = NULL;
-static bool s_usb_active = false;
-
-static void usb_host_lib_task(void* arg) {
-    while (s_usb_host_installed) {
-        uint32_t event_flags;
-        usb_host_lib_handle_events(pdMS_TO_TICKS(10), &event_flags);
-    }
-    vTaskDelete(NULL);
-}
-
-static bool cdc_rx_callback(const uint8_t *data, size_t data_len, void *user_arg) {
-    ESP_LOGI(TAG, "cdc_rx_callback recibido %d bytes", (int)data_len);
-    if (s_rx_buf && data && data_len > 0) {
-        if (s_rx_data_len + data_len <= 1024) {
-            memcpy(s_rx_buf + s_rx_data_len, data, data_len);
-            s_rx_data_len += data_len;
-        } else {
-            size_t fit = 1024 - s_rx_data_len;
-            if (fit > 0) {
-                memcpy(s_rx_buf + s_rx_data_len, data, fit);
-                s_rx_data_len = 1024;
-            }
-        }
-        if (s_rx_sem) {
-            xSemaphoreGive(s_rx_sem);
-        }
-    }
-    return true;
-}
-
-static void cdc_event_callback(const cdc_acm_host_dev_event_data_t *event, void *user_arg) {
-    switch (event->type) {
-        case CDC_ACM_HOST_ERROR:
-            ESP_LOGE(TAG, "Error en dispositivo CDC-ACM (err=%d)", event->data.error);
-            break;
-        case CDC_ACM_HOST_DEVICE_DISCONNECTED:
-            ESP_LOGW(TAG, "Dispositivo CDC-ACM desconectado");
-            break;
-        default:
-            break;
-    }
-}
-
 esp_loader_error_t loader_port_usb_cdc_init(uint32_t timeout_ms) {
-    if (s_usb_active && s_cdc_dev != NULL) {
-        return ESP_LOADER_SUCCESS;
-    }
-    s_rx_data_len = 0;
-    if (!s_rx_sem) {
-        s_rx_sem = xSemaphoreCreateBinary();
-    }
-    if (!s_rx_buf) {
-        s_rx_buf = (uint8_t*)malloc(1024);
+    auto* host = cbdos::bsp::getP4UsbHostBackend();
+    if (host) {
+        host->init();
     }
 
-    if (!s_usb_host_installed) {
-        const usb_host_config_t host_config = {
-            .skip_phy_setup = false,
-            .intr_flags = ESP_INTR_FLAG_LEVEL1,
-        };
-        esp_err_t err = usb_host_install(&host_config);
-        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-            ESP_LOGE(TAG, "Fallo al instalar USB Host: %s", esp_err_to_name(err));
-            return ESP_LOADER_ERROR_FAIL;
-        }
-        s_usb_host_installed = true;
-        xTaskCreatePinnedToCore(usb_host_lib_task, "usb_host_task", 4096, NULL, 5, &s_usb_host_task_hdl, 0);
+    auto* cdc = cbdos::bsp::getP4UsbCdcChannel();
+    if (!cdc) {
+        return ESP_LOADER_ERROR_FAIL;
     }
 
-    if (!s_cdc_driver_installed) {
-        const cdc_acm_host_driver_config_t driver_config = {
-            .driver_task_stack_size = 4096,
-            .driver_task_priority = 5,
-            .xCoreID = 0,
-            .new_dev_cb = NULL,
-        };
-        esp_err_t err = cdc_acm_host_install(&driver_config);
-        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-            ESP_LOGE(TAG, "Fallo al instalar CDC-ACM Host: %s", esp_err_to_name(err));
-            return ESP_LOADER_ERROR_FAIL;
-        }
-        s_cdc_driver_installed = true;
-    }
-
-    ESP_LOGI(TAG, "Buscando dispositivo USB-Serial/JTAG en puerto OTG...");
-
-    const cdc_acm_host_device_config_t dev_config = {
-        .connection_timeout_ms = timeout_ms,
-        .out_buffer_size = 2048,
-        .in_buffer_size = 2048,
-        .event_cb = cdc_event_callback,
-        .data_cb = cdc_rx_callback,
-        .user_arg = NULL,
-    };
-
-    esp_err_t err = cdc_acm_host_open(0x303A, 0x1001, 0, &dev_config, &s_cdc_dev);
-    if (err != ESP_OK) {
-        err = cdc_acm_host_open_vendor_specific(0x303A, 0x1001, 0, &dev_config, &s_cdc_dev);
-    }
-
-    if (err != ESP_OK || s_cdc_dev == NULL) {
-        ESP_LOGE(TAG, "No se detectó el ESP32 conectado por USB (err: %s)", esp_err_to_name(err));
+    if (!cdc->tryAcquire(cbdos::usb::CdcOwner::Flasher, timeout_ms)) {
+        ESP_LOGE(TAG, "No se pudo adquirir canal CDC para Flasher");
         return ESP_LOADER_ERROR_TIMEOUT;
     }
 
-    s_usb_active = true;
-    cdc_acm_host_set_control_line_state(s_cdc_dev, false, false);
-    ESP_LOGI(TAG, "¡Dispositivo ESP32 USB-Serial/JTAG conectado exitosamente (Modo Normal DTR=0, RTS=0)!");
+    ESP_LOGI(TAG, "Canal CDC adquirido exitosamente por el Flasher");
     return ESP_LOADER_SUCCESS;
 }
 
 void loader_port_usb_cdc_deinit(void) {
-    s_usb_active = false;
-    if (s_cdc_dev) {
-        cdc_acm_host_close(s_cdc_dev);
-        s_cdc_dev = NULL;
+    auto* cdc = cbdos::bsp::getP4UsbCdcChannel();
+    if (cdc) {
+        cdc->release(cbdos::usb::CdcOwner::Flasher);
+        ESP_LOGI(TAG, "Canal CDC liberado por el Flasher");
     }
 }
 
 esp_loader_error_t loader_port_usb_cdc_reset_target(void) {
-    if (!s_cdc_dev) return ESP_LOADER_ERROR_FAIL;
-
-    ESP_LOGI(TAG, "Reiniciando ESP32 conectado por USB...");
-    s_rx_data_len = 0;
-    // DTR=false, RTS=true (Reset activo)
-    cdc_acm_host_set_control_line_state(s_cdc_dev, false, true);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    // DTR=false, RTS=false (Reset liberado)
-    cdc_acm_host_set_control_line_state(s_cdc_dev, false, false);
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    return ESP_LOADER_SUCCESS;
+    auto* cdc = cbdos::bsp::getP4UsbCdcChannel();
+    if (!cdc) return ESP_LOADER_ERROR_FAIL;
+    return cdc->resetTarget(false) ? ESP_LOADER_SUCCESS : ESP_LOADER_ERROR_FAIL;
 }
 
-// Sobrescritura de los callbacks para esp-serial-flasher
 extern "C" {
 
 esp_loader_error_t loader_port_write(const uint8_t *data, uint16_t size, uint32_t timeout) {
-    if (s_usb_active && s_cdc_dev) {
-        esp_err_t err = cdc_acm_host_data_tx_blocking(s_cdc_dev, data, size, timeout);
-        ESP_LOGI(TAG, "loader_port_write TX size=%d err=%d", (int)size, (int)err);
-        if (err == ESP_ERR_TIMEOUT) return ESP_LOADER_ERROR_TIMEOUT;
-        if (err != ESP_OK) return ESP_LOADER_ERROR_FAIL;
-        return ESP_LOADER_SUCCESS;
-    }
-    return ESP_LOADER_ERROR_FAIL;
+    auto* cdc = cbdos::bsp::getP4UsbCdcChannel();
+    if (!cdc) return ESP_LOADER_ERROR_FAIL;
+
+    size_t written = 0;
+    auto res = cdc->write(data, size, written, timeout);
+    if (res == cbdos::usb::UsbIoResult::Timeout) return ESP_LOADER_ERROR_TIMEOUT;
+    if (res != cbdos::usb::UsbIoResult::Ok || written != size) return ESP_LOADER_ERROR_FAIL;
+    return ESP_LOADER_SUCCESS;
 }
 
 esp_loader_error_t loader_port_read(uint8_t *data, uint16_t size, uint32_t timeout) {
-    if (s_usb_active && s_cdc_dev) {
-        uint32_t bytes_read = 0;
-        int64_t start_time = esp_timer_get_time();
-        int64_t timeout_us = (int64_t)timeout * 1000;
+    auto* cdc = cbdos::bsp::getP4UsbCdcChannel();
+    if (!cdc) return ESP_LOADER_ERROR_FAIL;
 
-        while (bytes_read < size) {
-            if (s_rx_data_len > 0) {
-                size_t available = s_rx_data_len;
-                size_t needed = size - bytes_read;
-                size_t to_copy = (available > needed) ? needed : available;
+    size_t total_read = 0;
+    int64_t start_time = esp_timer_get_time();
+    int64_t timeout_us = (int64_t)timeout * 1000;
 
-                memcpy(data + bytes_read, s_rx_buf, to_copy);
-                bytes_read += to_copy;
-
-                if (to_copy < available) {
-                    memmove(s_rx_buf, s_rx_buf + to_copy, available - to_copy);
-                    s_rx_data_len = available - to_copy;
-                } else {
-                    s_rx_data_len = 0;
-                }
-            }
-
-            if (bytes_read >= size) break;
-
-            int64_t elapsed = esp_timer_get_time() - start_time;
-            if (elapsed >= timeout_us) {
-                return (bytes_read > 0) ? ESP_LOADER_SUCCESS : ESP_LOADER_ERROR_TIMEOUT;
-            }
-
-            uint32_t remaining_ms = (uint32_t)((timeout_us - elapsed) / 1000);
-            if (remaining_ms < 1) remaining_ms = 1;
-
-            if (s_rx_sem) {
-                xSemaphoreTake(s_rx_sem, pdMS_TO_TICKS(remaining_ms));
-            } else {
-                vTaskDelay(pdMS_TO_TICKS(2));
-            }
+    while (total_read < size) {
+        size_t chunk_read = 0;
+        int64_t elapsed = esp_timer_get_time() - start_time;
+        if (elapsed >= timeout_us) {
+            return (total_read > 0) ? ESP_LOADER_SUCCESS : ESP_LOADER_ERROR_TIMEOUT;
         }
-        return ESP_LOADER_SUCCESS;
+        uint32_t remaining_ms = (uint32_t)((timeout_us - elapsed) / 1000);
+        if (remaining_ms < 1) remaining_ms = 1;
+
+        auto res = cdc->read(data + total_read, size - total_read, chunk_read, remaining_ms);
+        total_read += chunk_read;
+        if (res == cbdos::usb::UsbIoResult::Disconnected) {
+            return ESP_LOADER_ERROR_FAIL;
+        }
     }
-    return ESP_LOADER_ERROR_FAIL;
+    return ESP_LOADER_SUCCESS;
 }
 
 void loader_port_enter_bootloader(void) {
-    if (s_usb_active && s_cdc_dev) {
-        ESP_LOGI(TAG, "Enviando secuencia DTR/RTS (Auto-Bootloader USB-Serial/JTAG)...");
-        s_rx_data_len = 0;
-
-        // Secuencia exacta de esptool.py para chips con USB-Serial/JTAG nativo (C3/S3/C6):
-        // 1. DTR=1, RTS=0 (Forzar BOOT a nivel bajo)
-        cdc_acm_host_set_control_line_state(s_cdc_dev, true, false);
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        // 2. DTR=1, RTS=1 (Bajar Reset EN manteniendo BOOT en bajo)
-        cdc_acm_host_set_control_line_state(s_cdc_dev, true, true);
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        // 3. DTR=0, RTS=1 (Mantener Reset mientras se estabilizan los condensadores)
-        cdc_acm_host_set_control_line_state(s_cdc_dev, false, true);
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-        // 4. DTR=0, RTS=0 (Liberar Reset -> el chip arranca en ROM Bootloader)
-        cdc_acm_host_set_control_line_state(s_cdc_dev, false, false);
-        vTaskDelay(pdMS_TO_TICKS(150));
-
-        s_rx_data_len = 0;
+    auto* host = cbdos::bsp::getP4UsbHostBackend();
+    if (host) {
+        host->enterQuarantine(1500);
+    }
+    auto* cdc = cbdos::bsp::getP4UsbCdcChannel();
+    if (cdc) {
+        cdc->resetTarget(true);
     }
 }
 
 void loader_port_reset_target(void) {
-    if (s_usb_active && s_cdc_dev) {
-        loader_port_usb_cdc_reset_target();
+    auto* cdc = cbdos::bsp::getP4UsbCdcChannel();
+    if (cdc) {
+        cdc->resetTarget(false);
     }
 }
 
 esp_loader_error_t loader_port_change_transmission_rate(uint32_t baudrate) {
-    return ESP_LOADER_SUCCESS;
+    auto* cdc = cbdos::bsp::getP4UsbCdcChannel();
+    if (!cdc) return ESP_LOADER_ERROR_FAIL;
+    return cdc->setLineCoding(baudrate) ? ESP_LOADER_SUCCESS : ESP_LOADER_ERROR_FAIL;
 }
 
 } // extern "C"

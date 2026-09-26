@@ -1,7 +1,7 @@
 #include "cbdos/uart.hpp"
 #include "cbdos/serial.hpp"
 #include "cbdos/gpio.hpp"
-#include "usb_device_manager.hpp"
+#include "hal_usb_cdc_p4.hpp"
 #include <driver/uart.h>
 #include <driver/gpio.h>
 #include <driver/usb_serial_jtag.h>
@@ -115,191 +115,72 @@ private:
 
 class P4UsbOtgPort : public cbdos::serial::ISerialPort {
 public:
-    P4UsbOtgPort() : m_isOpen(false), m_cdcDev(nullptr), m_rxRingBuf(nullptr) {}
-
-    ~P4UsbOtgPort() override {
-        m_isOpen = false;
-        if (m_cdcDev) {
-            cdc_acm_host_close(m_cdcDev);
-            m_cdcDev = nullptr;
-        }
-        if (m_rxRingBuf) {
-            vRingbufferDelete(m_rxRingBuf);
-            m_rxRingBuf = nullptr;
-        }
-    }
+    P4UsbOtgPort() = default;
+    ~P4UsbOtgPort() override { close(); }
 
     bool open(const cbdos::serial::SerialConfig& config) override {
-        const auto* devInfo = ::cbdos::usb::UsbDeviceManager::getInstance().getActiveDevice();
-        if (!devInfo || !devInfo->isConnected) {
-            ESP_LOGW(TAG_SERIAL, "No hay dispositivo USB conectado en puerto OTG");
-            return false;
-        }
-
-        if (!m_rxRingBuf) {
-            m_rxRingBuf = xRingbufferCreate(2048, RINGBUF_TYPE_BYTEBUF);
-        }
-
-        // Si el handle CDC ya existe y sigue activo por hardware, restauramos la sesión instantáneamente
-        if (m_cdcDev) {
-            setBaudrate(config.baudrate);
-            cdc_acm_host_set_control_line_state(m_cdcDev, true, false);
-            m_isOpen = true;
-            ESP_LOGI(TAG_SERIAL, "Sesión USB OTG restaurada instantáneamente (DTR=1, RTS=0)");
-            return true;
-        }
-
-        const cdc_acm_host_device_config_t dev_config = {
-            .connection_timeout_ms = 1000,
-            .out_buffer_size = 2048,
-            .in_buffer_size = 2048,
-            .event_cb = cdcEventCb,
-            .data_cb = cdcRxCb,
-            .user_arg = this,
-        };
-
-        esp_err_t err = cdc_acm_host_open(devInfo->vid, devInfo->pid, 0, &dev_config, &m_cdcDev);
-        if (err != ESP_OK) {
-            err = cdc_acm_host_open_vendor_specific(devInfo->vid, devInfo->pid, 0, &dev_config, &m_cdcDev);
-        }
-
-        if (err != ESP_OK || !m_cdcDev) {
-            ESP_LOGE(TAG_SERIAL, "Fallo al abrir CDC-ACM Host en VID:0x%04X PID:0x%04X (err=%s)",
-                     devInfo->vid, devInfo->pid, esp_err_to_name(err));
-            return false;
-        }
-
-        setBaudrate(config.baudrate);
-        cdc_acm_host_set_control_line_state(m_cdcDev, true, false);
-        m_isOpen = true;
-        ESP_LOGI(TAG_SERIAL, "Puerto USB OTG abierto con VID:0x%04X PID:0x%04X (DTR=1, RTS=0)", devInfo->vid, devInfo->pid);
-        return true;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->open(config) : false;
     }
 
     void close() override {
-        if (!m_isOpen) return;
-        // Retener m_cdcDev vivo en el hardware; solo desactivamos bandera y bajamos DTR
-        if (m_cdcDev) {
-            cdc_acm_host_set_control_line_state(m_cdcDev, false, false);
-        }
-        m_isOpen = false;
-        ESP_LOGI(TAG_SERIAL, "Puerto USB OTG en reposo (sesión pausada, hardware retenido).");
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        if (cdc) cdc->close();
     }
 
     bool isOpen() const override {
-        return m_isOpen;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->isOpen() : false;
     }
 
     size_t available() override {
-        if (!m_isOpen || !m_rxRingBuf) return 0;
-        UBaseType_t items = 0;
-        vRingbufferGetInfo(m_rxRingBuf, nullptr, nullptr, nullptr, nullptr, &items);
-        return (size_t)items;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->available() : 0;
     }
 
     size_t read(uint8_t* buffer, size_t maxLen) override {
-        if (!m_isOpen || !m_rxRingBuf || !buffer || maxLen == 0) return 0;
-        size_t item_size = 0;
-        uint8_t* item = (uint8_t*)xRingbufferReceiveUpTo(m_rxRingBuf, &item_size, 0, maxLen);
-        if (item && item_size > 0) {
-            memcpy(buffer, item, item_size);
-            vRingbufferReturnItem(m_rxRingBuf, (void*)item);
-            return item_size;
-        }
-        return 0;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->read(buffer, maxLen) : 0;
     }
 
     std::string readString(size_t maxLen) override {
-        std::string res;
-        if (!m_isOpen || maxLen == 0) return res;
-        uint8_t buf[256];
-        size_t toRead = (maxLen < sizeof(buf)) ? maxLen : sizeof(buf);
-        size_t r = read(buf, toRead);
-        if (r > 0) res.assign((char*)buf, r);
-        return res;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->readString(maxLen) : "";
     }
 
     size_t write(const uint8_t* data, size_t len) override {
-        if (!m_isOpen || !m_cdcDev || !data || len == 0) return 0;
-        esp_err_t err = cdc_acm_host_data_tx_blocking(m_cdcDev, data, len, pdMS_TO_TICKS(100));
-        return (err == ESP_OK) ? len : 0;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->write(data, len) : 0;
     }
 
     size_t writeString(const std::string& str) override {
-        return write((const uint8_t*)str.data(), str.size());
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->writeString(str) : 0;
     }
 
-    void flush() override {}
+    void flush() override {
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        if (cdc) cdc->flush();
+    }
 
     bool setBaudrate(uint32_t baudrate) override {
-        if (!m_cdcDev) return false;
-        cdc_acm_line_coding_t line_coding = {
-            .dwDTERate = baudrate,
-            .bCharFormat = 0,
-            .bParityType = 0,
-            .bDataBits = 8,
-        };
-        return cdc_acm_host_line_coding_set(m_cdcDev, &line_coding) == ESP_OK;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->setBaudrate(baudrate) : false;
     }
 
     bool setControlPin(bool level) override {
-        if (!m_cdcDev) return false;
-        return cdc_acm_host_set_control_line_state(m_cdcDev, level, false) == ESP_OK;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->setControlPin(level) : false;
     }
 
     bool pulseControlPin(uint32_t durationMs, bool enterBootloader = false) override {
-        if (!m_cdcDev) return false;
-        if (enterBootloader) {
-            // Modo DFU: DTR=false (GPIO0=0), RTS=true (Reset activo)
-            cdc_acm_host_set_control_line_state(m_cdcDev, false, true);
-            vTaskDelay(pdMS_TO_TICKS(durationMs));
-            // Reset liberado manteniendo GPIO0 en LOW momentáneamente
-            cdc_acm_host_set_control_line_state(m_cdcDev, false, false);
-            vTaskDelay(pdMS_TO_TICKS(20));
-            // Restaurar DTR=true para abrir canal de comunicación con el bootloader ROM
-            cdc_acm_host_set_control_line_state(m_cdcDev, true, false);
-            ESP_LOGI(TAG_SERIAL, "Dispositivo USB OTG puesto en Modo Bootloader / DFU");
-        } else {
-            // Modo Normal: DTR=true (GPIO0=1), RTS=true (Reset activo)
-            cdc_acm_host_set_control_line_state(m_cdcDev, true, true);
-            vTaskDelay(pdMS_TO_TICKS(durationMs));
-            // Reset liberado con GPIO0 en HIGH -> Ejecuta firmware de usuario
-            cdc_acm_host_set_control_line_state(m_cdcDev, true, false);
-            ESP_LOGI(TAG_SERIAL, "Reinicio normal enviado por USB OTG (Run Mode)");
-        }
-        return true;
+        auto* cdc = ::cbdos::bsp::getP4UsbCdcChannel();
+        return cdc ? cdc->pulseControlPin(durationMs, enterBootloader) : false;
     }
 
     void onDisconnected() {
-        m_isOpen = false;
-        if (m_cdcDev) {
-            cdc_acm_host_close(m_cdcDev);
-            m_cdcDev = nullptr;
-        }
-        ESP_LOGI(TAG_SERIAL, "Dispositivo USB OTG liberado por desconexión física.");
+        close();
     }
-
-private:
-    static bool cdcRxCb(const uint8_t *data, size_t data_len, void *user_arg) {
-        auto* self = static_cast<P4UsbOtgPort*>(user_arg);
-        if (self && self->m_rxRingBuf && data && data_len > 0) {
-            xRingbufferSend(self->m_rxRingBuf, data, data_len, 0);
-        }
-        return true;
-    }
-
-    static void cdcEventCb(const cdc_acm_host_dev_event_data_t *event, void *user_arg) {
-        auto* self = static_cast<P4UsbOtgPort*>(user_arg);
-        if (!self || !event) return;
-        if (event->type == CDC_ACM_HOST_DEVICE_DISCONNECTED) {
-            ESP_LOGW(TAG_SERIAL, "Dispositivo CDC-ACM Host desconectado físicamente");
-            self->onDisconnected();
-        }
-    }
-
-    bool m_isOpen;
-    cdc_acm_dev_hdl_t m_cdcDev;
-    RingbufHandle_t m_rxRingBuf;
 };
 
 // ────────────────────────────────────────────────────────────────
@@ -505,7 +386,18 @@ public:
         : m_portJp1("jp1", 32, 28, 34),
           m_portUart0("uart0", 38, 37, -1),
           m_portManual("manual", 32, 28, 34) {
-        ::cbdos::usb::UsbDeviceManager::getInstance().registerEventCallback(onUsbManagerEvent, this);
+        if (auto* host = ::cbdos::usb::getUsbHostBackend()) {
+            host->registerEventCallback([this](const ::cbdos::usb::UsbDeviceInfo& dev, bool connected, ::cbdos::usb::UsbEventCause cause) {
+                (void)dev;
+                (void)cause;
+                if (!connected) {
+                    m_portUsbOtg.onDisconnected();
+                }
+                if (m_hotplugCb) {
+                    m_hotplugCb(connected, "usb_otg");
+                }
+            });
+        }
     }
 
     std::vector<cbdos::serial::SerialPortDescriptor> getAvailablePorts() override {
@@ -545,18 +437,20 @@ public:
         });
 
         // 4. Puerto USB OTG Host (Aparece dinámicamente al conectar dispositivo serie)
-        const auto* dev = ::cbdos::usb::UsbDeviceManager::getInstance().getActiveDevice();
-        if (dev && dev->isConnected) {
-            std::string name = "🔌 USB: " + std::string(dev->product);
-            ports.push_back({
-                "usb_otg",
-                name,
-                cbdos::serial::PortType::UsbCdcAcm,
-                -1,
-                -1,
-                -1,
-                true
-            });
+        if (auto* host = ::cbdos::usb::getUsbHostBackend()) {
+            ::cbdos::usb::UsbDeviceInfo dev;
+            if (host->getActiveDevice(dev) && dev.isConnected) {
+                std::string name = "🔌 USB: " + std::string(dev.product);
+                ports.push_back({
+                    "usb_otg",
+                    name,
+                    cbdos::serial::PortType::UsbCdcAcm,
+                    -1,
+                    -1,
+                    -1,
+                    true
+                });
+            }
         }
 
         return ports;
@@ -582,17 +476,6 @@ public:
     }
 
 private:
-    static void onUsbManagerEvent(const ::cbdos::usb::UsbDeviceInfo& dev, bool connected, void* user_ctx) {
-        (void)dev;
-        auto* self = static_cast<P4SerialBackend*>(user_ctx);
-        if (!self) return;
-        if (!connected) {
-            self->m_portUsbOtg.onDisconnected();
-        }
-        if (self->m_hotplugCb) {
-            self->m_hotplugCb(connected, "usb_otg");
-        }
-    }
 
     P4UsbNativePort m_portUsbNative;
     P4UsbOtgPort m_portUsbOtg;
@@ -730,85 +613,13 @@ private:
     std::vector<cbdos::uart::UartPinPreset> m_presets;
 };
 
-// ────────────────────────────────────────────────────────────────
-// Implementación IGpioBackend para ESP32-P4
-// ────────────────────────────────────────────────────────────────
-
-class P4GpioBackend : public cbdos::gpio::IGpioBackend {
-public:
-    bool setPinMode(int pin, cbdos::gpio::PinMode mode) override {
-        if (!isPinAvailable(pin)) {
-            ESP_LOGW(TAG_GPIO, "GPIO %d protegido o reservado por el sistema", pin);
-            return false;
-        }
-
-        gpio_config_t io_conf = {};
-        io_conf.pin_bit_mask = (1ULL << pin);
-        io_conf.intr_type = GPIO_INTR_DISABLE;
-
-        switch (mode) {
-            case cbdos::gpio::PinMode::Input:
-                io_conf.mode = GPIO_MODE_INPUT;
-                io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-                io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-                break;
-            case cbdos::gpio::PinMode::Output:
-                io_conf.mode = GPIO_MODE_OUTPUT;
-                io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-                io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-                break;
-            case cbdos::gpio::PinMode::InputPullUp:
-                io_conf.mode = GPIO_MODE_INPUT;
-                io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-                io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-                break;
-            case cbdos::gpio::PinMode::InputPullDown:
-                io_conf.mode = GPIO_MODE_INPUT;
-                io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-                io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
-                break;
-        }
-
-        return gpio_config(&io_conf) == ESP_OK;
-    }
-
-    bool digitalWrite(int pin, cbdos::gpio::PinLevel level) override {
-        if (!isPinAvailable(pin)) return false;
-        return gpio_set_level((gpio_num_t)pin, (uint32_t)level) == ESP_OK;
-    }
-
-    cbdos::gpio::PinLevel digitalRead(int pin) override {
-        if (!isPinAvailable(pin)) return cbdos::gpio::PinLevel::Low;
-        int val = gpio_get_level((gpio_num_t)pin);
-        return (val > 0) ? cbdos::gpio::PinLevel::High : cbdos::gpio::PinLevel::Low;
-    }
-
-    bool isPinAvailable(int pin) const override {
-        if (pin < 0 || pin > 54) return false;
-        
-        // Verificar si está en la lista de pines de expansión (Whitelist JP1)
-        for (size_t i = 0; i < cbdos::board::NUM_EXPANSION_PINS; ++i) {
-            if (pin == cbdos::board::EXPANSION_PINS[i]) {
-                return true;
-            }
-        }
-        return false; // Si no está en la lista blanca, acceso denegado
-    }
-};
-
 static P4UartBackend s_p4UartBackend;
 static P4SerialBackend s_p4SerialBackend;
-static P4GpioBackend s_p4GpioBackend;
 
 void initUartBackendP4() {
     cbdos::uart::setBackend(&s_p4UartBackend);
     cbdos::serial::setBackend(&s_p4SerialBackend);
     ESP_LOGI(TAG_UART, "Backend UART y Serial para ESP32-P4 registrados e inyectados");
-}
-
-void initGpioBackendP4() {
-    cbdos::gpio::setBackend(&s_p4GpioBackend);
-    ESP_LOGI(TAG_GPIO, "Backend GPIO para ESP32-P4 registrado e inyectado");
 }
 
 } // namespace bsp

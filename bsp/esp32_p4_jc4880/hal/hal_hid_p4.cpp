@@ -194,7 +194,7 @@ extern "C" uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id,
 #include "cbdos/ducky.hpp"
 #include "../../../core/src/lua/LuaEngine.hpp"
 #include "usb_cdc_loader_port.hpp"
-#include "usb_device_manager.hpp"
+#include "cbdos/usb_host.hpp"
 #include <esp_loader_io.h>
 #include <driver/usb_serial_jtag.h>
 
@@ -232,16 +232,16 @@ static void serial_interactive_cli_task(void* arg) {
                         }
                         printf("[SERIAL_CLI_OUT] Ducky ejecutado OK.\n");
                     } else if (line_buf == "usb: status" || line_buf == "usb: info") {
-                        auto& mgr = ::cbdos::usb::UsbDeviceManager::getInstance();
-                        if (!mgr.isDeviceConnected()) {
+                        auto* backend = ::cbdos::usb::getUsbHostBackend();
+                        ::cbdos::usb::UsbDeviceInfo dev;
+                        if (!backend || !backend->getActiveDevice(dev) || !dev.isConnected) {
                             printf("[SERIAL_CLI_OUT] 🔌 Puerto USB OTG Libre: Ningún dispositivo conectado físicamente.\n");
                         } else {
-                            const auto* dev = mgr.getActiveDevice();
                             printf("[SERIAL_CLI_OUT] ⚡ Dispositivo USB Conectado:\n");
-                            printf("  Fabricante:  %s\n", dev->manufacturer);
-                            printf("  Producto:    %s\n", dev->product);
-                            printf("  VID:PID:     0x%04X : 0x%04X\n", dev->vid, dev->pid);
-                            printf("  Clase:       %d\n", (int)dev->devClass);
+                            printf("  Fabricante:  %s\n", dev.manufacturer);
+                            printf("  Producto:    %s\n", dev.product);
+                            printf("  VID:PID:     0x%04X : 0x%04X\n", dev.vid, dev.pid);
+                            printf("  Clase:       %d\n", (int)dev.devClass);
                         }
                     } else if (line_buf == "c3: status" || line_buf == "radio: probe" || line_buf == "c3: probe") {
                         printf("[SERIAL_CLI_OUT] 🔍 Sondeando módem ESP32-C3 en puerto USB OTG High-Speed...\n");
