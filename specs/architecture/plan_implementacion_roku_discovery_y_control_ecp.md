@@ -44,11 +44,16 @@
   * `core/src/network/lan_recon.cpp`: Ajustar clasificación inteligente de dispositivos Roku.
   * `core/src/ui/views/LanReconView.cpp`: Mapear puerto 8060 a etiqueta `"Roku"`.
 
-### Fase 3: Primitiva de Control ECP y Binding HTTP
-* **Objetivo:** Permitir el envío de peticiones POST/GET al puerto 8060 tanto en C++ como a través de Lua (`.luapp`).
+### Fase 3: Primitiva de Control ECP, HTTP y SSDP en Lua
+* **Objetivo:** Permitir el envío de peticiones POST/GET y descubrimiento SSDP en caliente directamente desde Lua (`.luapp`).
 * **Archivos:**
-  * `core/src/lua/bindings/LuaBindings_Network.cpp`: Exponer `cbdos.http.post()` y `cbdos.http.get()`.
-  * Creación o soporte para el envío de eventos ECP: `/keypress/Home`, `/keypress/Back`, etc.
+  * `core/src/lua/bindings/LuaBindings_Network.cpp`:
+    * Expuestas funciones `cbdos.http.post()` y `cbdos.http.get()`.
+    * Expuesta función de descubrimiento en caliente `cbdos.net.ssdp_scan(timeoutMs)` que dispara la búsqueda multicast UDP sin requerir escaneo previo de subred.
+  * `resources/apps/roku_remote.luapp`:
+    * Implementada la app con botón "Autodetectar" que ejecuta `ssdp_scan(1500)` en caliente.
+    * D-Pad virtual, controles multimedia, volumen y lanzador rápido de canales.
 
-### Fase 4: Validación y Compilación Limpia
-* Validar compilación en ESP32-P4 (ESP-IDF) y ESP32-S3 (PlatformIO).
+### Fase 4: Validación y Flasheo Limpio
+* Compilación limpia en ESP32-P4 (ESP-IDF) y ESP32-S3 (PlatformIO).
+* Flasheo validado al hardware ESP32-P4 vía `/dev/ttyACM0`.
