@@ -41,42 +41,63 @@ local function launch_app(app_id, app_name)
     end
 end
 
--- Función para buscar Roku en los resultados del escáner de red
+-- Función para buscar Roku directamente por SSDP multicast o en caché
 local function auto_detect_roku()
-    local hosts = cbdos.net.results()
-    if not hosts or #hosts == 0 then
-        return nil
-    end
+    print("[RokuRemote] Iniciando búsqueda SSDP en caliente...")
+    cbdos.ui.show_toast("Buscando Roku por SSDP...")
 
-    -- 1. Prioridad: Host con puerto 8060 abierto
-    for i = 1, #hosts do
-        local h = hosts[i]
-        if h.ports then
-            for p = 1, #h.ports do
-                if h.ports[p] == 8060 then
-                    return h.ip
+    -- 1. Prioridad: Búsqueda activa por SSDP multicast (1.5s)
+    if cbdos.net.ssdp_scan then
+        local devs = cbdos.net.ssdp_scan(1500)
+        if devs and #devs > 0 then
+            print("[RokuRemote] Dispositivos SSDP recibidos: " .. #devs)
+            -- Buscar dispositivo Roku por Server, ST o Location
+            for i = 1, #devs do
+                local d = devs[i]
+                local srv = string.lower(d.server or "")
+                local st = string.lower(d.st or "")
+                local loc = string.lower(d.location or "")
+                if string.find(srv, "roku") or string.find(st, "roku") or string.find(loc, "8060") then
+                    print("[RokuRemote] ¡Roku encontrado vía SSDP!: " .. d.ip)
+                    return d.ip, d.server
                 end
             end
         end
     end
 
-    -- 2. Prioridad: Host con server o vendor Roku
-    for i = 1, #hosts do
-        local h = hosts[i]
-        local srv = string.lower(h.server or "")
-        local ven = string.lower(h.vendor or "")
-        if string.find(srv, "roku") or string.find(ven, "roku") then
-            return h.ip
+    -- 2. Fallback: Revisar si ya fue descubierto en el escáner general
+    local hosts = cbdos.net.results()
+    if hosts and #hosts > 0 then
+        -- Host con puerto 8060 abierto
+        for i = 1, #hosts do
+            local h = hosts[i]
+            if h.ports then
+                for p = 1, #h.ports do
+                    if h.ports[p] == 8060 then
+                        return h.ip, "Roku ECP"
+                    end
+                end
+            end
         end
-    end
 
-    -- 3. Prioridad: TV con puerto 7000 (AirPlay de Roku)
-    for i = 1, #hosts do
-        local h = hosts[i]
-        if h.is_tv and h.ports then
-            for p = 1, #h.ports do
-                if h.ports[p] == 7000 then
-                    return h.ip
+        -- Host con vendor o server Roku
+        for i = 1, #hosts do
+            local h = hosts[i]
+            local srv = string.lower(h.server or "")
+            local ven = string.lower(h.vendor or "")
+            if string.find(srv, "roku") or string.find(ven, "roku") then
+                return h.ip, h.server
+            end
+        end
+
+        -- TV con puerto 7000 (AirPlay de Roku)
+        for i = 1, #hosts do
+            local h = hosts[i]
+            if h.is_tv and h.ports then
+                for p = 1, #h.ports do
+                    if h.ports[p] == 7000 then
+                        return h.ip, "Roku TV (AirPlay)"
+                    end
                 end
             end
         end

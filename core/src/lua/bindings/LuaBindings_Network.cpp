@@ -280,6 +280,38 @@ static int lua_http_post(lua_State* L) {
     return 3;
 }
 
+static int lua_net_ssdp_scan(lua_State* L) {
+    uint32_t timeoutMs = (uint32_t)luaL_optinteger(L, 1, 2000);
+    auto* backend = cbdos::network::getLanScannerBackend();
+    if (!backend) {
+        lua_newtable(L);
+        return 1;
+    }
+
+    std::vector<cbdos::network::SsdpDeviceInfo> devices;
+    backend->ssdpScan(timeoutMs, [&devices](const cbdos::network::SsdpDeviceInfo& dev) {
+        devices.push_back(dev);
+    });
+
+    lua_newtable(L);
+    int idx = 1;
+    for (const auto& d : devices) {
+        lua_newtable(L);
+        lua_pushstring(L, d.ip.c_str());
+        lua_setfield(L, -2, "ip");
+        lua_pushstring(L, d.server.c_str());
+        lua_setfield(L, -2, "server");
+        lua_pushstring(L, d.location.c_str());
+        lua_setfield(L, -2, "location");
+        lua_pushstring(L, d.usn.c_str());
+        lua_setfield(L, -2, "usn");
+        lua_pushstring(L, d.st.c_str());
+        lua_setfield(L, -2, "st");
+        lua_rawseti(L, -2, idx++);
+    }
+    return 1;
+}
+
 void registerNetAPI(lua_State* L) {
     lua_newtable(L);
     lua_pushcfunction(L, lua_net_ping);
@@ -294,6 +326,8 @@ void registerNetAPI(lua_State* L) {
     lua_setfield(L, -2, "scanning");
     lua_pushcfunction(L, lua_net_results);
     lua_setfield(L, -2, "results");
+    lua_pushcfunction(L, lua_net_ssdp_scan);
+    lua_setfield(L, -2, "ssdp_scan");
     lua_pushcfunction(L, lua_http_get);
     lua_setfield(L, -2, "http_get");
     lua_pushcfunction(L, lua_http_post);
