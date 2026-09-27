@@ -54,6 +54,15 @@ Este directorio almacena las especificaciones de diseño, borradores de arquitec
 
 ---
 
+## ⚙️ Arquitectura del Sistema, Compilación & Quiosco
+
+| Propuesta | Descripción | Estado | Archivo |
+| :--- | :--- | :--- | :--- |
+| **Perfiles de Compilación y Subconjuntos Modulares** | Sistema de flags de build (`FULL`, `KIOSK`, `LITE`) para generar binarios dedicados (como quioscos TableHub o chips de baja memoria) sin bifurcar el código base. | 💡 Propuesta Formal | [`proposal_build_profiles_and_modular_subsets.md`](proposal_build_profiles_and_modular_subsets.md) |
+
+
+---
+
 ## 📌 Guía para Registrar una Nueva Propuesta de App
 
 Toda nueva propuesta debe seguir la plantilla estándar e incluir:
