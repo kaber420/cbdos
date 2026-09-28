@@ -1,4 +1,5 @@
 #include "cbdos/audio.hpp"
+#include "cbdos_device_tree.h"
 #include <Arduino.h>
 #include <driver/i2s.h>
 #include <cmath>
@@ -28,10 +29,10 @@ public:
         };
 
         i2s_pin_config_t pins = {
-            .bck_io_num   = 42,
-            .ws_io_num    = 2,
-            .data_out_num = 41,
-            .data_in_num  = I2S_PIN_NO_CHANGE
+            .bck_io_num   = cbdos::board::audio::PIN_BCLK,
+            .ws_io_num    = cbdos::board::audio::PIN_WS,
+            .data_out_num = cbdos::board::audio::PIN_DOUT,
+            .data_in_num  = (cbdos::board::audio::PIN_DIN >= 0) ? cbdos::board::audio::PIN_DIN : I2S_PIN_NO_CHANGE
         };
 
         if (i2s_driver_install(I2S_NUM_0, &cfg, 0, NULL) != ESP_OK) {
@@ -45,7 +46,11 @@ public:
         i2s_zero_dma_buffer(I2S_NUM_0);
         m_installed = true;
         m_sampleRate = sampleRate;
-        Serial.println("[AudioHAL-S3] I2S listo en GPIOs BCK=42, WS=2, DOUT=41 a 44100 Hz");
+        Serial.printf("[AudioHAL-S3] I2S listo en GPIOs BCK=%d, WS=%d, DOUT=%d a %lu Hz\n",
+                      cbdos::board::audio::PIN_BCLK,
+                      cbdos::board::audio::PIN_WS,
+                      cbdos::board::audio::PIN_DOUT,
+                      (unsigned long)sampleRate);
         return true;
     }
 

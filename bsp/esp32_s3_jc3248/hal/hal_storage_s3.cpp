@@ -1,4 +1,5 @@
 #include "cbdos/storage.hpp"
+#include "cbdos_device_tree.h"
 #include <Arduino.h>
 #include <SPI.h>
 #include <FS.h>
@@ -175,13 +176,16 @@ public:
 
         if (!s_sdSPI) {
             s_sdSPI = new SPIClass(HSPI);
-            s_sdSPI->begin(12, 13, 11, 10); // SCK, MISO, MOSI, SS (HSPI)
+            s_sdSPI->begin(cbdos::board::sdcard::PIN_SCK,
+                           cbdos::board::sdcard::PIN_MISO,
+                           cbdos::board::sdcard::PIN_MOSI,
+                           cbdos::board::sdcard::PIN_CS);
         }
 
-        bool mounted = SD.begin(10, *s_sdSPI, 10000000, "/sdcard");
+        bool mounted = SD.begin(cbdos::board::sdcard::PIN_CS, *s_sdSPI, 10000000, "/sdcard");
         if (!mounted) {
             Serial.println("[StorageHAL-S3] SD 10MHz fallo, reintentando a 4MHz...");
-            mounted = SD.begin(10, *s_sdSPI, 4000000, "/sdcard");
+            mounted = SD.begin(cbdos::board::sdcard::PIN_CS, *s_sdSPI, 4000000, "/sdcard");
         }
 
         if (mounted) {

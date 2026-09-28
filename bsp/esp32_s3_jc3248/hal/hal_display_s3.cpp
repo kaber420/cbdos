@@ -1,4 +1,5 @@
 #include "cbdos/display.hpp"
+#include "cbdos_device_tree.h"
 #include <Arduino.h>
 #include <JC3248W535.h>
 
@@ -12,17 +13,19 @@ bool init() {
     if (!s_display.begin()) {
         return false;
     }
-    pinMode(1, OUTPUT);
-    analogWrite(1, (s_brightness * 255) / 100);
+    if (cbdos::board::display::PIN_BL >= 0) {
+        pinMode(cbdos::board::display::PIN_BL, OUTPUT);
+        analogWrite(cbdos::board::display::PIN_BL, (s_brightness * 255) / 100);
+    }
     return true;
 }
 
 DisplayCaps getCapabilities() {
     DisplayCaps caps;
-    caps.width = 320;
-    caps.height = 480;
+    caps.width = cbdos::board::display::WIDTH;
+    caps.height = cbdos::board::display::HEIGHT;
     caps.hasHardware2D = false;  // Render por software en S3
-    caps.targetFps = 30;
+    caps.targetFps = cbdos::board::display::FPS;
     caps.isTouchSupported = true;
     return caps;
 }
@@ -30,7 +33,9 @@ DisplayCaps getCapabilities() {
 void setBrightness(uint8_t percent) {
     if (percent > 100) percent = 100;
     s_brightness = percent;
-    analogWrite(1, (percent * 255) / 100);
+    if (cbdos::board::display::PIN_BL >= 0) {
+        analogWrite(cbdos::board::display::PIN_BL, (percent * 255) / 100);
+    }
 }
 
 uint8_t getBrightness() {

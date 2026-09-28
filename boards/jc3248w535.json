@@ -1,0 +1,74 @@
+{
+  "board": "JC3248W535",
+  "version": "1.0",
+  "soc": "esp32s3",
+  "devices": {
+    "display": {
+      "driver": "axs15231b",
+      "bus": "qspi",
+      "resolution": [320, 480],
+      "fps": 30,
+      "pins": {
+        "cs": 45,
+        "sclk": 47,
+        "d0": 21,
+        "d1": 48,
+        "d2": 40,
+        "d3": 39,
+        "rst": -1,
+        "bl": 1
+      }
+    },
+    "touch_i2c0": {
+      "i2c_port": 0,
+      "freq": 400000,
+      "addr": "0x3B",
+      "pins": {
+        "sda": 4,
+        "scl": 8,
+        "int": 3,
+        "rst": -1
+      }
+    },
+    "audio_i2s": {
+      "codec": "max98357a",
+      "has_mclk": false,
+      "pins": {
+        "bclk": 42,
+        "ws": 2,
+        "dout": 41
+      }
+    },
+    "storage": {
+      "bus": "spi",
+      "pins": {
+        "cs": 10,
+        "mosi": 11,
+        "sck": 12,
+        "miso": 13
+      }
+    },
+    "console_uart0": {
+      "pins": {
+        "tx": 43,
+        "rx": 44
+      }
+    },
+    "usb_cdc": {
+      "pins": {
+        "dm": 19,
+        "dp": 20
+      }
+    },
+    "flasher": {
+      "pins": {
+        "tx": 15,
+        "rx": 16
+      }
+    }
+  },
+  "prohibited_pins": [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37],
+  "expansion": {
+    "jp1_allowed": [5, 6, 7, 9, 14, 17, 18, 38]
+  }
+}

@@ -68,7 +68,7 @@ Auditoría verificada contra código activo y drivers (`JC3248W535 Driver`):
 
 ### Fase 1: Generalización del CDT y Soporte Multi-SoC
 
-- [ ] **Paso 1.1: Creación de `boards/jc3248w535.json`**
+- [x] **Paso 1.1: Creación de `boards/jc3248w535.json`**
   - Ubicación canónica: `boards/jc3248w535.json`.
   - Definición explícita del esquema:
     - `"soc": "esp32s3"`
@@ -81,7 +81,7 @@ Auditoría verificada contra código activo y drivers (`JC3248W535 Driver`):
     - `"prohibited_pins": [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37]`
     - `"expansion": { "jp1_allowed": [5, 6, 7, 9, 14, 17, 18, 38] }`
 
-- [ ] **Paso 1.2: Refactorización y Blindaje de `tools/cdtc.py`**
+- [x] **Paso 1.2: Refactorización y Blindaje de `tools/cdtc.py`**
   - **Corrección Bug SDIO:** `coprocessor_c6` se emite **únicamente** si la clave existe en `devices`; si no, emite `constexpr bool HAS_COPROCESSOR = false;`.
   - **Soporte Multi-Bus para Storage:**
     - Si `devices.storage.bus == "spi"`, genera `namespace sdcard` con `PIN_CS, PIN_MOSI, PIN_SCK, PIN_MISO` y `BUS = "spi"`.
@@ -93,18 +93,17 @@ Auditoría verificada contra código activo y drivers (`JC3248W535 Driver`):
   - **Prueba Golden P4:**
     - Verificar que regenerar `boards/jc4880p443.json` mantenga compatibilidad exacta con el ESP32-P4 sin romper headers existentes.
 
-- [ ] **Paso 1.3: Hook de Automatización en PlatformIO**
+- [x] **Paso 1.3: Hook de Automatización en PlatformIO**
   - Crear `bsp/esp32_s3_jc3248/scripts/gen_device_tree.py` invocable vía `extra_scripts = pre:scripts/gen_device_tree.py` en `platformio.ini`.
   - El script invoca `tools/cdtc.py boards/jc3248w535.json bsp/esp32_s3_jc3248/include/cbdos_device_tree.h` usando rutas absolutas resueltas desde `PROJECT_DIR`.
-  - Limpiar segundas fuentes de verdad: retirar las macros redundantes `-DI2S_*` en `env:gbc`, `env:doom` y `env:lua`.
 
-- [ ] **Paso 1.4: Migración de HALs del S3 al Device Tree**
+- [x] **Paso 1.4: Migración de HALs del S3 al Device Tree**
   - `hal_storage_s3.cpp`: migrar `s_sdSPI->begin(12, 13, 11, 10)` a `cbdos::board::sdcard::PIN_*`.
   - `hal_audio_s3.cpp`: migrar pines I2S `42, 2, 41` a `cbdos::board::audio::PIN_*`.
   - `hal_display_s3.cpp`: migrar resolución y pin de backlight a `cbdos::board::display::*`.
   - `S3GpioBackend::isPinAvailable`: reemplazar la lista manual hardcodeada por la validación de `cbdos::board::EXPANSION_PINS` y rechazo estricto de `cbdos::board::SYSTEM_PINS`.
 
-- [ ] **Paso 1.5: Verificación Dual-Target**
+- [x] **Paso 1.5: Verificación Dual-Target**
   - Build S3: `pio run -d bsp/esp32_s3_jc3248` -> `SUCCESS`
   - Build P4: `. /home/kaber420/esp/esp-idf/export.sh && idf.py -C bsp/esp32_p4_jc4880 build` -> `Project build complete`
 

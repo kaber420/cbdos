@@ -1,6 +1,7 @@
 #include "cbdos/uart.hpp"
 #include "cbdos/serial.hpp"
 #include "cbdos/gpio.hpp"
+#include "cbdos_device_tree.h"
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <vector>
@@ -384,11 +385,12 @@ public:
     }
 
     bool isPinAvailable(int pin) const override {
-        if (pin < 0 || pin > 48) return false;
-        // Reservados para LCD QSPI (45, 47, 21, 48, 40, 39, 4, 1), Touch (8, 4, 3), Audio (42, 2, 41)
-        if (pin == 45 || pin == 47 || pin == 21 || pin == 48 || pin == 40 || pin == 39 || pin == 4 || pin == 1) return false;
-        if (pin == 8 || pin == 3 || pin == 42 || pin == 2 || pin == 41) return false;
-        return true;
+        if (pin < 0) return false;
+        // Solo permitir pines listados en la whitelist de expansion del Device Tree
+        for (int expPin : cbdos::board::EXPANSION_PINS) {
+            if (pin == expPin) return true;
+        }
+        return false;
     }
 };
 
