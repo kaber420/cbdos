@@ -98,7 +98,7 @@ void AudioPlayer::stop() {
     m_stopRequested = true;
     m_isPaused = false;
     if (m_taskHandle) {
-        int timeout = 60;
+        int timeout = 150;
         while (m_isPlaying && timeout-- > 0) {
             cbdos::rtos::sleepMs(10);
         }
@@ -437,8 +437,12 @@ void AudioPlayer::runStreamPlayback() {
             }
             readPtr = inBuf;
             size_t toRead = IN_BUF_SIZE - bytesLeft;
-            int nRead = client->recv(inBuf + bytesLeft, toRead, 5000);
+            int nRead = client->recv(inBuf + bytesLeft, toRead, 1000);
             if (nRead <= 0) {
+                if (m_stopRequested) break;
+                if (client->isConnected()) {
+                    continue; // Timeout momentáneo de red, reintentar recepción
+                }
                 CBD_LOG_W(TAG, "[Stream] Socket cerrado o timeout por el servidor");
                 break;
             }

@@ -1,5 +1,9 @@
 #include "cbdos/system.hpp"
+#include "cbdos/rtos.hpp"
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
 
 namespace cbdos {
 namespace system {
@@ -67,4 +71,49 @@ void log(LogLevel level, const char* tag, const char* format, ...) {
 }
 
 } // namespace system
+
+namespace rtos {
+
+TaskHandle createTask(TaskFunction fn, const char* name, uint32_t stackSize, void* param, uint32_t priority, int coreId) {
+    TaskHandle_t handle = nullptr;
+    BaseType_t res;
+    if (coreId >= 0) {
+        res = xTaskCreatePinnedToCore((TaskFunction_t)fn, name, stackSize, param, priority, &handle, coreId);
+    } else {
+        res = xTaskCreate((TaskFunction_t)fn, name, stackSize, param, priority, &handle);
+    }
+    return (res == pdPASS) ? (TaskHandle)handle : nullptr;
+}
+
+void deleteTask(TaskHandle handle) {
+    vTaskDelete((TaskHandle_t)handle);
+}
+
+void sleepMs(uint32_t ms) {
+    vTaskDelay(pdMS_TO_TICKS(ms));
+}
+
+MutexHandle createMutex() {
+    return (MutexHandle)xSemaphoreCreateMutex();
+}
+
+bool lockMutex(MutexHandle handle, uint32_t timeoutMs) {
+    if (!handle) return false;
+    TickType_t ticks = (timeoutMs == 0xFFFFFFFF) ? portMAX_DELAY : pdMS_TO_TICKS(timeoutMs);
+    return xSemaphoreTake((SemaphoreHandle_t)handle, ticks) == pdTRUE;
+}
+
+void unlockMutex(MutexHandle handle) {
+    if (handle) {
+        xSemaphoreGive((SemaphoreHandle_t)handle);
+    }
+}
+
+void deleteMutex(MutexHandle handle) {
+    if (handle) {
+        vSemaphoreDelete((SemaphoreHandle_t)handle);
+    }
+}
+
+} // namespace rtos
 } // namespace cbdos
