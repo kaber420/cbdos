@@ -256,7 +256,12 @@ void LanReconView::scanBtnCb(lv_event_t* e) {
             }
         }
         if (!ok) {
-            UIManager::showToast("Sin red o backend no listo");
+            auto* backend = cbdos::network::getLanScannerBackend();
+            if (backend == nullptr || !backend->isNetworkConnected()) {
+                UIManager::showToast("Wi-Fi desconectado · Ve a Ajustes > Red para conectar");
+            } else {
+                UIManager::showToast("Sin red o backend no listo");
+            }
         }
     }
     view->refreshFromService(true);
@@ -407,7 +412,15 @@ void LanReconView::refreshFromService(bool force) {
     // IP local + mascara + gateway (backend o fallback).
     if (m_lblNetInfo && lv_obj_is_valid(m_lblNetInfo)) {
         auto* backend = cbdos::network::getLanScannerBackend();
-        if (backend) {
+        if (backend == nullptr) {
+            lv_obj_set_style_text_color(m_lblNetInfo, lv_color_hex(0xFBBF24), 0);
+            lv_label_set_text(m_lblNetInfo, "Sin red (backend no disponible)");
+        } else if (!backend->isNetworkConnected()) {
+            lv_obj_set_style_text_color(m_lblNetInfo, lv_color_hex(0xFBBF24), 0);
+            lv_label_set_text(m_lblNetInfo,
+                              "Wi-Fi desconectado · Ve a Ajustes > Red para conectar");
+        } else {
+            lv_obj_set_style_text_color(m_lblNetInfo, lv_color_white(), 0);
             std::string info = "IP " + backend->getLocalIp() + "  ·  " + backend->getSubnetMask();
             std::string gw = backend->getGatewayIp();
             if (!gw.empty()) {
@@ -418,8 +431,6 @@ void LanReconView::refreshFromService(bool force) {
                 info += "\nObjetivo: " + cidr;
             }
             lv_label_set_text(m_lblNetInfo, info.c_str());
-        } else {
-            lv_label_set_text(m_lblNetInfo, "Sin red (backend no disponible)");
         }
     }
 

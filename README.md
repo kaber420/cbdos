@@ -204,8 +204,8 @@ pio run
 
 | Branch | Descripcion |
 |:---|:---|
-| `main` | Rama estable, versiones release |
-| `0.2.2` | Rama de desarrollo activo |
+| `main` | Rama prototipo, versiones release |
+| `0.2.4-dev` | Rama de desarrollo activo |
 | `feature/vector-lottie-engine` | Feature branch: motor de animaciones vectoriales Lottie |
 
 ---

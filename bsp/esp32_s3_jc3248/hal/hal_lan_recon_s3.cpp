@@ -16,6 +16,7 @@
 #include <lwip/etharp.h>
 #include <lwip/ip_addr.h>
 #include <lwip/inet.h>
+#include <lwip/tcpip.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -23,6 +24,7 @@
 #include <cstring>
 #include <cctype>
 #include <cstdio>
+#include <memory>
 
 namespace cbdos {
 namespace bsp {
@@ -121,26 +123,38 @@ bool lookupArpCache(const ip4_addr_t& ip4, uint8_t mac[6]) {
     // driver custom los flags pueden no marcar ETHARP y el filtro
     // cegaba la lectura aunque la entrada ARP si existiera.
     // etharp_find_addr solo compara tabla, es seguro en cualquier netif.
+    // Thread-safety: LwIP no es reentrante; proteger con LOCK_TCPIP_CORE
+    // porque lan_recon_task corre en hilo secundario (Core 0).
+    bool hit = false;
+    uint8_t tmp[6] = {0};
+    LOCK_TCPIP_CORE();
     for (struct netif* n = netif_list; n != nullptr; n = n->next) {
         struct eth_addr* ethRet = nullptr;
         const ip4_addr_t* ipRet = nullptr;
         s8_t idx = etharp_find_addr(n, &ip4, &ethRet, &ipRet);
         if (idx >= 0 && ethRet != nullptr) {
-            std::memcpy(mac, ethRet->addr, 6);
-            return true;
+            std::memcpy(tmp, ethRet->addr, 6);
+            hit = true;
+            break;
         }
     }
-    return false;
+    UNLOCK_TCPIP_CORE();
+    if (hit && mac != nullptr) {
+        std::memcpy(mac, tmp, 6);
+    }
+    return hit;
 }
 
 bool sendArpRequest(const ip4_addr_t& ip4) {
     bool sent = false;
+    LOCK_TCPIP_CORE();
     for (struct netif* n = netif_list; n != nullptr; n = n->next) {
         if (netif_is_up(n) && (n->flags & NETIF_FLAG_ETHARP) && n->hwaddr_len == 6) {
             etharp_request(n, &ip4);
             sent = true;
         }
     }
+    UNLOCK_TCPIP_CORE();
     return sent;
 }
 
@@ -529,14 +543,23 @@ public:
                reinterpret_cast<struct sockaddr*>(&dst), sizeof(dst));
 
         const uint32_t t0 = millis();
-        char rx[1500];
+        // Búfer fuera del stack (heap): lan_recon_task ya va justa de
+        // stack con LwIP+sockets; 1500 B en pila provocaban stack overflow.
+        auto rxBuf = std::unique_ptr<char[]>(new (std::nothrow) char[1500]);
+        if (!rxBuf) {
+            ::close(sock);
+            return false;
+        }
+        char* rx = rxBuf.get();
         uint32_t found = 0;
         while (millis() - t0 < timeoutMs) {
             struct sockaddr_in from;
             socklen_t fromLen = sizeof(from);
-            ssize_t n = recvfrom(sock, rx, sizeof(rx) - 1, 0,
+            ssize_t n = recvfrom(sock, rx, 1500 - 1, 0,
                                  reinterpret_cast<struct sockaddr*>(&from), &fromLen);
             if (n <= 0) {
+                // Respiro para el Task Watchdog (Core 0).
+                vTaskDelay(pdMS_TO_TICKS(5));
                 continue;
             }
             rx[n] = '\0';

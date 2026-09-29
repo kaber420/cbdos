@@ -129,7 +129,7 @@ bool LanScannerService::beginScan(const std::string& cidr) {
         m_cidr = cidr;
     }
 
-    m_taskHandle = cbdos::rtos::createTask(taskFn, "lan_recon_task", 8192,
+    m_taskHandle = cbdos::rtos::createTask(taskFn, "lan_recon_task", 16384,
                                            this, 3, 0);
     // Nota: el stub debil de cbdos_core ejecuta fn() en linea y retorna
     // nullptr; en ese caso el escaneo ya termino de forma sincrona
@@ -494,36 +494,10 @@ void LanScannerService::runScan() {
 
     setPhase(LanScanPhase::ArpSweep, 0);
 
-    // ── v2.2 Fase 1: blast ──
-    // Disparo ARP fire-and-forget a toda la subred (microsegundos por
-    // host): las respuestas llegan en paralelo a la pila lwIP y la
-    // recoleccion posterior las lee de cache. Sin UDP bloqueante aqui
-    // (su recv de 150ms por host sumaba ~38s muertos por /24).
-    if (!isRouted) {
-        for (std::size_t i = 0; i < targets.size(); ++i) {
-            if (m_abortRequested.load(std::memory_order_relaxed)) {
-                finishScan(LanScanPhase::Aborted);
-                return;
-            }
-            backend->arpProbe(targets[i]);
-            if ((i & 31) == 31) {
-                setPhase(LanScanPhase::ArpSweep,
-                         static_cast<uint8_t>((i + 1) * 6 / targets.size()));
-            }
-        }
-    }
-    // Espera global a respuestas ARP (en rebanadas p/cancelar).
-    for (int w = 0; w < 10; ++w) {
-        if (m_abortRequested.load(std::memory_order_relaxed)) {
-            finishScan(LanScanPhase::Aborted);
-            return;
-        }
-        cbdos::rtos::sleepMs(50);
-    }
-
-    // ── v2.2 Pasada A: solo cache ARP (casi instantanea) ──
-    // Tras el blast, lo vivo en LAN ya esta en cache: TVs/PCs aparecen
-    // aqui en ~1-2s sin pagar ningun timeout.
+    // ── Pipeline asíncrono con pacing (estable S3/P4) ──
+    // Emisión ARP con pacing de 15 ms: evita saturar la cola TX del Wi-Fi
+    // y cede CPU al TWDT en Core 0. Colector en caliente: cada respuesta
+    // ya en caché se publica de inmediato (UI en vivo).
     std::vector<uint8_t> foundIdx(targets.size(), 0);
     if (!isRouted) {
         for (std::size_t i = 0; i < targets.size(); ++i) {
@@ -531,23 +505,65 @@ void LanScannerService::runScan() {
                 finishScan(LanScanPhase::Aborted);
                 return;
             }
+            backend->arpProbe(targets[i]);
+
+            // Colector en caliente sobre la IP recién sondeada.
             uint8_t mac[6] = {0, 0, 0, 0, 0, 0};
-            if (!backend->lookupArpCacheOnly(targets[i], mac)) {
-                continue;
+            if (!foundIdx[i] && backend->lookupArpCacheOnly(targets[i], mac)) {
+                LanHostInfo host;
+                host.ip = targets[i];
+                for (int b = 0; b < 6; ++b) {
+                    host.mac[b] = mac[b];
+                }
+                host.vendor = lookupVendorByMac(mac);
+                host.alive = true;
+                host.discovery = "arp";
+                host.isTv = isTvVendorName(host.vendor);
+                foundIdx[i] = 1;
+                const uint8_t pctHot = static_cast<uint8_t>(
+                    (i * 45) / (targets.size() > 0 ? targets.size() : 1));
+                addFoundHost(host, pctHot > 45 ? 45 : pctHot);
             }
-            LanHostInfo host;
-            host.ip = targets[i];
-            for (int b = 0; b < 6; ++b) {
-                host.mac[b] = mac[b];
+
+            // Ritmo para el radio Wi-Fi + respiro del Task Watchdog.
+            cbdos::rtos::sleepMs(15);
+            setPhase(LanScanPhase::ArpSweep, static_cast<uint8_t>(
+                (i * 45) / (targets.size() > 0 ? targets.size() : 1)));
+        }
+
+        // ── Ventana de gracia de 1.2 s para respuestas tardías (DTIM) ──
+        // 12 ciclos x 100 ms: móviles/IoT en ahorro responden entre
+        // 600 ms y 1200 ms después del estímulo.
+        for (int g = 0; g < 12; ++g) {
+            if (m_abortRequested.load(std::memory_order_relaxed)) {
+                finishScan(LanScanPhase::Aborted);
+                return;
             }
-            host.vendor = lookupVendorByMac(mac);
-            host.alive = true;
-            host.discovery = "arp";
-            host.isTv = isTvVendorName(host.vendor);
-            foundIdx[i] = 1;
-            const uint8_t pctA = static_cast<uint8_t>(
-                6 + ((i + 1) * 9) / (targets.size() > 0 ? targets.size() : 1));
-            addFoundHost(host, pctA > 15 ? 15 : pctA);
+            cbdos::rtos::sleepMs(100);
+            for (std::size_t i = 0; i < targets.size(); ++i) {
+                if (foundIdx[i]) {
+                    continue;
+                }
+                uint8_t mac[6] = {0, 0, 0, 0, 0, 0};
+                if (!backend->lookupArpCacheOnly(targets[i], mac)) {
+                    continue;
+                }
+                LanHostInfo host;
+                host.ip = targets[i];
+                for (int b = 0; b < 6; ++b) {
+                    host.mac[b] = mac[b];
+                }
+                host.vendor = lookupVendorByMac(mac);
+                host.alive = true;
+                host.discovery = "arp";
+                host.isTv = isTvVendorName(host.vendor);
+                foundIdx[i] = 1;
+                const uint8_t pctG = static_cast<uint8_t>(
+                    45 + ((static_cast<std::size_t>(g) + 1) * 5) / 12);
+                addFoundHost(host, pctG > 50 ? 50 : pctG);
+            }
+            setPhase(LanScanPhase::ArpSweep, static_cast<uint8_t>(
+                45 + ((static_cast<std::size_t>(g) + 1) * 5) / 12));
         }
         if (m_abortRequested.load(std::memory_order_relaxed)) {
             finishScan(LanScanPhase::Aborted);
@@ -555,9 +571,11 @@ void LanScannerService::runScan() {
         }
     }
 
-    // ── v2.2 Pasada B: ICMP + TCP a los restantes ──
-    // Solo las IPs no vistas en cache pagan timeouts. En red ruteada
-    // es la unica via (sin ARP).
+    // ── Pasada B: ICMP + TCP solo para red ruteada inter-VLAN ──
+    // En subred local ARP es autoritativo: si un host no respondió tras
+    // ~5 s de pacing+gracia está apagado. El sondeo masivo a 240 IPs
+    // inactivas costaba ~2 min de UI congelada y se omite aquí.
+    if (isRouted) {
     for (std::size_t i = 0; i < targets.size(); ++i) {
         if (m_abortRequested.load(std::memory_order_relaxed)) {
             finishScan(LanScanPhase::Aborted);
@@ -623,6 +641,7 @@ void LanScannerService::runScan() {
             15 + ((i + 1) * 35) / (targets.size() > 0 ? targets.size() : 1));
         addFoundHost(host, pctB > 50 ? 50 : pctB);
     }
+    } // if (isRouted): Pasada B solo en red ruteada
 
     if (m_abortRequested.load(std::memory_order_relaxed)) {
         finishScan(LanScanPhase::Aborted);
@@ -638,6 +657,7 @@ void LanScannerService::runScan() {
             if (dev.ip.empty()) {
                 return;
             }
+            // 1) Si ya se vio en ARP, solo fusionar metadatos SSDP.
             if (m_mutex) {
                 cbdos::rtos::lockMutex(m_mutex);
                 for (auto& entry : m_results) {
@@ -651,29 +671,62 @@ void LanScannerService::runScan() {
                         return;
                     }
                 }
-                // Nuevo host solo visto por SSDP.
-                LanHostInfo host;
-                host.ip = dev.ip;
-                host.vendor = "SSDP";
-                host.alive = true;
-                host.discovery = "ssdp";
-                host.ssdpServer = dev.server;
-                host.ssdpLocation = dev.location;
-                host.isTv = isTvSsdpServer(dev.server);
-                uint8_t mac[6] = {0};
-                if (backend->resolveMacArp(dev.ip, mac)) {
-                    for (int b = 0; b < 6; ++b) {
-                        host.mac[b] = mac[b];
+                cbdos::rtos::unlockMutex(m_mutex);
+            } else {
+                for (auto& entry : m_results) {
+                    if (entry.ip == dev.ip) {
+                        entry.ssdpServer = dev.server;
+                        entry.ssdpLocation = dev.location;
+                        if (isTvSsdpServer(dev.server)) {
+                            entry.isTv = true;
+                        }
+                        return;
                     }
-                    host.vendor = lookupVendorByMac(mac);
-                    if (isTvVendorName(host.vendor)) {
-                        host.isTv = true;
+                }
+            }
+            // 2) IP nueva solo vista por SSDP: MAC con lectura NO
+            // bloqueante de caché (cero delay; el callback no debe
+            // congelar el socket UDP). Sin holding del mutex aquí.
+            LanHostInfo host;
+            host.ip = dev.ip;
+            host.vendor = "SSDP";
+            host.alive = true;
+            host.discovery = "ssdp";
+            host.ssdpServer = dev.server;
+            host.ssdpLocation = dev.location;
+            host.isTv = isTvSsdpServer(dev.server);
+            uint8_t mac[6] = {0, 0, 0, 0, 0, 0};
+            if (backend->lookupArpCacheOnly(dev.ip, mac)) {
+                for (int b = 0; b < 6; ++b) {
+                    host.mac[b] = mac[b];
+                }
+                host.vendor = lookupVendorByMac(mac);
+                if (isTvVendorName(host.vendor)) {
+                    host.isTv = true;
+                }
+            }
+            if (m_mutex) {
+                cbdos::rtos::lockMutex(m_mutex);
+                // Re-chequear bajo lock por si entró por ARP en paralelo.
+                for (auto& entry : m_results) {
+                    if (entry.ip == dev.ip) {
+                        entry.ssdpServer = dev.server;
+                        entry.ssdpLocation = dev.location;
+                        if (isTvSsdpServer(dev.server)) {
+                            entry.isTv = true;
+                        }
+                        cbdos::rtos::unlockMutex(m_mutex);
+                        return;
                     }
                 }
                 m_results.push_back(host);
                 m_progress.hostsDiscovered =
                     static_cast<uint16_t>(m_results.size());
                 cbdos::rtos::unlockMutex(m_mutex);
+            } else {
+                m_results.push_back(host);
+                m_progress.hostsDiscovered =
+                    static_cast<uint16_t>(m_results.size());
             }
         });
         if (m_abortRequested.load(std::memory_order_relaxed)) {
@@ -682,8 +735,9 @@ void LanScannerService::runScan() {
         }
     }
 
-    // ── Fase 2: PortScan ──
-    setPhase(LanScanPhase::PortScan, 60);
+    // ── Fase 2: PortScan dirigido (70% a 90%) ──
+    // Solo sobre hosts confirmados vivos (cero sondeos a IPs inactivas).
+    setPhase(LanScanPhase::PortScan, 70);
 
     std::size_t hostCount = 0;
     if (m_mutex) {
@@ -746,12 +800,12 @@ void LanScannerService::runScan() {
             }
             ++doneProbes;
             const uint8_t pct =
-                static_cast<uint8_t>(60 + (doneProbes * 25) / totalProbes);
+                static_cast<uint8_t>(70 + (doneProbes * 20) / totalProbes);
             LanScanProgress snapshot{};
             OnProgressCallback progressCb;
             if (m_mutex) {
                 cbdos::rtos::lockMutex(m_mutex);
-                m_progress.percentage = pct > 85 ? 85 : pct;
+                m_progress.percentage = pct > 90 ? 90 : pct;
                 m_progress.currentHostIndex =
                     static_cast<uint16_t>(h + 1);
                 snapshot = m_progress;
@@ -790,8 +844,8 @@ void LanScannerService::runScan() {
         cbdos::rtos::unlockMutex(m_mutex);
     }
 
-    // ── Fase 3: BannerGrab ──
-    setPhase(LanScanPhase::BannerGrab, 85);
+    // ── Fase 3: BannerGrab (90% a 100%) ──
+    setPhase(LanScanPhase::BannerGrab, 90);
 
     if (m_mutex) {
         cbdos::rtos::lockMutex(m_mutex);
@@ -872,7 +926,7 @@ void LanScannerService::runScan() {
         }
 
         const uint8_t pct = static_cast<uint8_t>(
-            85 + ((h + 1) * 14) / (hostCount > 0 ? hostCount : 1));
+            90 + ((h + 1) * 9) / (hostCount > 0 ? hostCount : 1));
         LanScanProgress snapshot{};
         OnProgressCallback progressCb;
         if (m_mutex) {
