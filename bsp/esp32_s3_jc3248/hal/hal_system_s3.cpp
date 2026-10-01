@@ -1,11 +1,45 @@
 #include "cbdos/system.hpp"
 #include "cbdos/rtos.hpp"
+#include "cbdos/memory.hpp"
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+#include <esp_heap_caps.h>
 
 namespace cbdos {
+
+namespace mem {
+
+void* alloc_psram(size_t size) {
+    void* ptr = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    return ptr ? ptr : ::malloc(size);
+}
+
+void* realloc_psram(void* ptr, size_t size) {
+    void* p = heap_caps_realloc(ptr, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    return p ? p : ::realloc(ptr, size);
+}
+
+void* alloc_dma(size_t size) {
+    return heap_caps_malloc(size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+}
+
+void* alloc_internal(size_t size) {
+    return heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+}
+
+void* realloc_internal(void* ptr, size_t size) {
+    return heap_caps_realloc(ptr, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+}
+
+void free_mem(void* ptr) {
+    if (ptr) {
+        heap_caps_free(ptr);
+    }
+}
+
+} // namespace mem
 namespace system {
 
 uint32_t getTimeMs() {

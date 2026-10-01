@@ -1,8 +1,8 @@
-# CyBerDeck OS — CBDos v0.2.3-dev
+# CyBerDeck OS — CBDos v0.2.4-dev
 
 **CyBerDeck OS (CBDos)** es un sistema operativo embebido modular, agnostico y *offline-first* disenado para cyberdecks, consolas portatiles y dispositivos multimedia basados en microcontroladores ESP32. Incluye soporte para topologias de red federadas, jerarquicas y ruteadas (basadas en Torres/Zonas). Arquitectura `core/` desacoplada de cualquier SDK de hardware, UI en **LVGL v9.5** y soporte multi-target simultaneo.
 
-> **Estado general:** CBDos v0.2.3-dev. El nucleo `core/`, motor de UI, audio, emuladores, terminales, malla mesh, seguridad FIDO2 y todas las vistas principales estan implementados y operativos. Soporte completo multi-target ESP32-P4 y ESP32-S3.
+> **Estado general:** CBDos v0.2.4-dev. El nucleo `core/`, motor de UI, audio, emuladores, terminales, malla mesh, seguridad FIDO2 y todas las vistas principales estan implementados y operativos. Soporte completo multi-target ESP32-P4 y ESP32-S3.
 
 ---
 
