@@ -7,6 +7,7 @@
 #include "../modals/DiagnosticsModal.hpp"
 #include "../modals/AboutModal.hpp"
 #include "../modals/LanguageModal.hpp"
+#include "../modals/UsbModal.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/config_manager.hpp"
@@ -112,23 +113,8 @@ void ConfigView::btn_event_cb(lv_event_t * e) {
         } else if (id == 8) {
             AboutModal::show();
         } else if (id == 9) {
-            // Selector de modo USB de sistema: persiste y reinicia para aplicar
-            // limpio al arranque (las apps jamás tocan el BSP directo).
-            // Reboot diferido con timer: el toast debe pintarse antes del restart.
-            auto cur = cbdos::usb::UsbManager::getInstance().getBootMode();
-            auto next = (cur == cbdos::usb::UsbMode::Hid)
-                            ? cbdos::usb::UsbMode::Host
-                            : cbdos::usb::UsbMode::Hid;
-            cbdos::usb::UsbManager::getInstance().requestMode(next);
-            UIManager::showToast(next == cbdos::usb::UsbMode::Hid
-                                     ? cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_USB_TO_HID)
-                                     : cbdos::lang::tr(cbdos::lang::StrId::STR_CFG_USB_TO_HOST));
-            lv_timer_create(
-                [](lv_timer_t* t) {
-                    lv_timer_delete(t);
-                    cbdos::usb::UsbManager::getInstance().reboot();
-                },
-                1500, nullptr);
+            // Selector modal de modo USB de sistema (HID / FIDO2 / HOST)
+            UsbModal::show();
         } else if (id == 10) {
             // Selector de idioma: abre modal con ES/EN y marca en el actual.
             LanguageModal::show();
@@ -170,10 +156,11 @@ bool ConfigView::onCreate(lv_obj_t* parent) {
     };
 
     // Fila de modo USB de sistema (se dibuja aparte por subtítulo dinámico)
-    const bool usbHid =
-        cbdos::usb::UsbManager::getInstance().getBootMode() == cbdos::usb::UsbMode::Hid;
-    const char* usbSub = usbHid ? tr(StrId::STR_CFG_USB_HID_SUB)
-                                : tr(StrId::STR_CFG_USB_HOST_SUB);
+    const auto bootMode = cbdos::usb::UsbManager::getInstance().getBootMode();
+    const char* usbSub = (bootMode == cbdos::usb::UsbMode::Hid)  ? tr(StrId::STR_CFG_USB_HID_SUB)
+                       : (bootMode == cbdos::usb::UsbMode::Fido) ? tr(StrId::STR_CFG_USB_SUB_FIDO)
+                       : (bootMode == cbdos::usb::UsbMode::Cdc)  ? tr(StrId::STR_CFG_USB_SUB_CDC)
+                                                                 : tr(StrId::STR_CFG_USB_HOST_SUB);
 
     // Fila de idioma (id 10): subtitulo dinamico segun idioma actual
     const bool isEnglish = (cbdos::lang::getLanguage() == cbdos::lang::Lang::EN);

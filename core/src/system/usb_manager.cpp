@@ -10,7 +10,10 @@ constexpr const char* kNs = "cbdos_usb";
 constexpr const char* kKeyMode = "mode";
 
 UsbMode sanitize(uint8_t v) {
-    return (v == static_cast<uint8_t>(UsbMode::Host)) ? UsbMode::Host : UsbMode::Hid;
+    if (v == static_cast<uint8_t>(UsbMode::Host)) return UsbMode::Host;
+    if (v == static_cast<uint8_t>(UsbMode::Fido)) return UsbMode::Fido;
+    if (v == static_cast<uint8_t>(UsbMode::Cdc))  return UsbMode::Cdc;
+    return UsbMode::Hid;
 }
 }  // namespace
 

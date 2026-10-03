@@ -12,9 +12,16 @@
 #include "cbdos/language.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos/tts.hpp"
+#include "cbdos/usb_manager.hpp"
+#include "cbdos/usb_host.hpp"
 #include "PicoTTSService.hpp"
 #include "../../core/src/lua/LuaBridge.hpp"
 #include <Arduino.h>
+#include <USB.h>
+#include <USBCDC.h>
+// Con CDC_ON_BOOT=0 el core no lo declara ni lo define: lo instancia el BSP.
+// Solo se inicia en UsbMode::Cdc; en los demas modos no registra interfaz.
+USBCDC USBSerial(0);
 #include <WiFi.h>
 #include <lvgl.h>
 #include <JC3248W535.h>
@@ -34,6 +41,7 @@ namespace bsp {
     void initSocketBackendS3();
     void initSshBackendS3();
     void initHidDriverS3();
+    void initUsbHostBackendS3();
     void initNetworkAdapterS3();
     void init_lan_recon_s3();
     void initRadioBackendS3();
@@ -101,7 +109,22 @@ void setup() {
     cbdos::bsp::initRadioBackendS3();
     cbdos::bsp::initMeshTransportS3();
     cbdos::bsp::initHttpClientS3();
-    cbdos::bsp::initHidDriverS3();
+    
+    // Gestor USB de sistema: decide qué stack es dueño del hardware
+    cbdos::usb::UsbManager::getInstance().init();
+    {
+        auto usbBoot = cbdos::usb::UsbManager::getInstance().getBootMode();
+        if (usbBoot == cbdos::usb::UsbMode::Host) {
+            cbdos::bsp::initUsbHostBackendS3();
+        } else if (usbBoot == cbdos::usb::UsbMode::Cdc) {
+            // Modo Consola puro: unica via por la que existe CDC en el bus USB
+            USBSerial.begin(115200);
+            USB.begin();
+        } else {
+            cbdos::bsp::initHidDriverS3();
+        }
+    }
+
     cbdos::bsp::init_lan_recon_s3();
 
     // Registrar servicio de TTS (Offline-First: permanece en reposo hasta su primer uso)
@@ -210,17 +233,22 @@ void setup() {
 extern void cbdos_hid_s3_poll();
 
 void loop() {
-    cbdos_hid_s3_poll();
+    auto bootMode = cbdos::usb::UsbManager::getInstance().getBootMode();
+    if (bootMode == cbdos::usb::UsbMode::Hid || bootMode == cbdos::usb::UsbMode::Fido) {
+        cbdos_hid_s3_poll();
+    }
 
     // Respuesta al flasheador web: "CBDOS:VERSION?" -> banner de identidad.
-    while (Serial.available()) {
+    // Con CDC_ON_BOOT=0, Serial es la UART fisica; en modo Cdc se atiende USBSerial.
+    Stream& console = (bootMode == cbdos::usb::UsbMode::Cdc) ? (Stream&)USBSerial : (Stream&)Serial;
+    while (console.available()) {
         static String s3IdLine;
-        char c = (char)Serial.read();
+        char c = (char)console.read();
         if (c == '\n') {
             std::string line(s3IdLine.c_str());
             s3IdLine = "";
             if (cbdos::board_identity::isVersionQuery(line)) {
-                Serial.println(cbdos::board_identity::bannerFor(
+                console.println(cbdos::board_identity::bannerFor(
                     *cbdos::board_identity::findBoard("jc3248w535")).c_str());
             }
         } else if (c != '\r') {

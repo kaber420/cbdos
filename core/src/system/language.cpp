@@ -48,10 +48,10 @@ static const char* const lang_es[] = {
     "Soltar para cancelar (%.1fs)",                // 0x0023 formato
     "NVS borrado completamente",                   // 0x0024
     "Modo USB",                                    // 0x0025
-    "Actual: HID teclado/raton (tocar=cambiar a HOST)",  // 0x0026
-    "Actual: HOST modem/flasher (tocar=cambiar a HID)",  // 0x0027
-    "Modo HOST->HID: reiniciando...",              // 0x0028
-    "Modo HID->HOST: reiniciando...",              // 0x0029
+    "Actual: Teclado/Raton (HID)",                 // 0x0026
+    "Actual: USB Host (Modem/CDC)",                // 0x0027
+    "Modo HID seleccionado. Reiniciando...",       // 0x0028
+    "Modo USB Host seleccionado. Reiniciando...",  // 0x0029
     "Idioma",                                      // 0x002A
     "Actual: Espanol (tocar para elegir)",         // 0x002B
     "Current: English (tap to choose)",            // 0x002C (se muestra en EN)
@@ -213,6 +213,14 @@ static const char* const lang_es[] = {
     "Limpiar",
     "Teclado LIVE: pulsa y sale en el PC...",
     "Arrastra para mover  -  tap = click izq.",
+    "Teclado / Raton (HID)",                       // 0x00C3
+    "Llave FIDO2 (Kerberos)",                      // 0x00C4
+    "USB Host (Modem/CDC)",                        // 0x00C5
+    "Actual: Llave FIDO2",                         // 0x00C6
+    "Modo FIDO2 seleccionado. Reiniciando...",     // 0x00C7
+    "Consola Serie / CDC",                         // 0x00C8
+    "Actual: Consola CDC",                         // 0x00C9
+    "Modo Consola CDC seleccionado. Reiniciando...", // 0x00CA
 };
 
 static const char* const lang_en[] = {
@@ -254,10 +262,10 @@ static const char* const lang_en[] = {
     "Release to cancel (%.1fs)",
     "NVS fully erased",
     "USB Mode",
-    "Current: HID keyboard/mouse (tap=switch to HOST)",
-    "Current: HOST modem/flasher (tap=switch to HID)",
-    "HOST->HID mode: rebooting...",
-    "HID->HOST mode: rebooting...",
+    "Current: Keyboard/Mouse (HID)",
+    "Current: USB Host (Modem/CDC)",
+    "HID Mode selected. Rebooting...",
+    "USB Host Mode selected. Rebooting...",
     "Language",
     "Actual: Espanol (tocar para elegir)",
     "Current: English (tap to choose)",
@@ -419,6 +427,14 @@ static const char* const lang_en[] = {
     "Clear",
     "LIVE Keyboard: type to send to PC...",
     "Drag to move  -  tap = left click",
+    "Keyboard / Mouse (HID)",                      // 0x00C3
+    "FIDO2 Key (Kerberos)",                        // 0x00C4
+    "USB Host (Modem/CDC)",                        // 0x00C5
+    "Current: FIDO2 Key",                          // 0x00C6
+    "FIDO2 Mode selected. Rebooting...",           // 0x00C7
+    "Serial Console / CDC",                        // 0x00C8
+    "Current: CDC Console",                        // 0x00C9
+    "CDC Console Mode selected. Rebooting...",     // 0x00CA
 };
 
 static_assert(sizeof(lang_es) / sizeof(lang_es[0]) == (size_t)StrId::STR_COUNT,

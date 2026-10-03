@@ -240,8 +240,20 @@ enum class StrId : uint16_t {
     STR_HID_KB_PH = 0x00C1,
     STR_HID_PAD_HINT = 0x00C2,
 
+    // Modos USB (Fase UsbModal)
+    STR_CFG_USB_OPT_HID = 0x00C3,
+    STR_CFG_USB_OPT_FIDO = 0x00C4,
+    STR_CFG_USB_OPT_HOST = 0x00C5,
+    STR_CFG_USB_SUB_FIDO = 0x00C6,
+    STR_CFG_USB_TO_FIDO = 0x00C7,
+
+    // Modos USB (Fase 4 Modos Puros)
+    STR_CFG_USB_OPT_CDC = 0x00C8,
+    STR_CFG_USB_SUB_CDC = 0x00C9,
+    STR_CFG_USB_TO_CDC = 0x00CA,
+
     // Total Count
-    STR_COUNT = 0x00C3,
+    STR_COUNT = 0x00CB,
 };
 
 // Texto en idioma actual. Fallback a ES si falta clave. Nunca nullptr.

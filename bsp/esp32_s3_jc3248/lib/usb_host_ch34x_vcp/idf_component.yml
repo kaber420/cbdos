@@ -1,0 +1,12 @@
+dependencies:
+  espressif/usb_host_cdc_acm:
+    public: true
+    version: ^2.1.0
+description: USB Host driver for CH34x series of chips
+issues: https://github.com/espressif/esp-usb/issues
+repository: git://github.com/espressif/esp-usb.git
+repository_info:
+  commit_sha: 1a7c5aa53c24f927cded80a9ea9a5f6a051dabcc
+  path: host/class/cdc/usb_host_ch34x_vcp
+url: https://github.com/espressif/esp-usb/tree/master/host/class/cdc/usb_host_ch34x_vcp
+version: 2.2.1

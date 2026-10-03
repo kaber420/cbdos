@@ -15,8 +15,15 @@ namespace ui {
 // Si el arranque fue en modo Host, el PHY lo tiene el Host y el HID no puede
 // instalarse: se ofrece reboot a modo HID en vez de pelear el hardware.
 static bool hidModeReady() {
-    if (cbdos::usb::UsbManager::getInstance().getBootMode() != cbdos::usb::UsbMode::Hid) {
-        UIManager::showToast("Modo HOST activo: cambia a HID en Config");
+    auto mode = cbdos::usb::UsbManager::getInstance().getBootMode();
+    if (mode != cbdos::usb::UsbMode::Hid) {
+        if (mode == cbdos::usb::UsbMode::Fido) {
+            UIManager::showToast("Modo FIDO2 activo: cambia a HID en Config");
+        } else if (mode == cbdos::usb::UsbMode::Cdc) {
+            UIManager::showToast("Modo CDC activo: cambia a HID en Config");
+        } else {
+            UIManager::showToast("Modo HOST activo: cambia a HID en Config");
+        }
         return false;
     }
     return true;
@@ -420,6 +427,8 @@ void HidView::padEventCb(lv_event_t* e) {
     if (!self) return;
     // En modo Host el PHY no es HID: ignorar sin spam (la barra ya avisa).
     if (cbdos::usb::UsbManager::getInstance().getBootMode() != cbdos::usb::UsbMode::Hid) return;
+    if (!cbdos::hid::isEnabled()) return;
+
     lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_PRESSED) {
         lv_point_t p;
@@ -428,7 +437,6 @@ void HidView::padEventCb(lv_event_t* e) {
         self->m_lastPadY = p.y;
         self->m_accumX = 0;
         self->m_accumY = 0;
-        cbdos::hid::enable();
     } else if (code == LV_EVENT_PRESSING) {
         lv_point_t p;
         lv_indev_get_point(lv_indev_active(), &p);

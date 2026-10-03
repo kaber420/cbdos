@@ -8,8 +8,10 @@ namespace usb {
 // Modo exclusivo del único PHY USB-OTG HS.
 // Solo un stack puede ser dueño del hardware por arranque.
 enum class UsbMode : uint8_t {
-    Hid = 0,  // TinyUSB Device: teclado/ratón hacia el PC
-    Host = 1  // USB Host: módem, flasher, CDC, periféricos
+    Hid  = 0,  // TinyUSB Device: teclado/raton hacia el PC
+    Host = 1,  // USB Host: modem, flasher, CDC, perifericos
+    Fido = 2,  // TinyUSB Device: Llave de seguridad FIDO2 / Kerberos pura
+    Cdc  = 3   // TinyUSB Device: Consola Serie / Flasheador Web puro
 };
 
 // Gestor de sistema (core agnóstico). Las apps y vistas SOLO hablan con

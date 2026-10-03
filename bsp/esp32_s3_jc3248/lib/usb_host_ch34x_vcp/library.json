@@ -1,0 +1,10 @@
+{
+  "name": "usb_host_ch34x_vcp",
+  "version": "1.0.0",
+  "build": {
+    "includeDir": "include",
+    "flags": [
+      "-I include"
+    ]
+  }
+}

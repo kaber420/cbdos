@@ -78,7 +78,6 @@ extern "C" void app_main(void) {
     cbdos::bsp::initRadioBackendP4();
     cbdos::bsp::initMeshTransportP4();
     cbdos::bsp::initHttpClientP4();
-    cbdos::bsp::initHidDriverP4();
     cbdos::bsp::init_lan_recon_p4();
     // Gestor USB de sistema: el único PHY HS es exclusivo por arranque.
     // Decide qué stack es dueño del hardware; las apps solo piden modo vía UsbManager.
@@ -87,6 +86,7 @@ extern "C" void app_main(void) {
         cbdos::usb::UsbMode::Host) {
         cbdos::bsp::initUsbHostBackendP4();
     } else {
+        cbdos::bsp::initHidDriverP4();
         cbdos::system::log(cbdos::system::LogLevel::Info, TAG,
                            "USB modo HID: stack Host no iniciado (PHY libre para TinyUSB)");
     }

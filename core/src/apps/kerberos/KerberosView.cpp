@@ -5,6 +5,7 @@
 #include "cbdos/hid.hpp"
 #include "cbdos/display.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/usb_manager.hpp"
 #include <cstdio>
 
 namespace cbdos {
@@ -33,9 +34,13 @@ bool KerberosView::onCreate(lv_obj_t* parent) {
 
     buildMainLayout(m_container);
 
-    // Inicializar y habilitar token USB FIDO2 en hardware
+    // Inicializar y habilitar token USB FIDO2 en hardware si el sistema arrancó en modo FIDO2
     security::KerberosManager::instance().init();
-    cbdos::hid::enable();
+    if (cbdos::usb::UsbManager::getInstance().getBootMode() == cbdos::usb::UsbMode::Fido) {
+        cbdos::hid::enable();
+    } else {
+        UIManager::showToast("Activa modo FIDO2 en Ajustes > Modo USB");
+    }
 
     return true;
 }
@@ -200,7 +205,12 @@ void KerberosView::updateUIState() {
 
     // Actualizar badges e información USB
     if (m_lblUsbStatus && m_lblUsbBadge) {
-        if (isPending) {
+        if (cbdos::usb::UsbManager::getInstance().getBootMode() != cbdos::usb::UsbMode::Fido) {
+            lv_label_set_text(m_lblUsbStatus, "🔴 Requiere Modo USB FIDO2 (cambiar en Ajustes)");
+            lv_obj_set_style_text_color(m_lblUsbStatus, lv_color_hex(0xEF4444), 0);
+            lv_label_set_text(m_lblUsbBadge, "● INACTIVO");
+            lv_obj_set_style_text_color(m_lblUsbBadge, lv_color_hex(0xEF4444), 0);
+        } else if (isPending) {
             lv_label_set_text(m_lblUsbBadge, "⚠️ SOLICITUD");
             lv_obj_set_style_text_color(m_lblUsbBadge, lv_color_hex(0xFFB703), 0);
             lv_label_set_text(m_lblUsbStatus, "🟢 Petición WebAuthn recibida del Host");
