@@ -6,6 +6,7 @@
 #include <freertos/task.h>
 #include <freertos/semphr.h>
 #include <esp_heap_caps.h>
+#include <soc/rtc_cntl_reg.h>
 
 namespace cbdos {
 
@@ -83,6 +84,11 @@ float getCpuTemperature() {
 }
 
 void restart() {
+    ESP.restart();
+}
+
+void restartToBootloader() {
+    REG_SET_BIT(RTC_CNTL_OPTION1_REG, RTC_CNTL_FORCE_DOWNLOAD_BOOT);
     ESP.restart();
 }
 

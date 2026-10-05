@@ -24,6 +24,7 @@ size_t getFreePsram();
 size_t getTotalPsram();
 float getCpuTemperature();
 void restart();
+void restartToBootloader();
 void log(LogLevel level, const char* tag, const char* format, ...);
 
 } // namespace system

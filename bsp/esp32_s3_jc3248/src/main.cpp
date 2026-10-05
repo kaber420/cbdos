@@ -250,6 +250,10 @@ void loop() {
             if (cbdos::board_identity::isVersionQuery(line)) {
                 console.println(cbdos::board_identity::bannerFor(
                     *cbdos::board_identity::findBoard("jc3248w535")).c_str());
+            } else if (line == "CBDOS:BOOTLOADER") {
+                console.println("OK: REBOOTING TO BOOTLOADER");
+                delay(100);
+                cbdos::system::restartToBootloader();
             }
         } else if (c != '\r') {
             s3IdLine += c;

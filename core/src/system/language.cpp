@@ -221,6 +221,11 @@ static const char* const lang_es[] = {
     "Consola Serie / CDC",                         // 0x00C8
     "Actual: Consola CDC",                         // 0x00C9
     "Modo Consola CDC seleccionado. Reiniciando...", // 0x00CA
+    "Modo Bootloader (Flasheo)",                   // 0x00CB
+    "Reiniciando en modo Bootloader...",           // 0x00CC
+    "MODO BOOTLOADER",                             // 0x00CD
+    "Esperando nuevo firmware por USB (esptool)...", // 0x00CE
+    "Puerto USB activo  ·  Pulsa RST para salir",  // 0x00CF
 };
 
 static const char* const lang_en[] = {
@@ -435,6 +440,11 @@ static const char* const lang_en[] = {
     "Serial Console / CDC",                        // 0x00C8
     "Current: CDC Console",                        // 0x00C9
     "CDC Console Mode selected. Rebooting...",     // 0x00CA
+    "Bootloader Mode (Flasher)",                   // 0x00CB
+    "Rebooting into Bootloader mode...",           // 0x00CC
+    "BOOTLOADER MODE",                             // 0x00CD
+    "Waiting for USB firmware flash (esptool)...", // 0x00CE
+    "USB port active  ·  Press RST to exit",       // 0x00CF
 };
 
 static_assert(sizeof(lang_es) / sizeof(lang_es[0]) == (size_t)StrId::STR_COUNT,

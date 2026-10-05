@@ -252,8 +252,15 @@ enum class StrId : uint16_t {
     STR_CFG_USB_SUB_CDC = 0x00C9,
     STR_CFG_USB_TO_CDC = 0x00CA,
 
+    // Modo Bootloader
+    STR_PWR_BTN_BOOTLOADER = 0x00CB,
+    STR_PWR_TOAST_BOOTLOADER = 0x00CC,
+    STR_PWR_BOOTLOADER_TITLE = 0x00CD,
+    STR_PWR_BOOTLOADER_DESC = 0x00CE,
+    STR_PWR_BOOTLOADER_HINT = 0x00CF,
+
     // Total Count
-    STR_COUNT = 0x00CB,
+    STR_COUNT = 0x00D0,
 };
 
 // Texto en idioma actual. Fallback a ES si falta clave. Nunca nullptr.

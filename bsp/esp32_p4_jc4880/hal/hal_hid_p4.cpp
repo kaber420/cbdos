@@ -351,6 +351,10 @@ static void serial_interactive_cli_task(void* arg) {
                         } else {
                             printf("[SERIAL_CLI_ERR] ❌ Error al iniciar síntesis TTS (¿MicroSD insertada con diccionarios?).\n");
                         }
+                    } else if (line_buf == "CBDOS:BOOTLOADER") {
+                        printf("OK: REBOOTING TO BOOTLOADER\n");
+                        vTaskDelay(pdMS_TO_TICKS(100));
+                        ::cbdos::system::restartToBootloader();
                     } else if (::cbdos::board_identity::isVersionQuery(line_buf)) {
                         // Identidad v1 para el flasheador web (antes de que Lua vea la línea).
                         printf("%s\n", ::cbdos::board_identity::bannerFor(

@@ -3,6 +3,7 @@
 #include "../themes/DefaultTheme.h"
 #include "PowerManager.hpp"
 #include "cbdos/language.hpp"
+#include "cbdos/system.hpp"
 #include <cstdio>
 
 namespace cbdos {
@@ -37,6 +38,73 @@ void PowerConfigView::restart_btn_cb(lv_event_t* e) {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
         UIManager::showToast(cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_TOAST_RESTART));
         cbdos::system::PowerManager::getInstance().restart();
+    }
+}
+
+void PowerConfigView::bootloader_btn_cb(lv_event_t* e) {
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        // Overlay a pantalla completa en top layer para avisar claramente el modo
+        lv_obj_t* top = lv_layer_top();
+        lv_obj_t* mask = lv_obj_create(top);
+        lv_obj_set_size(mask, LV_PCT(100), LV_PCT(100));
+        lv_obj_set_pos(mask, 0, 0);
+        lv_obj_set_style_bg_color(mask, lv_color_hex(0x070b12), 0);
+        lv_obj_set_style_bg_opa(mask, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(mask, 0, 0);
+        lv_obj_set_style_pad_all(mask, 16, 0);
+        lv_obj_set_flex_flow(mask, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_align(mask, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        // Tarjeta central estilo Cyberdeck
+        lv_obj_t* card = lv_obj_create(mask);
+        lv_obj_set_width(card, LV_PCT(90));
+        lv_obj_set_height(card, LV_SIZE_CONTENT);
+        DefaultTheme::applyRaisedCard(card, 16);
+        lv_obj_set_style_border_color(card, lv_color_hex(0x38bdf8), 0);
+        lv_obj_set_style_border_width(card, 2, 0);
+        lv_obj_set_style_pad_all(card, 20, 0);
+        lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_align(card, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        // Icono Download grande
+        lv_obj_t* icon = lv_label_create(card);
+        lv_label_set_text(icon, LV_SYMBOL_DOWNLOAD);
+        lv_obj_set_style_text_color(icon, lv_color_hex(0x38bdf8), 0);
+        lv_obj_set_style_text_font(icon, &lv_font_montserrat_24, 0);
+        lv_obj_set_style_margin_bottom(icon, 12, 0);
+
+        // Título: MODO BOOTLOADER
+        lv_obj_t* title = lv_label_create(card);
+        lv_label_set_text(title, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BOOTLOADER_TITLE));
+        lv_obj_set_style_text_color(title, lv_color_hex(0xffffff), 0);
+        lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_margin_bottom(title, 8, 0);
+
+        // Descripción: Esperando nuevo firmware por USB (esptool)...
+        lv_obj_t* desc = lv_label_create(card);
+        lv_label_set_text(desc, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BOOTLOADER_DESC));
+        lv_obj_set_style_text_color(desc, DefaultTheme::getMutedTextColor(), 0);
+        lv_obj_set_style_text_font(desc, &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_align(desc, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_margin_bottom(desc, 14, 0);
+
+        // Badge inferior: Puerto USB activo · Pulsa RST para salir
+        lv_obj_t* hint = lv_label_create(card);
+        lv_label_set_text(hint, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BOOTLOADER_HINT));
+        lv_obj_set_style_text_color(hint, lv_color_hex(0xfb8500), 0);
+        lv_obj_set_style_text_font(hint, &lv_font_montserrat_12, 0);
+        lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
+
+        // Forzar renderizado y refresco inmediato en el frame buffer
+        lv_obj_invalidate(mask);
+        lv_refr_now(NULL);
+
+        // Temporizador diferido breve para permitir que el DMA termine la transferencia del frame completo al panel
+        lv_timer_t* t = lv_timer_create([](lv_timer_t* timer) {
+            lv_timer_delete(timer);
+            cbdos::system::restartToBootloader();
+        }, 300, nullptr);
+        lv_timer_set_repeat_count(t, 1);
     }
 }
 
@@ -194,6 +262,26 @@ bool PowerConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_t* lblRst = lv_label_create(btnRestart);
     lv_label_set_text(lblRst, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BTN_RESTART));
     lv_obj_set_style_text_color(lblRst, DefaultTheme::getTextColor(), 0);
+
+    // Botón 5: Reiniciar en Modo Bootloader (Flasheo)
+    lv_obj_t* btnBootloader = lv_button_create(m_container);
+    lv_obj_set_width(btnBootloader, lv_pct(100));
+    lv_obj_set_height(btnBootloader, 54);
+    DefaultTheme::applyButton(btnBootloader, 14);
+    lv_obj_add_event_cb(btnBootloader, bootloader_btn_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_set_flex_flow(btnBootloader, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btnBootloader, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_hor(btnBootloader, 16, 0);
+
+    lv_obj_t* iconBoot = lv_label_create(btnBootloader);
+    lv_label_set_text(iconBoot, LV_SYMBOL_DOWNLOAD);
+    lv_obj_set_style_text_color(iconBoot, lv_color_hex(0x38bdf8), 0);
+    lv_obj_set_style_margin_right(iconBoot, 12, 0);
+
+    lv_obj_t* lblBoot = lv_label_create(btnBootloader);
+    lv_label_set_text(lblBoot, cbdos::lang::tr(cbdos::lang::StrId::STR_PWR_BTN_BOOTLOADER));
+    lv_obj_set_style_text_color(lblBoot, DefaultTheme::getTextColor(), 0);
 
     return true;
 }

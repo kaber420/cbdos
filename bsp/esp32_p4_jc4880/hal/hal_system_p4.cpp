@@ -11,6 +11,8 @@
 #include <esp_heap_caps.h>
 #include <esp_system.h>
 #include <esp_log.h>
+#include <soc/lp_system_reg.h>
+#include <soc/soc.h>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -167,6 +169,11 @@ float getCpuTemperature() {
 }
 
 void restart() {
+    esp_restart();
+}
+
+void restartToBootloader() {
+    REG_SET_BIT(LP_SYSTEM_REG_SYS_CTRL_REG, LP_SYSTEM_REG_FORCE_DOWNLOAD_BOOT);
     esp_restart();
 }
 

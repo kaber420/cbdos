@@ -17,6 +17,7 @@ private:
     static void light_sleep_btn_cb(lv_event_t* e);
     static void deep_sleep_btn_cb(lv_event_t* e);
     static void restart_btn_cb(lv_event_t* e);
+    static void bootloader_btn_cb(lv_event_t* e);
     static void timeout_dropdown_cb(lv_event_t* e);
 };
 
