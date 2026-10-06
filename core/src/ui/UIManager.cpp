@@ -1,12 +1,25 @@
 #include "UIManager.hpp"
-#include "views/DashboardView.hpp"
 #include "WallpaperManager.h"
 #include "themes/DefaultTheme.h"
 #include "assets/SystemIcons.hpp"
 #include "cbdos/system.hpp"
 #include "PowerManager.hpp"
 #include "../../lua/LuaBridge.hpp"
+#include "cbdos_build_profile.h"
 #include <unordered_map>
+
+#if CBDOS_FEATURE_DASHBOARD
+#include "views/DashboardView.hpp"
+#endif
+
+#if defined(CONFIG_CBDOS_PRODUCT_TABLEHUB) || CBDOS_DEFAULT_VIEW == CBDOS_VIEW_TABLEHUB_KDS || CBDOS_DEFAULT_VIEW == CBDOS_VIEW_TABLEHUB_TABLETOP
+#include "views/tablehub/TableHubKdsView.hpp"
+#include "views/tablehub/TableHubTabletopView.hpp"
+#endif
+
+#if CBDOS_FEATURE_STAFF_PIN
+#include "modals/StaffPinModal.hpp"
+#endif
 
 namespace cbdos {
 
@@ -24,6 +37,14 @@ void update() {
 
 void openDashboard() {
     UIManager::getInstance().openDashboard();
+}
+
+void openTableHubKds() {
+    UIManager::getInstance().openTableHubKds();
+}
+
+void openTableHubTabletop() {
+    UIManager::getInstance().openTableHubTabletop();
 }
 
 void toggleQuickSettings() {
@@ -82,9 +103,19 @@ bool UIManager::init(lv_obj_t* rootScreen) {
         cbdos::system::log(cbdos::system::LogLevel::Error, TAG, "Error inicializando HeaderBar");
         return false;
     }
+#if !CBDOS_FEATURE_KIOSK_LOCK
     m_headerBar.setOnClickCallback([this]() {
         this->toggleQuickSettings();
     });
+#endif
+
+#if CBDOS_FEATURE_STAFF_PIN
+    m_headerBar.setOnStaffPinRequestCallback([this]() {
+        StaffPinModal::show([this]() {
+            this->toggleQuickSettings();
+        });
+    });
+#endif
 
     // 5. Crear Contenedor de Contenido (Debajo de la HeaderBar flotante de 44px + margen)
     m_contentContainer = lv_obj_create(m_rootScreen);
@@ -116,8 +147,14 @@ bool UIManager::init(lv_obj_t* rootScreen) {
     // 7. Inicializar gestor de energía
     cbdos::system::PowerManager::getInstance().init();
 
-    // 8. Cargar vista inicial directa (Dashboard)
+    // 8. Cargar vista inicial según el perfil de compilación activo
+#if CBDOS_DEFAULT_VIEW == CBDOS_VIEW_TABLEHUB_KDS
+    openTableHubKds();
+#elif CBDOS_DEFAULT_VIEW == CBDOS_VIEW_TABLEHUB_TABLETOP
+    openTableHubTabletop();
+#else
     openDashboard();
+#endif
 
     m_initialized = true;
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "UIManager inicializado exitosamente.");
@@ -342,7 +379,29 @@ void UIManager::openDashboard() {
     if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
         lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
     }
+#if CBDOS_FEATURE_DASHBOARD
     switchView(std::make_shared<DashboardView>());
+#endif
+}
+
+void UIManager::openTableHubKds() {
+    closeKeyboard();
+    if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
+        lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
+    }
+#if defined(CONFIG_CBDOS_PRODUCT_TABLEHUB) || CBDOS_DEFAULT_VIEW == CBDOS_VIEW_TABLEHUB_KDS
+    switchView(std::make_shared<TableHubKdsView>());
+#endif
+}
+
+void UIManager::openTableHubTabletop() {
+    closeKeyboard();
+    if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
+        lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
+    }
+#if defined(CONFIG_CBDOS_PRODUCT_TABLEHUB) || CBDOS_DEFAULT_VIEW == CBDOS_VIEW_TABLEHUB_TABLETOP
+    switchView(std::make_shared<TableHubTabletopView>());
+#endif
 }
 
 void UIManager::showNotification(const char* message, uint32_t durationMs) {

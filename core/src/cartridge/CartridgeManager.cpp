@@ -1,3 +1,6 @@
+#include "cbdos_build_profile.h"
+#if CBDOS_FEATURE_CARTRIDGE
+
 #include "cbdos/cartridge.hpp"
 #include "cbdos/storage.hpp"
 #include "cbdos/system.hpp"
@@ -283,3 +286,5 @@ bool CartridgeManager::flashFromSD(const std::string& sdPath,
 
 } // namespace cartridge
 } // namespace cbdos
+
+#endif // CBDOS_FEATURE_CARTRIDGE

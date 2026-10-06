@@ -4,6 +4,7 @@
 #include "cbdos/system.hpp"
 #include "cbdos/network.hpp"
 #include "cbdos/time.hpp"
+#include "cbdos_build_profile.h"
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -20,9 +21,11 @@ HeaderBar::HeaderBar()
       m_btnRightAction(nullptr),
       m_labelRightAction(nullptr),
       m_timer(nullptr),
+      m_staffPinTimer(nullptr),
       m_onClickCb(nullptr),
       m_onBackCb(nullptr),
       m_onRightActionCb(nullptr),
+      m_onStaffPinCb(nullptr),
       m_lastUpdateMs(0) {
 }
 
@@ -30,6 +33,10 @@ HeaderBar::~HeaderBar() {
     if (m_timer) {
         lv_timer_delete(m_timer);
         m_timer = nullptr;
+    }
+    if (m_staffPinTimer) {
+        lv_timer_delete(m_staffPinTimer);
+        m_staffPinTimer = nullptr;
     }
     if (m_container && lv_obj_is_valid(m_container)) {
         lv_obj_delete(m_container);
@@ -87,10 +94,12 @@ bool HeaderBar::init(lv_obj_t* parent) {
     lv_obj_set_style_text_color(m_labelTitle, lv_color_hex(palette.textPrimary), 0);
     lv_obj_set_style_text_font(m_labelTitle, &lv_font_montserrat_14, 0);
 
-    // 3. Centro: Contenedor táctil central (Solo tocar aquí abre los Accesos Rápidos)
+    // 3. Centro: Contenedor táctil central (Solo tocar aquí abre los Accesos Rápidos si KIOSK_LOCK está apagado)
     lv_obj_t* centerBox = lv_obj_create(m_container);
     lv_obj_remove_flag(centerBox, LV_OBJ_FLAG_SCROLLABLE);
+#if !CBDOS_FEATURE_KIOSK_LOCK
     lv_obj_add_flag(centerBox, LV_OBJ_FLAG_CLICKABLE);
+#endif
     lv_obj_set_style_bg_opa(centerBox, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(centerBox, 0, 0);
     lv_obj_set_style_pad_hor(centerBox, 24, 0);
@@ -104,12 +113,18 @@ bool HeaderBar::init(lv_obj_t* parent) {
     lv_obj_set_style_text_color(m_labelClock, lv_color_hex(palette.textPrimary), 0);
     lv_obj_set_style_text_font(m_labelClock, &lv_font_montserrat_16, 0);
 
+#if !CBDOS_FEATURE_KIOSK_LOCK
     // Evento de click EXCLUSIVO en la zona central
     lv_obj_add_event_cb(centerBox, eventHandler, LV_EVENT_CLICKED, this);
+#endif
 
     // 4. Derecha: Contenedor derecho (WiFi Status o Botón de Acción Personalizado)
     lv_obj_t* rightBox = lv_obj_create(m_container);
     lv_obj_remove_flag(rightBox, LV_OBJ_FLAG_SCROLLABLE);
+#if CBDOS_FEATURE_STAFF_PIN
+    lv_obj_add_flag(rightBox, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(rightBox, staffPinEventHandler, LV_EVENT_ALL, this);
+#endif
     lv_obj_set_style_bg_opa(rightBox, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(rightBox, 0, 0);
     lv_obj_set_style_pad_all(rightBox, 0, 0);
@@ -213,6 +228,40 @@ void HeaderBar::rightActionEventHandler(lv_event_t* e) {
 
 void HeaderBar::setOnClickCallback(ClickCallback cb) {
     m_onClickCb = cb;
+}
+
+void HeaderBar::setOnStaffPinRequestCallback(ClickCallback cb) {
+    m_onStaffPinCb = cb;
+}
+
+void HeaderBar::staffPinEventHandler(lv_event_t* e) {
+    auto* self = static_cast<HeaderBar*>(lv_event_get_user_data(e));
+    if (!self) return;
+
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_PRESSED) {
+        if (self->m_staffPinTimer) {
+            lv_timer_delete(self->m_staffPinTimer);
+            self->m_staffPinTimer = nullptr;
+        }
+        self->m_staffPinTimer = lv_timer_create(staffPinTimerCallback, 3000, self);
+        lv_timer_set_repeat_count(self->m_staffPinTimer, 1);
+    } else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
+        if (self->m_staffPinTimer) {
+            lv_timer_delete(self->m_staffPinTimer);
+            self->m_staffPinTimer = nullptr;
+        }
+    }
+}
+
+void HeaderBar::staffPinTimerCallback(lv_timer_t* t) {
+    auto* self = static_cast<HeaderBar*>(lv_timer_get_user_data(t));
+    if (self) {
+        self->m_staffPinTimer = nullptr;
+        if (self->m_onStaffPinCb) {
+            self->m_onStaffPinCb();
+        }
+    }
 }
 
 void HeaderBar::update() {

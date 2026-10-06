@@ -1,3 +1,6 @@
+#include "cbdos_build_profile.h"
+#if CBDOS_FEATURE_FLASHER
+
 #include "FlasherView.hpp"
 #include "../themes/DefaultTheme.h"
 #include "../UIManager.hpp"
@@ -799,5 +802,7 @@ void FlasherView::pickerItemClickCb(lv_event_t* e) {
 
 } // namespace ui
 } // namespace cbdos
+
+#endif // CBDOS_FEATURE_FLASHER
 
 

@@ -1,3 +1,6 @@
+#include "cbdos_build_profile.h"
+#if CBDOS_FEATURE_FLASHER
+
 #include "cbdos/flasher.hpp"
 
 namespace cbdos {
@@ -91,4 +94,6 @@ bool startFlash(FlasherProgressCb progressCb) {
 
 } // namespace flasher
 } // namespace cbdos
+
+#endif // CBDOS_FEATURE_FLASHER
 

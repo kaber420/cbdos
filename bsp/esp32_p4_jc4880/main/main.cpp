@@ -16,7 +16,10 @@
 #include "cbdos/language.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos/tts.hpp"
+#include "cbdos/build_profile.hpp"
+#if CBDOS_FEATURE_PICOTTS
 #include "PicoTTSService.hpp"
+#endif
 #include <esp_log.h>
 #include <nvs_flash.h>
 #include <freertos/FreeRTOS.h>
@@ -91,8 +94,10 @@ extern "C" void app_main(void) {
                            "USB modo HID: stack Host no iniciado (PHY libre para TinyUSB)");
     }
 
+#if CBDOS_FEATURE_PICOTTS
     // Registrar servicio de TTS (Offline-First: permanece en reposo hasta su primer uso)
     cbdos::tts::setTTSService(&cbdos::tts::PicoTTSService::getInstance());
+#endif
 
     // Inicializar radio determinista segun NVS (Offline-First)
     cbdos::radio::init();

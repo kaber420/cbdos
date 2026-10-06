@@ -14,7 +14,10 @@
 #include "cbdos/tts.hpp"
 #include "cbdos/usb_manager.hpp"
 #include "cbdos/usb_host.hpp"
+#include "cbdos/build_profile.hpp"
+#if CBDOS_FEATURE_PICOTTS
 #include "PicoTTSService.hpp"
+#endif
 #include "../../core/src/lua/LuaBridge.hpp"
 #include <Arduino.h>
 #include <USB.h>
@@ -127,8 +130,10 @@ void setup() {
 
     cbdos::bsp::init_lan_recon_s3();
 
+#if CBDOS_FEATURE_PICOTTS
     // Registrar servicio de TTS (Offline-First: permanece en reposo hasta su primer uso)
     cbdos::tts::setTTSService(&cbdos::tts::PicoTTSService::getInstance());
+#endif
 
     // Conectar time <--> mesh mediante callbacks (sin acoplamiento directo entre módulos)
     cbdos::time::setTowerSyncRequestCallback([]() {

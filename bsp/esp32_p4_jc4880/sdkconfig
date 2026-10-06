@@ -785,6 +785,15 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# CBDos Product & Build Profile
+#
+CONFIG_CBDOS_PRODUCT_CYBERDECK=y
+# CONFIG_CBDOS_PRODUCT_TABLEHUB is not set
+CONFIG_CBDOS_PROFILE_FULL=y
+# CONFIG_CBDOS_PROFILE_LITE is not set
+# end of CBDos Product & Build Profile
+
+#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEBUG=y

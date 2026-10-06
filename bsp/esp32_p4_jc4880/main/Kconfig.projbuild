@@ -1,0 +1,40 @@
+menu "CBDos Product & Build Profile"
+
+choice CBDOS_PRODUCT_FAMILY
+    prompt "Product Family"
+    default CBDOS_PRODUCT_CYBERDECK
+
+config CBDOS_PRODUCT_CYBERDECK
+    bool "CBDos Cyberdeck"
+
+config CBDOS_PRODUCT_TABLEHUB
+    bool "TableHub Hospitality Appliance"
+endchoice
+
+if CBDOS_PRODUCT_CYBERDECK
+    choice CBDOS_CYBERDECK_PROFILE
+        prompt "Cyberdeck Variant"
+        default CBDOS_PROFILE_FULL
+
+    config CBDOS_PROFILE_FULL
+        bool "Full Cyberdeck Suite (All Apps, Tools, Flasher, TTS)"
+
+    config CBDOS_PROFILE_LITE
+        bool "Lite Profile (Slim Footprint)"
+    endchoice
+endif
+
+if CBDOS_PRODUCT_TABLEHUB
+    choice TABLEHUB_DEVICE_MODE
+        prompt "TableHub Operating Mode"
+        default TABLEHUB_MODE_KDS
+
+    config TABLEHUB_MODE_KDS
+        bool "KDS - Kitchen Display System (Full Kitchen Dashboard)"
+
+    config TABLEHUB_MODE_TABLETOP
+        bool "Tabletop - Guest Dining Terminal (Order & Service Screen)"
+    endchoice
+endif
+
+endmenu

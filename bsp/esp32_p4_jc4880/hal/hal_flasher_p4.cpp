@@ -1,3 +1,6 @@
+#include "cbdos_build_profile.h"
+#if CBDOS_FEATURE_FLASHER
+
 #include "hal_flasher_p4.hpp"
 #include "usb_cdc_loader_port.hpp"
 #include "cbdos/flasher.hpp"
@@ -448,3 +451,5 @@ bool startFlash(FlasherProgressCb progressCb) {
 
 } // namespace flasher
 } // namespace cbdos
+
+#endif // CBDOS_FEATURE_FLASHER

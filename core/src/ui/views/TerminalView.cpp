@@ -1,3 +1,6 @@
+#include "cbdos_build_profile.h"
+#if CBDOS_FEATURE_TERMINAL
+
 #include "TerminalView.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
@@ -265,3 +268,5 @@ void TerminalView::onThemeChanged(cbdos::theme::ThemeType theme, const cbdos::th
 
 } // namespace ui
 } // namespace cbdos
+
+#endif // CBDOS_FEATURE_TERMINAL

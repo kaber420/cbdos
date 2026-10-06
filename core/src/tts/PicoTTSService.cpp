@@ -1,3 +1,6 @@
+#include "cbdos_build_profile.h"
+#if CBDOS_FEATURE_PICOTTS
+
 #include "PicoTTSService.hpp"
 #include "cbdos/audio.hpp"
 #include "cbdos/log.hpp"
@@ -505,3 +508,5 @@ void PicoTTSService::runTask() {
 
 } // namespace tts
 } // namespace cbdos
+
+#endif // CBDOS_FEATURE_PICOTTS

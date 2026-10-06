@@ -2,6 +2,8 @@
 // CartridgeView.cpp — Gestor y Lanzador Multi-Slot de Cartuchos con MicroSD
 // Adaptado a la arquitectura agnóstica de CBDos v0.2.0 desde espOS32
 // ==========================================================================
+#include "cbdos_build_profile.h"
+#if CBDOS_FEATURE_CARTRIDGE
 
 #include "CartridgeView.hpp"
 #include "../UIManager.hpp"
@@ -428,3 +430,5 @@ void CartridgeView::closeModalCb(lv_event_t* e) {
 
 } // namespace ui
 } // namespace cbdos
+
+#endif // CBDOS_FEATURE_CARTRIDGE

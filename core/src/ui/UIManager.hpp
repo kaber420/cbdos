@@ -31,6 +31,8 @@ public:
     std::shared_ptr<BaseView> getCurrentView() const;
 
     void openDashboard();
+    void openTableHubKds();
+    void openTableHubTabletop();
     void toggleQuickSettings() { closeKeyboard(); QuickSettingsPanel::toggle(); }
     bool isQuickSettingsOpen() const { return QuickSettingsPanel::isOpen(); }
     void showNotification(const char* message, uint32_t durationMs = 3000);

@@ -1,3 +1,6 @@
+#include "cbdos_build_profile.h"
+#if CBDOS_FEATURE_LAN_RECON
+
 #include "LanReconView.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
@@ -694,3 +697,5 @@ const char* LanReconView::portShortName(uint16_t port) {
 
 } // namespace ui
 } // namespace cbdos
+
+#endif // CBDOS_FEATURE_LAN_RECON
