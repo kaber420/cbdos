@@ -3,20 +3,20 @@
 #include <cstring>
 #include <unordered_map>
 
-// Símbolos generados para los archivos .bin de 48x48 (ARGB8888)
-extern const uint8_t recorder_bin[]   asm("_binary_app_recorder_bin_start");
-extern const uint8_t radio_bin[]      asm("_binary_app_radio_bin_start");
-extern const uint8_t browser_bin[]    asm("_binary_app_browser_bin_start");
-extern const uint8_t terminal_bin[]   asm("_binary_app_terminal_bin_start");
-extern const uint8_t cartridge_bin[]  asm("_binary_app_cartridge_bin_start");
-extern const uint8_t lua_bin[]        asm("_binary_app_lua_bin_start");
-extern const uint8_t editor_bin[]     asm("_binary_app_editor_bin_start");
-extern const uint8_t utilities_bin[]  asm("_binary_app_utilities_bin_start");
-extern const uint8_t gallery_bin[]    asm("_binary_app_gallery_bin_start");
-extern const uint8_t files_bin[]      asm("_binary_app_files_bin_start");
-extern const uint8_t music_bin[]      asm("_binary_app_music_bin_start");
-extern const uint8_t flasher_bin[]    asm("_binary_app_flasher_bin_start");
-extern const uint8_t config_bin[]     asm("_binary_app_config_bin_start");
+// Iconos de 48x48 (ARGB8888) portables incluidos en Flash
+extern const uint8_t app_recorder_bin[];
+extern const uint8_t app_radio_bin[];
+extern const uint8_t app_browser_bin[];
+extern const uint8_t app_terminal_bin[];
+extern const uint8_t app_cartridge_bin[];
+extern const uint8_t app_lua_bin[];
+extern const uint8_t app_editor_bin[];
+extern const uint8_t app_utilities_bin[];
+extern const uint8_t app_gallery_bin[];
+extern const uint8_t app_files_bin[];
+extern const uint8_t app_music_bin[];
+extern const uint8_t app_flasher_bin[];
+extern const uint8_t app_config_bin[];
 
 namespace cbdos {
 namespace ui {
@@ -30,19 +30,19 @@ const char* SystemIcons::getSvgData(const std::string& appId) {
 }
 
 static const uint8_t* getBinData(const std::string& appId) {
-    if (appId == "recorder") return recorder_bin;
-    if (appId == "radio") return radio_bin;
-    if (appId == "browser") return browser_bin;
-    if (appId == "terminal") return terminal_bin;
-    if (appId == "cartridge") return cartridge_bin;
-    if (appId == "lua") return lua_bin;
-    if (appId == "editor") return editor_bin;
-    if (appId == "utilities") return utilities_bin;
-    if (appId == "gallery") return gallery_bin;
-    if (appId == "files") return files_bin;
-    if (appId == "music") return music_bin;
-    if (appId == "flasher") return flasher_bin;
-    if (appId == "config") return config_bin;
+    if (appId == "recorder") return app_recorder_bin;
+    if (appId == "radio") return app_radio_bin;
+    if (appId == "browser") return app_browser_bin;
+    if (appId == "terminal") return app_terminal_bin;
+    if (appId == "cartridge") return app_cartridge_bin;
+    if (appId == "lua") return app_lua_bin;
+    if (appId == "editor") return app_editor_bin;
+    if (appId == "utilities") return app_utilities_bin;
+    if (appId == "gallery") return app_gallery_bin;
+    if (appId == "files") return app_files_bin;
+    if (appId == "music") return app_music_bin;
+    if (appId == "flasher") return app_flasher_bin;
+    if (appId == "config") return app_config_bin;
     return nullptr;
 }
 

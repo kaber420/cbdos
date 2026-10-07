@@ -20,9 +20,11 @@ set(CORE_SRCS
     "src/cbdos_core.cpp"
     "src/ui/ThemeEngine.cpp"
     "src/ui/UIManager.cpp"
+    "src/ui/AppRegistry.cpp"
     "src/ui/WallpaperManager.cpp"
     "src/ui/themes/DefaultTheme.cpp"
     "src/ui/assets/SystemIcons.cpp"
+    "src/ui/assets/SystemIconsData.cpp"
     "src/ui/components/HeaderBar.cpp"
     "src/ui/components/QuickSettingsPanel.cpp"
     "src/ui/components/AnimatedWallpaper.cpp"
@@ -209,20 +211,6 @@ idf_component_register(
         "mbedtls"
     PRIV_REQUIRES
         "main"
-    EMBED_FILES
-        "assets/icons/app_recorder.bin"
-        "assets/icons/app_radio.bin"
-        "assets/icons/app_browser.bin"
-        "assets/icons/app_terminal.bin"
-        "assets/icons/app_cartridge.bin"
-        "assets/icons/app_lua.bin"
-        "assets/icons/app_editor.bin"
-        "assets/icons/app_utilities.bin"
-        "assets/icons/app_gallery.bin"
-        "assets/icons/app_files.bin"
-        "assets/icons/app_music.bin"
-        "assets/icons/app_flasher.bin"
-        "assets/icons/app_config.bin"
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-maybe-uninitialized -Wno-unused-but-set-variable -Wno-unused-variable -Wno-implicit-fallthrough -Wno-unused-function)

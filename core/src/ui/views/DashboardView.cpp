@@ -1,40 +1,11 @@
 #include "DashboardView.hpp"
-#include "ConfigView.hpp"
-#include "MusicPlayerView.hpp"
-#include "AudioRecorderView.hpp"
-#include "GalleryListView.hpp"
-#include "RadioView.hpp"
-#include "LuaRunnerView.hpp"
-#include "TextEditorView.hpp"
-#include "FileManagerView.hpp"
-#include "HidView.hpp"
-#include "UtilitiesView.hpp"
-#include "TlvBrowserView.hpp"
-#include "LuappView.hpp"
-#include "LottieTestView.hpp"
-#include "MeshCoreView.hpp"
-#include "../../apps/kerberos/KerberosView.hpp"
-#include "../../lua/LuappManager.hpp"
+#include "../AppRegistry.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "../assets/SystemIcons.hpp"
 #include "cbdos/display.hpp"
 #include "cbdos/system.hpp"
 #include "cbdos/language.hpp"
-#include "cbdos_build_profile.h"
-
-#if CBDOS_FEATURE_FLASHER
-#include "FlasherView.hpp"
-#endif
-#if CBDOS_FEATURE_CARTRIDGE
-#include "CartridgeView.hpp"
-#endif
-#if CBDOS_FEATURE_TERMINAL
-#include "TerminalView.hpp"
-#endif
-#if CBDOS_FEATURE_LAN_RECON
-#include "LanReconView.hpp"
-#endif
 #include <cstring>
 
 namespace cbdos {
@@ -47,51 +18,10 @@ DashboardView::DashboardView()
 bool DashboardView::onCreate(lv_obj_t* parent) {
     if (!parent) return false;
 
-    using cbdos::lang::tr;
-    using cbdos::lang::StrId;
-    // Resetear lista de aplicaciones
-    m_apps = {
-        {"browser", tr(StrId::STR_APP_BROWSER), LV_SYMBOL_EYE_OPEN, 0x00B4D8, false, ""},
-        {"gallery", tr(StrId::STR_APP_GALLERY), LV_SYMBOL_IMAGE, 0xEC4899, false, ""},
-        {"files", tr(StrId::STR_APP_FILES), LV_SYMBOL_DIRECTORY, 0xF77F00, false, ""},
-        {"utilities", tr(StrId::STR_APP_UTILITIES), LV_SYMBOL_LIST, 0x00F5D4, false, ""},
-#if CBDOS_FEATURE_CARTRIDGE
-        {"cartridge", tr(StrId::STR_APP_CARTRIDGE), LV_SYMBOL_PLAY, 0x3F68D9, false, ""},
-#endif
-        {"lua", tr(StrId::STR_APP_LUA), LV_SYMBOL_FILE, 0x06B6D4, false, ""},
-        {"editor", tr(StrId::STR_APP_EDITOR), LV_SYMBOL_EDIT, 0x3B82F6, false, ""},
-        {"radio", tr(StrId::STR_APP_RADIO), LV_SYMBOL_WIFI, 0x10B981, false, ""},
-#if CBDOS_FEATURE_FLASHER
-        {"flasher", tr(StrId::STR_APP_FLASHER), LV_SYMBOL_DOWNLOAD, 0xF59E0B, false, ""},
-#endif
-#if CBDOS_FEATURE_TERMINAL
-        {"terminal", tr(StrId::STR_APP_TERMINAL), LV_SYMBOL_KEYBOARD, 0x10B981, false, ""},
-#endif
-        {"hid", tr(StrId::STR_APP_HID), LV_SYMBOL_KEYBOARD, 0xFFD60A, false, ""},
-        {"meshcore", tr(StrId::STR_APP_MESHCORE), LV_SYMBOL_WIFI, 0x00E5FF, false, ""},
-#if CBDOS_FEATURE_LAN_RECON
-        {"recon", "LAN Recon", LV_SYMBOL_WIFI, 0x00F5D4, false, ""},
-#endif
-        {"recorder", tr(StrId::STR_APP_RECORDER), LV_SYMBOL_AUDIO, 0xEF4444, false, ""},
-        {"music", tr(StrId::STR_APP_MUSIC), LV_SYMBOL_AUDIO, 0x00E5FF, false, ""},
-        {"kerberos", tr(StrId::STR_APP_KERBEROS), LV_SYMBOL_USB, 0x10B981, false, ""},
-        {"lottie", tr(StrId::STR_APP_LOTTIE), LV_SYMBOL_IMAGE, 0x06D6A0, false, ""},
-        {"config", tr(StrId::STR_APP_CONFIG), LV_SYMBOL_SETTINGS, 0x9D4EDD, false, ""}
-    };
-
-    // Escanear dinámicamente aplicaciones .luapp en la MicroSD
-    auto& luappMgr = cbdos::lua::LuappManager::getInstance();
-    luappMgr.scanApps("/sdcard/apps");
-    for (const auto& app : luappMgr.getDiscoveredApps()) {
-        m_apps.push_back({
-            "luapp_" + app.name,
-            app.name,
-            app.iconSymbol,
-            app.accentColor,
-            true,
-            app.filePath
-        });
-    }
+    // Asegurar inicialización y refresco dinámico de apps externas (MicroSD)
+    auto& registry = AppRegistry::getInstance();
+    registry.initSystemApps();
+    registry.rescanExternalApps();
 
     // Contenedor principal con scroll vertical suave (Fondo transparente para ver el Wallpaper)
     m_container = lv_obj_create(parent);
@@ -136,16 +66,17 @@ void DashboardView::setupLayout() {
 
 void DashboardView::createCards() {
     auto caps = cbdos::display::getCapabilities();
+    const auto& apps = AppRegistry::getInstance().getVisibleApps();
 
-    // Dimensiones para 3 iconos por fila: más grandes y cómodos al tacto
     int32_t itemWidth = (caps.width >= 480) ? 140 : 96;
     int32_t iconSize = (caps.width >= 480) ? 84 : 64;
     int32_t iconRadius = (caps.width >= 480) ? 24 : 18;
 
     m_cardObjs.clear();
 
-    for (size_t i = 0; i < m_apps.size(); ++i) {
-        const auto& app = m_apps[i];
+    for (size_t i = 0; i < apps.size(); ++i) {
+        const auto& app = apps[i];
+        if (!app.visibleInDashboard) continue;
 
         // 1. Contenedor vertical transparente de la app (Ícono + Título)
         lv_obj_t* appItem = lv_obj_create(m_container);
@@ -172,31 +103,34 @@ void DashboardView::createCards() {
         lv_obj_set_style_shadow_opa(btnIcon, LV_OPA_40, 0);
         lv_obj_set_style_pad_all(btnIcon, 0, 0);
 
-        // --- EFECTO 1: Reacción Táctil Cinematográfica (LV_STATE_PRESSED) ---
-        // 1. Borde y Glow Neón intensos al contacto
+        // --- EFECTO: Reacción Táctil Cinematográfica (LV_STATE_PRESSED) ---
         lv_obj_set_style_border_width(btnIcon, 2, LV_STATE_PRESSED);
         lv_obj_set_style_border_opa(btnIcon, LV_OPA_100, LV_STATE_PRESSED);
         lv_obj_set_style_shadow_width(btnIcon, 20, LV_STATE_PRESSED);
         lv_obj_set_style_shadow_color(btnIcon, lv_color_hex(app.accentColor), LV_STATE_PRESSED);
         lv_obj_set_style_shadow_opa(btnIcon, LV_OPA_80, LV_STATE_PRESSED);
-        // 3. Fondo reactivo más brillante al pulsar
         lv_obj_set_style_bg_color(btnIcon, lv_color_hex(0x2A3045), LV_STATE_PRESSED);
 
-        // 2. Icono de la App (Cargado limpiamente desde SystemIcons / SVG o fallback por símbolo)
-        lv_obj_t* iconObj = SystemIcons::createIcon(btnIcon, app.id, (caps.width >= 480) ? 48 : 36);
+        // 3. Icono de la App
+        lv_obj_t* iconObj = nullptr;
+        if (app.icon.type == IconType::SYSTEM_BUILTIN && !app.icon.source.empty()) {
+            iconObj = SystemIcons::createIcon(btnIcon, app.icon.source, (caps.width >= 480) ? 48 : 36);
+        }
+
         if (iconObj) {
             lv_obj_center(iconObj);
             lv_obj_remove_flag(iconObj, LV_OBJ_FLAG_CLICKABLE);
         } else {
             // Icono estándar por símbolo LVGL
+            const char* symbolStr = !app.icon.fallbackSymbol.empty() ? app.icon.fallbackSymbol.c_str() : LV_SYMBOL_FILE;
             lv_obj_t* lblIcon = lv_label_create(btnIcon);
-            lv_label_set_text(lblIcon, app.icon.c_str());
+            lv_label_set_text(lblIcon, symbolStr);
             lv_obj_set_style_text_color(lblIcon, lv_color_hex(app.accentColor), 0);
             lv_obj_set_style_text_font(lblIcon, &lv_font_montserrat_24, 0);
             lv_obj_center(lblIcon);
         }
 
-        // 3. Título de la App situado debajo del ícono (como en un OS)
+        // 4. Título de la App situado debajo del ícono
         lv_obj_t* lblTitle = lv_label_create(appItem);
         lv_label_set_text(lblTitle, app.title.c_str());
         lv_obj_set_style_text_color(lblTitle, DefaultTheme::getTextColor(), 0);
@@ -205,7 +139,7 @@ void DashboardView::createCards() {
         lv_obj_set_style_text_align(lblTitle, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_width(lblTitle, itemWidth);
 
-        // Evento de Click pasando el índice de la App
+        // Evento de Click pasando el índice de la App en AppRegistry
         lv_obj_set_user_data(btnIcon, (void*)(uintptr_t)i);
         lv_obj_add_event_cb(btnIcon, cardClickedEventCb, LV_EVENT_CLICKED, this);
 
@@ -219,58 +153,12 @@ void DashboardView::cardClickedEventCb(lv_event_t* e) {
     if (!view || !target) return;
 
     size_t idx = (size_t)(uintptr_t)lv_obj_get_user_data(target);
-    if (idx >= view->m_apps.size()) return;
-    const auto& app = view->m_apps[idx];
+    const auto& apps = AppRegistry::getInstance().getVisibleApps();
+    if (idx >= apps.size()) return;
 
-    if (app.isLuapp) {
-        UIManager::getInstance().pushView(std::make_shared<LuappView>(app.luappPath, app.title, app.icon));
-        return;
-    }
-
-    if (app.id == "browser") {
-        UIManager::getInstance().pushView(std::make_shared<TlvBrowserView>());
-    } else if (app.id == "gallery") {
-        UIManager::getInstance().pushView(std::make_shared<GalleryListView>());
-    } else if (app.id == "files") {
-        UIManager::getInstance().pushView(std::make_shared<FileManagerView>());
-    } else if (app.id == "utilities") {
-        UIManager::getInstance().pushView(std::make_shared<UtilitiesView>());
-#if CBDOS_FEATURE_CARTRIDGE
-    } else if (app.id == "cartridge") {
-        UIManager::getInstance().pushView(std::make_shared<CartridgeView>());
-#endif
-    } else if (app.id == "lua") {
-        UIManager::getInstance().pushView(std::make_shared<LuaRunnerView>());
-    } else if (app.id == "editor") {
-        UIManager::getInstance().pushView(std::make_shared<TextEditorView>());
-    } else if (app.id == "radio") {
-        UIManager::getInstance().pushView(std::make_shared<RadioView>());
-    } else if (app.id == "config") {
-        UIManager::getInstance().pushView(std::make_shared<ConfigView>());
-    } else if (app.id == "recorder") {
-        UIManager::getInstance().pushView(std::make_shared<AudioRecorderView>());
-    } else if (app.id == "music") {
-        UIManager::getInstance().pushView(std::make_shared<MusicPlayerView>());
-    } else if (app.id == "kerberos") {
-        UIManager::getInstance().pushView(std::make_shared<KerberosView>());
-#if CBDOS_FEATURE_FLASHER
-    } else if (app.id == "flasher") {
-        UIManager::getInstance().pushView(std::make_shared<FlasherView>());
-#endif
-#if CBDOS_FEATURE_TERMINAL
-    } else if (app.id == "terminal") {
-        UIManager::getInstance().pushView(std::make_shared<TerminalView>());
-#endif
-    } else if (app.id == "hid") {
-        UIManager::getInstance().pushView(std::make_shared<HidView>());
-    } else if (app.id == "meshcore") {
-        UIManager::getInstance().pushView(std::make_shared<MeshCoreView>());
-#if CBDOS_FEATURE_LAN_RECON
-    } else if (app.id == "recon") {
-        UIManager::getInstance().pushView(std::make_shared<LanReconView>());
-#endif
-    } else if (app.id == "lottie") {
-        UIManager::getInstance().pushView(std::make_shared<LottieTestView>());
+    const auto& app = apps[idx];
+    if (app.launchAction) {
+        app.launchAction();
     }
 }
 
