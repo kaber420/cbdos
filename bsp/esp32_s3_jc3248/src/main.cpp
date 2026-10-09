@@ -1,5 +1,6 @@
 #include "cbdos/system.hpp"
 #include "cbdos/board_identity.hpp"
+#include "cbdos/system_cli.hpp"
 #include "cbdos/display.hpp"
 #include "cbdos/input.hpp"
 #include "cbdos/audio.hpp"
@@ -99,6 +100,8 @@ void setup() {
     // Identidad v1 para el flasheador web (banner + comando CBDOS:VERSION?).
     Serial.println(cbdos::board_identity::bannerFor(
         *cbdos::board_identity::findBoard("jc3248w535")).c_str());
+    cbdos::cli::setBoardId("jc3248w535");
+    cbdos::cli::init();
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "=== Iniciando CyBerDeck OS (CBDos v0.2.4-dev) [Target: ESP32-S3] ===");
     
     // Inyectar el backend de persistencia NVS, Almacenamiento, Audio, UART, GPIO, Radio, Red, Sockets, Transporte de Malla, Cliente HTTP y USB HID
@@ -249,22 +252,28 @@ void loop() {
     // Con CDC_ON_BOOT=0, Serial es la UART fisica; en modo Cdc se atiende USBSerial.
     Stream& console = (bootMode == cbdos::usb::UsbMode::Cdc) ? (Stream&)USBSerial : (Stream&)Serial;
     while (console.available()) {
-        static String s3IdLine;
+        static String s3CliLine;
         char c = (char)console.read();
-        if (c == '\n') {
-            std::string line(s3IdLine.c_str());
-            s3IdLine = "";
-            if (cbdos::board_identity::isVersionQuery(line)) {
-                console.println(cbdos::board_identity::bannerFor(
-                    *cbdos::board_identity::findBoard("jc3248w535")).c_str());
-            } else if (line == "CBDOS:BOOTLOADER") {
-                console.println("OK: REBOOTING TO BOOTLOADER");
-                delay(100);
-                cbdos::system::restartToBootloader();
+        if (c == '\n' || c == '\r') {
+            if (s3CliLine.length() > 0) {
+                std::string line(s3CliLine.c_str());
+                s3CliLine = "";
+                cbdos::cli::CommandContext ctx;
+                ctx.write = [&console](const std::string& chunk) {
+                    console.print(chunk.c_str());
+                };
+                ctx.isAborted = [&console]() -> bool {
+                    return console.available() > 0;
+                };
+                cbdos::cli::dispatch(line, ctx);
             }
-        } else if (c != '\r') {
-            s3IdLine += c;
-            if (s3IdLine.length() > 64) s3IdLine = "";
+        } else if (c == '\b' || c == 127) {
+            if (s3CliLine.length() > 0) {
+                s3CliLine.remove(s3CliLine.length() - 1);
+            }
+        } else if (c >= 32 && c <= 126) {
+            s3CliLine += c;
+            if (s3CliLine.length() > 256) s3CliLine = "";
         }
     }
 

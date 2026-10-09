@@ -42,6 +42,7 @@ namespace bsp {
     void init_lan_recon_p4();
     void initRadioBackendP4();
     void initUsbHostBackendP4();
+    void initSystemConsoleP4();
     cbdos::time::ITimeProvider* getEspIdfTimeProvider();
 }
 }
@@ -83,6 +84,7 @@ extern "C" void app_main(void) {
     cbdos::bsp::initMeshTransportP4();
     cbdos::bsp::initHttpClientP4();
     cbdos::bsp::init_lan_recon_p4();
+    cbdos::bsp::initSystemConsoleP4();
     // Gestor USB de sistema: el único PHY HS es exclusivo por arranque.
     // Decide qué stack es dueño del hardware; las apps solo piden modo vía UsbManager.
     cbdos::usb::UsbManager::getInstance().init();

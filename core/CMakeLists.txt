@@ -94,6 +94,7 @@ set(CORE_SRCS
     "src/system/PowerManager.cpp"
     "src/system/usb_manager.cpp"
     "src/system/usb_host.cpp"
+    "src/system/system_cli.cpp"
     "src/network/http_client.cpp"
     "src/network/network.cpp"
     "src/network/radio.cpp"
