@@ -128,11 +128,6 @@ static void cmdStatus(const std::string& args, const CommandContext& ctx) {
     char buf[256];
 
     for (uint32_t i = 0; i < opts.count; ++i) {
-        if (ctx.isAborted && ctx.isAborted()) {
-            if (ctx.write) ctx.write("\n--- [SYS] Muestreo cancelado por el operador ---\n");
-            return;
-        }
-
         float cpuTemp = cbdos::system::getCpuTemperature();
         size_t freeHeap = cbdos::system::getFreeHeap();
         size_t totalHeap = cbdos::system::getTotalHeap();
@@ -201,11 +196,6 @@ static void cmdTemp(const std::string& args, const CommandContext& ctx) {
     float maxTemp = -999.0f;
 
     for (uint32_t i = 0; i < opts.count; ++i) {
-        if (ctx.isAborted && ctx.isAborted()) {
-            if (ctx.write) ctx.write("\n--- [SYS] Muestreo de temperatura cancelado ---\n");
-            return;
-        }
-
         float t = cbdos::system::getCpuTemperature();
         if (t < minTemp) minTemp = t;
         if (t > maxTemp) maxTemp = t;
@@ -238,11 +228,6 @@ static void cmdMem(const std::string& args, const CommandContext& ctx) {
     char buf[160];
 
     for (uint32_t i = 0; i < opts.count; ++i) {
-        if (ctx.isAborted && ctx.isAborted()) {
-            if (ctx.write) ctx.write("\n--- [SYS] Muestreo de memoria cancelado ---\n");
-            return;
-        }
-
         size_t freeHeap = cbdos::system::getFreeHeap();
         size_t totalHeap = cbdos::system::getTotalHeap();
         size_t freePsram = cbdos::system::getFreePsram();

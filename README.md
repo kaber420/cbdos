@@ -223,15 +223,6 @@ cd tools/espnow_usb_bridge
 pio run
 ```
 
----
-
-## Branches
-
-| Branch | Descripcion |
-|:---|:---|
-| `main` | Rama prototipo, versiones release |
-| `0.2.4-dev` | Rama de desarrollo activo |
-| `feature/vector-lottie-engine` | Feature branch: motor de animaciones vectoriales Lottie |
 
 ---
 

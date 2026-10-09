@@ -162,11 +162,6 @@ static void cmdC3Ping(const std::string& args, const cbdos::cli::CommandContext&
     char buf[160];
 
     for (uint32_t i = 0; i < opts.count; ++i) {
-        if (ctx.isAborted && ctx.isAborted()) {
-            if (ctx.write) ctx.write("[C3_PING] Cancelado por el operador.\n");
-            return;
-        }
-
         // Trama de paquete de radio: DIR_PC_TO_DONGLE (0x01)
         uint8_t ping_data[] = { 0x01, 0x00, 0xAA, 0x55, 'P', '4', '_', 'R', 'A', 'D', 'I', 'O' };
         uint8_t tx_frame[32];
@@ -288,9 +283,23 @@ static void serial_console_task(void* arg) {
         int read_bytes = usb_serial_jtag_read_bytes(&ch, 1, portMAX_DELAY);
         if (read_bytes > 0) {
             if (ch == '\r' || ch == '\n') {
+                if (ch == '\r') {
+                    // Consumir el \n si el terminal envió \r\n juntos
+                    uint8_t next_ch;
+                    if (usb_serial_jtag_read_bytes(&next_ch, 1, 0) > 0) {
+                        if (next_ch != '\n') {
+                            // si no es \n, no hacer nada
+                        }
+                    }
+                }
                 printf("\r\n");
                 fflush(stdout);
                 if (!line_buf.empty()) {
+                    // Drenar cualquier byte residual de fin de línea
+                    uint8_t drain;
+                    while (usb_serial_jtag_read_bytes(&drain, 1, 0) > 0) {
+                        if (drain != '\r' && drain != '\n') break;
+                    }
                     cbdos::cli::dispatch(line_buf, ctx);
                     line_buf.clear();
                 }

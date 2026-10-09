@@ -28,6 +28,9 @@ Actualmente en el BSP de ESP32-P4 (`bsp/esp32_p4_jc4880/hal/hal_hid_p4.cpp`):
 
 ## 📐 2. Catálogo de Comandos del Sistema
 
+> [!NOTE]
+> La especificación formal de la gramática estilo AT/SCPI y el direccionamiento multidispotivo para Hubs USB se encuentra consagrada en [`especificacion_protocolo_consola_at_scpi_y_direccionamiento_hub.md`](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/especificacion_protocolo_consola_at_scpi_y_direccionamiento_hub.md).
+
 Los comandos se diseñan con una sintaxis jerárquica con prefijo `sys:` (estándar embebido) y con alias directos para conveniencia del operador:
 
 | Comando | Alias Corto | Propósito | Formato de Salida |
