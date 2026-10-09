@@ -226,6 +226,28 @@ static const char* const lang_es[] = {
     "MODO BOOTLOADER",                             // 0x00CD
     "Esperando nuevo firmware por USB (esptool)...", // 0x00CE
     "Puerto USB activo  ·  Pulsa RST para salir",  // 0x00CF
+    "Ingresar PIN",                                // 0x00D0
+    "PIN Incorrecto",                              // 0x00D1
+    "Acceso Concedido",                            // 0x00D2
+    "Dispositivo Bloqueado",                       // 0x00D3
+    "Desbloquear",                                 // 0x00D4
+    "Cambiar PIN",                                 // 0x00D5
+    "Nuevo PIN (4 digitos)",                       // 0x00D6
+    "Confirmar PIN",                               // 0x00D7
+    "Seguridad y Bloqueo",                         // 0x00D8
+    "Proteccion de pantalla y ajustes",            // 0x00D9
+    "Desactivado",                                 // 0x00DA
+    "Acceso libre sin restriccion de PIN",         // 0x00DB
+    "Bloqueo de Pantalla",                         // 0x00DC
+    "Exige PIN tras arrancar o reactivar",         // 0x00DD
+    "Solo Ajustes (Kiosco)",                       // 0x00DE
+    "Exige PIN para entrar a configuracion",       // 0x00DF
+    "Credenciales de Acceso",                      // 0x00E0
+    "PIN por defecto activo (1234)",               // 0x00E1
+    "PIN personalizado configurado",               // 0x00E2
+    "Bloquear Dispositivo Ahora",                  // 0x00E3
+    "PIN guardado correctamente",                  // 0x00E4
+    "Politica de seguridad actualizada",           // 0x00E5
 };
 
 static const char* const lang_en[] = {
@@ -445,6 +467,28 @@ static const char* const lang_en[] = {
     "BOOTLOADER MODE",                             // 0x00CD
     "Waiting for USB firmware flash (esptool)...", // 0x00CE
     "USB port active  ·  Press RST to exit",       // 0x00CF
+    "Enter PIN",                                   // 0x00D0
+    "Incorrect PIN",                               // 0x00D1
+    "Access Granted",                              // 0x00D2
+    "Device Locked",                               // 0x00D3
+    "Unlock",                                      // 0x00D4
+    "Change PIN",                                  // 0x00D5
+    "New PIN (4 digits)",                          // 0x00D6
+    "Confirm PIN",                                 // 0x00D7
+    "Security & Lock",                             // 0x00D8
+    "Screen and settings protection",              // 0x00D9
+    "Disabled",                                    // 0x00DA
+    "Open access without PIN restrictions",        // 0x00DB
+    "Screen Lock",                                 // 0x00DC
+    "Requires PIN on startup or wake",             // 0x00DD
+    "Settings Only (Kiosk)",                       // 0x00DE
+    "Requires PIN to enter settings",              // 0x00DF
+    "Access Credentials",                          // 0x00E0
+    "Default PIN active (1234)",                   // 0x00E1
+    "Custom PIN configured",                       // 0x00E2
+    "Lock Device Now",                             // 0x00E3
+    "PIN successfully saved",                      // 0x00E4
+    "Security policy updated",                     // 0x00E5
 };
 
 static_assert(sizeof(lang_es) / sizeof(lang_es[0]) == (size_t)StrId::STR_COUNT,

@@ -17,9 +17,8 @@
 #include "views/tablehub/TableHubTabletopView.hpp"
 #endif
 
-#if CBDOS_FEATURE_STAFF_PIN
-#include "modals/StaffPinModal.hpp"
-#endif
+#include "modals/LockPinModal.hpp"
+#include "cbdos/security.hpp"
 
 namespace cbdos {
 
@@ -57,6 +56,11 @@ bool isQuickSettingsOpen() {
 
 void showNotification(const char* message, uint32_t durationMs) {
     UIManager::getInstance().showNotification(message, durationMs);
+}
+
+void showLockscreen() {
+    cbdos::security::LockService::getInstance().lock();
+    LockPinModal::show(nullptr, nullptr, nullptr, true);
 }
 
 UIManager& UIManager::getInstance() {
@@ -111,7 +115,7 @@ bool UIManager::init(lv_obj_t* rootScreen) {
 
 #if CBDOS_FEATURE_STAFF_PIN
     m_headerBar.setOnStaffPinRequestCallback([this]() {
-        StaffPinModal::show([this]() {
+        LockPinModal::show(nullptr, [this]() {
             this->toggleQuickSettings();
         });
     });
@@ -155,6 +159,11 @@ bool UIManager::init(lv_obj_t* rootScreen) {
 #else
     openDashboard();
 #endif
+
+    // 9. Si la política persistida en NVS es Lockscreen, bloquear pantalla de inmediato
+    if (cbdos::security::LockService::getInstance().getPolicy() == cbdos::security::LockPolicy::Lockscreen) {
+        showLockscreen();
+    }
 
     m_initialized = true;
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "UIManager inicializado exitosamente.");

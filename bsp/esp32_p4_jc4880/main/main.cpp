@@ -14,6 +14,7 @@
 #include "LVGL_Port.h"
 #include "cbdos/config_manager.hpp"
 #include "cbdos/language.hpp"
+#include "cbdos/security.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos/tts.hpp"
 #include "cbdos/build_profile.hpp"
@@ -114,6 +115,7 @@ extern "C" void app_main(void) {
     SystemConfig sysCfg;
     ConfigManager::getInstance().loadSystem(sysCfg);
     cbdos::lang::initLanguage();  // Fase 1 i18n: aplica NVS cbdos_sys/lang antes de la UI
+    cbdos::security::LockService::getInstance().init();  // Inicializar seguridad y cargar política NVS
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "Preferencias NVS: Brillo=%d%%, Vol=%d%%, Auto-WiFi=%s, TZ Offset=%ld", 
                        sysCfg.brightness, sysCfg.volume, sysCfg.autoConnectWifi ? "SI" : "NO", (long)sysCfg.gmtOffsetSeconds);
 

@@ -28,6 +28,8 @@
       "-I src/tts/picotts/lib",
       "-I src/lua",
       "-I src/lua/liblua",
+      "-I src/ui/modals",
+      "-I src/security",
       "-I src/security/kerberos",
       "-I src/security/kerberos/kerberos_core",
       "-I src/security/kerberos/tinycbor",

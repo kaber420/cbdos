@@ -1,13 +1,13 @@
-# 🗺️ CBDos v0.2.0 - Roadmap & Bitácora de Desarrollo
+# 🗺️ CBDos v0.2.4-dev - Roadmap & Bitácora de Desarrollo
 
-Este documento centraliza el estado actual de avance, la arquitectura, el registro de cambios (Changelog) y las metas futuras de **CBDos** (CyBerDeck OS), diseñado para operar offline y con soporte multi-target desacoplado.
+Este documento centraliza la arquitectura, el registro de componentes y el estado de avance de **CBDos** (CyBerDeck OS), diseñado para operar offline, con soporte multi-target desacoplado y perfiles modulares de producto.
 
 ---
 
 ## 🏗️ 1. Arquitectura del Sistema
 
 El sistema utiliza una arquitectura **Dual-Target desacoplada**:
-* **`core/`**: C++ Agnóstico y UI basada en **LVGL v9.5**. No contiene dependencias directas a SDKs de hardware (`#include <driver/...>` o `#include <Arduino.h>`). Utiliza interfaces HAL (`AudioHAL`, `StorageHAL`, `NetworkHAL`, `SystemHAL`).
+* **`core/`**: C++ Agnóstico y UI basada en **LVGL v9.5**. No contiene dependencias directas a SDKs de hardware (`#include <driver/...>` o `#include <Arduino.h>`). Utiliza interfaces HAL (`AudioHAL`, `StorageHAL`, `NetworkHAL`, `SystemHAL`, `UsbHAL`).
 * **`bsp/`**: Board Support Package específico para cada microcontrolador y placa.
   * **Target ESP32-P4:** `bsp/esp32_p4_jc4880` (JC4880P443C, 480×800 IPS MIPI-DSI @ 60 FPS, ESP-IDF 5.5).
   * **Target ESP32-S3:** `bsp/esp32_s3_jc3248` (JC3248W535, 320×480 IPS QSPI @ 30 FPS, PlatformIO + Arduino Core).
@@ -19,30 +19,25 @@ El sistema utiliza una arquitectura **Dual-Target desacoplada**:
 | Módulo / Componente | Descripción | Estado | Target S3 | Target P4 |
 | :--- | :--- | :---: | :---: | :---: |
 | **Core UI Engine** | Gestor de ciclo de vida de vistas (`BaseView`, `UIManager`) en LVGL 9.5 | ✅ 100% | ✅ | ✅ |
-| **Theme Engine** | Paletas de colores dinámicas, Cyberpunk, Dark, Light y acentos | ✅ 100% | ✅ | ✅ |
+| **Theme Engine** | Paletas dinámicas, Cyberpunk, Dark, Light y acentos | ✅ 100% | ✅ | ✅ |
 | **Wallpaper Engine** | Gestor de fondos de pantalla dinámicos en PSRAM | ✅ 100% | ✅ | ✅ |
-| **Dashboard View** | Vista principal tipo Cyberdeck con accesos directos y widgets | ✅ 100% | ✅ | ✅ |
-| **Config View** | Menú maestro de ajustes del sistema | ✅ 100% | ✅ | ✅ |
-| **WiFi Config View** | Escaneo, conexión y gestión de credenciales WiFi | ✅ 100% | ✅ | ✅ |
-| **Storage Config View**| Diagnóstico de particiones, MicroSD y LittleFS/SPIFFS | ✅ 100% | ✅ | ✅ |
+| **AppRegistry Central** | Registro singleton de apps nativas y dinámicas desacoplado de Dashboard | ✅ 100% | ✅ | ✅ |
+| **Dashboard View** | Grid de aplicaciones reactivo con soporte dinámico de `AppRegistry` | ✅ 100% | ✅ | ✅ |
+| **Build Profiles** | Perfiles modulares (`Cyberdeck`, `TableHub KDS`, `TableHub Tabletop`) | 🔄 En Progreso | 🟡 | 🟡 |
+| **Lock & Security Core** | Servicio de bloqueo y PIN (`LockService`, `LockPinModal`) NVS dual-target | ✅ 100% | ✅ | ✅ |
+| **TableHub Module** | Vistas KDS (Cocina) y Tabletop (Carta/Servicio de Mesa) | 🔄 En Progreso | ⏳ | ⏳ |
+| **i18n Arquitectura** | Idioma desacoplado: Core global + diccionarios por app/módulo | 🔄 En Progreso | 🟡 | 🟡 |
 | **Audio Core (Helix)** | Decodificador MP3 Helix en PSRAM + Buffer I2S | ✅ 100% | ✅ | ✅ |
-| **Music Player View** | UI de reproductor de audio, lista de pistas y controles | ✅ 100% | ✅ | ✅ |
-| **Radio Online View** | Reproductor de streaming Icecast/Shoutcast en directo | ✅ 100% | ✅ | ✅ |
-| **File Manager View** | Explorador de archivos universal para MicroSD/Flash | ✅ 100% | ✅ | ✅ |
-| **Text Editor View** | Editor de código y notas con guardado en Flash/SD | ✅ 100% | ✅ | ✅ |
-| **Terminal Serial UART**| Consola interactiva para routers, sensores y debug con guardado a SD | ✅ 100% | ✅ | ✅ |
+| **Music Player & Radio**| Reproductor local de audio y streaming Icecast/Shoutcast | ✅ 100% | ✅ | ✅ |
+| **File Manager & Editor**| Explorador universal y editor de notas/código en Flash/MicroSD | ✅ 100% | ✅ | ✅ |
+| **Terminal Serial UART**| Consola interactiva para routers, sensores y debug con logging | ✅ 0% | ✅ | ✅ |
 | **Flasheador Universal**| Grabador de firmware para microcontroladores ESP externos y C6 | ✅ 100% | ✅ | ✅ |
-| **Mesh Routing Engine** | Direccionamiento IPv4 Mesh (`10.x.y.z`), Short IDs (DAD), Pseudo-ARP SQLite | ✅ 100% | ✅ | ✅ |
-| **Navegador TLV (TLVGL)**| Cliente genérico super denso sobre ESP-NOW/WiFi con widgets LVGL 9.5 | ✅ 100% | ✅ | ✅ |
-| **Gateway-Router & Proxy**| Servidor dual (TCP/Serial), transcodificador Proxy Web y persistencia SQLite | ✅ 100% | ✅ | ✅ |
-| **Lua Script Engine** | Intérprete Lua embebido para scripts y micro-apps | ✅ 80% | ✅ | ✅ |
-| **Cartridge Engine** | Ejecutor de juegos/cartuchos retro | ✅ 80% | ✅ | ✅ |
-| **MeshCore Full (USB)** | Companion LoRa paridad Android: Contactos/DM/Advert (F1 ✅), Canales/Mapa/Settings (F2-F4) — `RFC-CBDOS-MESHCORE-FULL` | 🔄 Fase 1 OK | ✅ | ✅ |
-| **USB HID & StreamDeck**| Emulación teclado/mouse, BadUSB dual y panel MacroPad OBS | 🔄 En Plan | ⏳ | ⏳ |
-| **Multi-Touch Engine** | Negociación dinámica hasta 5 puntos táctiles para Gamepad/Doom | 🔄 En Plan | ⏳ | ⏳ |
-| **Synth Sound Engine** | Motor de síntesis y generador de ondas sonoras | 🔄 En Plan | ⏳ | ⏳ |
+| **LAN Recon Suite** | Escáner CIDR y reconocimiento de hosts de red local | ✅ 100% | ✅ | ✅ |
+| **USB Host & Device** | Host CDC ACM/CH34x/CP210x, BadUSB, Ducky, HID y selector modal | ✅ 100% | ✅ | ✅ |
+| **Lua Script Engine** | Intérprete Lua embebido, `LuappManager` y hot-reloading desde SD | ✅ 60% | ✅ | ✅ |
+| **MeshCore Full** | Companion LoRa paridad Android: Contactos, DM, Canales y Settings | ✅ 50% | ✅ | ✅ |
 
-*Leyenda: ✅ Operativo / 🟡 En integración de driver hardware / 🔄 En diseño / ⏳ Pendiente*
+*Leyenda: ✅ Operativo / 🟡 En integración / 🔄 En desarrollo / ⏳ Pendiente*
 
 ---
 
@@ -54,39 +49,41 @@ El sistema utiliza una arquitectura **Dual-Target desacoplada**:
 - [x] Implementación de `UIManager`, `BaseView`, `ThemeEngine` y `WallpaperManager`.
 - [x] Pantallas base: `SplashScreenView`, `DashboardView`, `ConfigView`, `NetworkManagerView`, `StorageConfigView`.
 
-### 🟢 Fase 2: Subsistema Multimedia, Archivos y Herramientas (Completada)
+### 🟢 Fase 2: Subsistema Multimedia, Herramientas y USB (Completada)
 - [x] Motor agnóstico `AudioPlayer` con decodificación Helix MP3/AAC.
 - [x] `MusicPlayerView` y `RadioView` con streaming en vivo.
 - [x] `FileManagerView` y `TextEditorView` para operaciones en Flash y MicroSD.
 - [x] `SerialTerminalView` (Consola UART interactiva y data logging).
 - [x] `FlasherView` (Flasheador universal de microcontroladores ESP).
+- [x] Suite de diagnóstico LAN Recon (`LanReconView`).
+- [x] Pila USB Host y Device en ESP32-S3 (CDC ACM, CH34x, CP210x, BadUSB, selector modal).
 
-### 🚀 Fase 3: Ecosistema para Desarrolladores (SDK & Extensibilidad)
-- [ ] **Dynamic AppRegistry en C++:** Sistema de registro automático de aplicaciones mediante macros (`REGISTER_APP`) para que cualquier app nueva se agregue al Dashboard sin tener que editar `DashboardView.cpp`.
-- [ ] **Apps Dinámicas en Lua (Hot-Reloading):**
-  - Detección automática de aplicaciones/cartuchos almacenados en `/sdcard/apps/<app_name>/main.lua`.
-  - Generación dinámica de iconos en el Dashboard desde los metadatos del script Lua.
-  - Puente `LuaBridge` completo para acceder a las APIs nativas de CBDos (`cbdos.storage`, `cbdos.uart`, `cbdos.audio`, `cbdos.display`, widgets LVGL).
-- [ ] **App Store / Package Format:** Formato de paquete empaquetado `.cbd` para compartir aplicaciones y juegos entre usuarios mediante la MicroSD.
+### 🚀 Fase 3: Ecosistema de Apps, Internacionalización Modular y Perfiles (Vigente)
+- [x] **Dynamic AppRegistry en C++:** Sistema de registro singleton de aplicaciones desacoplado de `DashboardView.cpp`.
+- [x] **Hot-Reloading de Apps en Lua (.luapp):** Detección y ejecución de apps desde `/sdcard/apps/`.
+- [x] **Subsistema Core de Bloqueo y Seguridad (`LockService` + `LockPinModal`):**
+  - Implementado `cbdos::security::LockService` con políticas `Disabled`, `Lockscreen` y `SettingsOnly`, con persistencia en NVS (`cbdos_sec/pin`, `cbdos_sec/policy`).
+  - Implementado modal universal `LockPinModal` (LVGL v9.5) con modo flotante y lockscreen, deprecando el mockup `StaffPinModal`.
+  - Cadenas del sistema `STR_SEC_*` añadidas a `language.hpp` y `language.cpp` (ES/EN) con validación dual-target (S3/P4).
+- [ ] **Internacionalización (i18n) Desacoplada por Aplicación:**
+  - `core/src/system/language.cpp`: Restringido exclusivamente a textos genéricos globales del SO (OK, Cancelar, WiFi, Ajustes, etc.).
+  - Diccionarios autónomos por aplicación C++ / módulo de producto (`TableHub`, etc.) bajo sus propios `#if`.
+  - Exposición de la consulta de idioma del sistema a scripts Lua (`cbdos.system.getLanguage()`) para que cada `.luapp` maneje su propio diccionario local.
+- [ ] **Build Profiles & TableHub:**
+  - Cierre y validación de ciclo de vida por perfiles (`CBDOS_PROFILE_CYBERDECK`, `CBDOS_PROFILE_TABLEHUB_KDS`, `CBDOS_PROFILE_TABLEHUB_TABLETOP`).
+  - Lógica funcional de comandas por orden de llegada en KDS y servicio de mesa en Tabletop.
+- [ ] **Iconografía Dinámica desde Almacenamiento:** Soporte de carga de iconos gráficos desde MicroSD para apps externas en `SystemIcons` y `AppRegistry`.
 
 ### 🟣 Fase 4: Optimización Avanzada y Hardware
 - [ ] Aceleración 2D PPA (Pixel Processing Accelerator) en ESP32-P4 para renderizado LVGL a 60 FPS.
-- [ ] Soporte de teclado físico (I2C CardKB / USB HID).
-- [ ] Gestión de energía y modo suspensión / Deep Sleep.
+- [ ] Soporte de teclado físico dedicado (I2C CardKB / USB HID host passthrough).
+- [ ] Gestión avanzada de energía y modos de suspensión profunda (Deep Sleep).
 
 ---
 
 ## 📚 4. Portal de Documentación
 
 * 🧭 **[Portal de Documentación Principal](README.md)**
-* 📚 **[Guía para Crear una App en CBDos](api/how_to_create_an_app.md)**
-* 📖 **[Manual de Referencia de APIs del SDK](api/core_apis_reference.md)**
-* 🏛️ **[Arquitectura Agnóstica y HAL](architecture/hal_and_core_architecture.md)**
-* 🔌 **[Mapa de Pines y Puertos Hardware](hardware/pinouts_and_ports.md)**
-
-### 📊 Gestión y Seguimiento
-* 📓 **[Changelog (Historial de Versiones)](project_management/CHANGELOG.md)**
 * 📍 **[Estado Actual del Proyecto (Current Status)](project_management/CURRENT_STATUS.md)**
+* 📓 **[Changelog (Historial de Versiones)](project_management/CHANGELOG.md)**
 * 🛠️ **[Estado de Refactorización y Modularización](project_management/REFACTORING_STATUS.md)**
-* 🐛 **[Registro de Errores (Known Bugs)](project_management/KNOWN_BUGS.md)**
-

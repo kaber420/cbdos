@@ -2,6 +2,8 @@
 #include "cbdos/system.hpp"
 #include "cbdos/display.hpp"
 #include "cbdos/config_manager.hpp"
+#include "cbdos/security.hpp"
+#include "../ui/modals/LockPinModal.hpp"
 #include "cbdos/log.hpp"
 
 namespace cbdos {
@@ -107,11 +109,19 @@ void PowerManager::enterDeepSleep() {
 }
 
 void PowerManager::wakeUp() {
+    bool wasAsleep = (m_state == PowerState::ScreenOff || m_state == PowerState::LightSleep);
     m_state = PowerState::Active;
     uint8_t targetBright = ConfigManager::getInstance().getBrightness();
     if (targetBright == 0) targetBright = 70;
     cbdos::display::setBrightness(targetBright);
     CBD_LOG_I(TAG, "Sistema reactivado a brillo normal (%u%%)", (unsigned int)targetBright);
+
+    if (wasAsleep && cbdos::security::LockService::getInstance().getPolicy() == cbdos::security::LockPolicy::Lockscreen) {
+        cbdos::security::LockService::getInstance().lock();
+        if (!cbdos::ui::LockPinModal::isOpen()) {
+            cbdos::ui::LockPinModal::show(nullptr, nullptr, nullptr, true);
+        }
+    }
 }
 
 void PowerManager::restart() {

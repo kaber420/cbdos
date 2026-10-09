@@ -143,6 +143,27 @@ Los binarios pre-compilados se encuentran en `cartridges/bin/` y `bin/`.
 
 ---
 
+## 🎛️ Perfiles de Compilación y Variantes de Software (Build Profiles)
+
+CBDos utiliza un sistema modular de **Perfiles de Compilación** gobernados por flags de preprocesador (`core/include/cbdos_build_profile.h`). Esto permite generar diferentes variantes de producto desde el mismo código fuente sin duplicar drivers ni HAL:
+
+| Perfil / Producto | Target | ¿Qué software incluye / Propósito? | Comando de Build / Flash |
+| :--- | :---: | :--- | :--- |
+| **Cyberdeck Full** *(Default)* | S3 / P4 | **Suite Táctica Completa:** Dashboard, Terminales, Recon LAN, Cartuchos, Música, Radio, Editor, Lua, Flasher USB. | **S3:** `pio run -d bsp/esp32_s3_jc3248 -e esp32s3_cyberdeck -t upload`<br>**P4:** `idf.py -C bsp/esp32_p4_jc4880 build` |
+| **TableHub Tabletop** | S3 / P4 | **Kiosco de Restaurante:** Carta digital interactiva para mesa de comensal, llamar camarero, pedir cuenta. *Excluye herramientas de red, terminales y Dashboard.* Bloqueo físico con PIN de staff. | **S3:** `pio run -d bsp/esp32_s3_jc3248 -e esp32s3_tabletop -t upload` |
+| **TableHub KDS** | S3 / P4 | **Kitchen Display System:** Pantalla de cocina para comandas en tiempo real conectada a MQTT. Sin Dashboard ni ajustes de sistema. | **S3:** `pio run -d bsp/esp32_s3_jc3248 -e esp32s3_kds -t upload` |
+| **Cartucho GBC** | S3 | Emulador Peanut-GB dedicado en partición de cartucho. | **S3:** `pio run -d bsp/esp32_s3_jc3248 -e gbc -t upload` |
+| **Cartucho Doom** | S3 | Motor Doom autónomo. | **S3:** `pio run -d bsp/esp32_s3_jc3248 -e doom -t upload` |
+
+> 💡 **En ESP32-P4 (ESP-IDF):** Puedes alternar la familia de producto y el perfil de forma interactiva con:
+> ```bash
+> . /home/kaber420/esp/esp-idf/export.sh && idf.py -C bsp/esp32_p4_jc4880 menuconfig
+> # Menú: "CBDos Product & Build Profile"
+> ```
+> Para la especificación técnica completa de arquitectura, consulta [`specs/architecture/plan_perfiles_compilacion_productos_cbdos_y_tablehub.md`](specs/architecture/plan_perfiles_compilacion_productos_cbdos_y_tablehub.md).
+
+---
+
 ## Compilar y Flashear
 
 ### Target ESP32-P4 (ESP-IDF 5.5)
@@ -159,11 +180,15 @@ idf.py -p /dev/ttyACM0 flash monitor
 ### Target ESP32-S3 (PlatformIO + Arduino)
 
 ```bash
-# Compilar:
+# Compilar perfil por defecto (Cyberdeck Full):
 pio run -d bsp/esp32_s3_jc3248
 
-# Flashear:
+# Flashear perfil por defecto:
 pio run -d bsp/esp32_s3_jc3248 -t upload --upload-port /dev/ttyACM0
+
+# Compilar y flashear un perfil o producto específico (-e):
+# Ejemplo TableHub Tabletop (Kiosco restaurante):
+pio run -d bsp/esp32_s3_jc3248 -e esp32s3_tabletop -t upload
 
 # Monitor serie:
 pio device monitor -d bsp/esp32_s3_jc3248 -b 115200
@@ -215,6 +240,7 @@ pio run
 > 🌐 **Portal Web Oficial:** Documentacion limpia y guias paso a paso en [kaber420.github.io/cbdos](https://kaber420.github.io/cbdos/) (alojado en `docs/`).
 
 Especificaciones tecnicas y arquitectura detallada en [`specs/`](specs/):
+- **Perfiles de Compilación y Familia de Productos:** [`specs/architecture/plan_perfiles_compilacion_productos_cbdos_y_tablehub.md`](specs/architecture/plan_perfiles_compilacion_productos_cbdos_y_tablehub.md)
 - **Mochilas Modulares & NFC:** [`specs/architecture/backpack_manager_and_dynamic_gpio_nfc_spec.md`](specs/architecture/backpack_manager_and_dynamic_gpio_nfc_spec.md)
 - **USB Host CDC-ACM:** [`specs/architecture/especificacion_usb_device_manager_y_ecosistema_perifericos.md`](specs/architecture/especificacion_usb_device_manager_y_ecosistema_perifericos.md)
 - **USB HID / BadUSB & Smart Automation:** [`specs/architecture/especificacion_tecnica_gestor_usb_modos_y_api_badusb.md`](specs/architecture/especificacion_tecnica_gestor_usb_modos_y_api_badusb.md)

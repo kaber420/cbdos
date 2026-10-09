@@ -10,6 +10,7 @@
 #include "cbdos/mesh/mesh_engine.hpp"
 #include "cbdos/config_manager.hpp"
 #include "cbdos/language.hpp"
+#include "cbdos/security.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos/tts.hpp"
 #include "cbdos/usb_manager.hpp"
@@ -147,6 +148,7 @@ void setup() {
     SystemConfig sysCfg;
     ConfigManager::getInstance().loadSystem(sysCfg);
     cbdos::lang::initLanguage();  // Fase 1 i18n: aplica NVS cbdos_sys/lang antes de la UI
+    cbdos::security::LockService::getInstance().init();  // Inicializar seguridad y cargar política NVS
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG, "Preferencias NVS: Brillo=%d%%, Vol=%d%%, Auto-WiFi=%s", 
                        sysCfg.brightness, sysCfg.volume, sysCfg.autoConnectWifi ? "SI" : "NO");
 

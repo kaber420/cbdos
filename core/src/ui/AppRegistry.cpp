@@ -1,7 +1,9 @@
 #include "AppRegistry.hpp"
 #include "UIManager.hpp"
 #include "cbdos/language.hpp"
+#include "cbdos/security.hpp"
 #include "cbdos_build_profile.h"
+#include "modals/LockPinModal.hpp"
 
 // Vistas del sistema
 #include "views/ConfigView.hpp"
@@ -254,7 +256,20 @@ void AppRegistry::initSystemApps() {
         { IconType::SYSTEM_BUILTIN, "config", LV_SYMBOL_SETTINGS },
         0x9D4EDD,
         true,
-        []() { UIManager::getInstance().pushView(std::make_shared<ConfigView>()); }
+        []() {
+            using cbdos::security::LockService;
+            using cbdos::security::LockPolicy;
+            if (LockService::getInstance().getPolicy() == LockPolicy::SettingsOnly) {
+                LockPinModal::show(
+                    tr(StrId::STR_SEC_ENTER_PIN),
+                    []() {
+                        UIManager::getInstance().pushView(std::make_shared<ConfigView>());
+                    }
+                );
+            } else {
+                UIManager::getInstance().pushView(std::make_shared<ConfigView>());
+            }
+        }
     });
 }
 

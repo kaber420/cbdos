@@ -4,6 +4,7 @@
 #include "WallpaperConfigView.hpp"
 #include "StorageConfigView.hpp"
 #include "TimeConfigView.hpp"
+#include "SecurityConfigView.hpp"
 #include "../modals/DiagnosticsModal.hpp"
 #include "../modals/AboutModal.hpp"
 #include "../modals/LanguageModal.hpp"
@@ -12,6 +13,7 @@
 #include "../themes/DefaultTheme.h"
 #include "cbdos/config_manager.hpp"
 #include "cbdos/usb_manager.hpp"
+#include "cbdos/security.hpp"
 #include "cbdos/system.hpp"
 #include "cbdos/language.hpp"
 #include <cstdio>
@@ -118,6 +120,8 @@ void ConfigView::btn_event_cb(lv_event_t * e) {
         } else if (id == 10) {
             // Selector de idioma: abre modal con ES/EN y marca en el actual.
             LanguageModal::show();
+        } else if (id == 11) {
+            UIManager::getInstance().pushView(std::make_shared<SecurityConfigView>());
         }
     }
 }
@@ -144,8 +148,14 @@ bool ConfigView::onCreate(lv_obj_t* parent) {
 
     using cbdos::lang::tr;
     using cbdos::lang::StrId;
+    const auto lockPol = cbdos::security::LockService::getInstance().getPolicy();
+    const char* secSub = (lockPol == cbdos::security::LockPolicy::Disabled)   ? tr(StrId::STR_SEC_POLICY_DISABLED)
+                       : (lockPol == cbdos::security::LockPolicy::Lockscreen) ? tr(StrId::STR_SEC_POLICY_LOCKSCREEN)
+                                                                              : tr(StrId::STR_SEC_POLICY_SETTINGS);
+
     OptionItem options[] = {
         {tr(StrId::STR_CFG_SYS_POWER), tr(StrId::STR_CFG_SYS_POWER_SUB), 4},
+        {tr(StrId::STR_SEC_POLICY_TITLE), secSub, 11},
         {tr(StrId::STR_CFG_NET), tr(StrId::STR_CFG_NET_SUB), 1},
         {tr(StrId::STR_CFG_DATETIME), tr(StrId::STR_CFG_DATETIME_SUB), 3},
         {tr(StrId::STR_CFG_STORAGE), tr(StrId::STR_CFG_STORAGE_SUB), 2},

@@ -13,6 +13,7 @@ void openTableHubTabletop();
 void toggleQuickSettings();
 bool isQuickSettingsOpen();
 void showNotification(const char* message, uint32_t durationMs = 3000);
+void showLockscreen();
 
 } // namespace ui
 } // namespace cbdos

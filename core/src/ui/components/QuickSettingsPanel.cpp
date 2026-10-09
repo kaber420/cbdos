@@ -9,6 +9,9 @@
 #include "cbdos/radio.hpp"
 #include "cbdos/mesh/mesh_engine.hpp"
 #include "cbdos/config_manager.hpp"
+#include "cbdos/security.hpp"
+#include "cbdos/language.hpp"
+#include "../modals/LockPinModal.hpp"
 #include <cstdio>
 
 namespace cbdos {
@@ -260,7 +263,18 @@ void QuickSettingsPanel::toggle() {
     lv_obj_set_style_bg_color(btnOpenRadio, lv_color_hex(0x0284C7), 0);
     lv_obj_add_event_cb(btnOpenRadio, [](lv_event_t* e) {
         QuickSettingsPanel::hide();
-        UIManager::getInstance().pushView(std::make_shared<RadioConfigView>());
+        using cbdos::security::LockService;
+        using cbdos::security::LockPolicy;
+        if (LockService::getInstance().getPolicy() == LockPolicy::SettingsOnly) {
+            LockPinModal::show(
+                cbdos::lang::tr(cbdos::lang::StrId::STR_SEC_ENTER_PIN),
+                []() {
+                    UIManager::getInstance().pushView(std::make_shared<RadioConfigView>());
+                }
+            );
+        } else {
+            UIManager::getInstance().pushView(std::make_shared<RadioConfigView>());
+        }
     }, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t* lblBtnOpen = lv_label_create(btnOpenRadio);
