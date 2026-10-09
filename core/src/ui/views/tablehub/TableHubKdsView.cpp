@@ -1,4 +1,5 @@
 #include "TableHubKdsView.hpp"
+#include "TableHubLanguage.hpp"
 #include "../../UIManager.hpp"
 #include "../../themes/DefaultTheme.h"
 #include "cbdos/system.hpp"
@@ -9,7 +10,7 @@ namespace ui {
 static const char* TAG = "TableHubKds";
 
 TableHubKdsView::TableHubKdsView()
-    : BaseView("KDS Cocina") {
+    : BaseView(tablehub::lang::tr(tablehub::lang::Str::KDS_TITLE)) {
 }
 
 static lv_obj_t* createColumn(lv_obj_t* parent, const char* title, lv_color_t headerColor) {
@@ -65,12 +66,12 @@ bool TableHubKdsView::onCreate(lv_obj_t* parent) {
     lv_obj_remove_flag(m_statusBar, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t* lblBadge = lv_label_create(m_statusBar);
-    lv_label_set_text(lblBadge, LV_SYMBOL_BELL " COCINA ACTIVA (KDS)");
+    lv_label_set_text(lblBadge, tablehub::lang::tr(tablehub::lang::Str::KDS_STATUS_ACTIVE));
     lv_obj_set_style_text_color(lblBadge, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_set_style_text_font(lblBadge, &lv_font_montserrat_14, 0);
 
     lv_obj_t* lblOrdersCount = lv_label_create(m_statusBar);
-    lv_label_set_text(lblOrdersCount, "Sin comandas pendientes");
+    lv_label_set_text(lblOrdersCount, tablehub::lang::tr(tablehub::lang::Str::KDS_NO_ORDERS));
     lv_obj_set_style_text_color(lblOrdersCount, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(lblOrdersCount, &lv_font_montserrat_12, 0);
 
@@ -85,9 +86,9 @@ bool TableHubKdsView::onCreate(lv_obj_t* parent) {
     lv_obj_set_flex_flow(m_kanbanContainer, LV_FLEX_FLOW_ROW);
     lv_obj_remove_flag(m_kanbanContainer, LV_OBJ_FLAG_SCROLLABLE);
 
-    m_colPending = createColumn(m_kanbanContainer, "1. Pendientes", lv_color_hex(0xF59E0B));
-    m_colPreparing = createColumn(m_kanbanContainer, "2. En Preparación", lv_color_hex(0x3B82F6));
-    m_colReady = createColumn(m_kanbanContainer, "3. Listos para Servir", lv_color_hex(0x10B981));
+    m_colPending = createColumn(m_kanbanContainer, tablehub::lang::tr(tablehub::lang::Str::KDS_COL_PENDING), lv_color_hex(0xF59E0B));
+    m_colPreparing = createColumn(m_kanbanContainer, tablehub::lang::tr(tablehub::lang::Str::KDS_COL_PREPARING), lv_color_hex(0x3B82F6));
+    m_colReady = createColumn(m_kanbanContainer, tablehub::lang::tr(tablehub::lang::Str::KDS_COL_READY), lv_color_hex(0x10B981));
 
     return true;
 }

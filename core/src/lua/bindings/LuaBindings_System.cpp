@@ -1,5 +1,6 @@
 #include "cbdos/audio.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/language.hpp"
 #include "cbdos/storage.hpp"
 #include "cbdos/network.hpp"
 #include "cbdos/display.hpp"
@@ -123,6 +124,10 @@ static int lua_cpu_temp(lua_State* L) {
     return 1;
 }
 
+static int lua_get_language(lua_State* L) {
+    lua_pushstring(L, cbdos::lang::getLanguageCode());
+    return 1;
+}
 
 void registerSystemAPI(lua_State* L) {
     lua_newtable(L);
@@ -146,6 +151,10 @@ void registerSystemAPI(lua_State* L) {
     lua_setfield(L, -2, "get_ip");
     lua_pushcfunction(L, lua_cpu_temp);
     lua_setfield(L, -2, "cpu_temp");
+    lua_pushcfunction(L, lua_get_language);
+    lua_setfield(L, -2, "get_language");
+    lua_pushcfunction(L, lua_get_language);
+    lua_setfield(L, -2, "getLanguage");
     lua_setfield(L, -2, "system");
 
     // Accesos directos en cbdos.*
@@ -165,4 +174,8 @@ void registerSystemAPI(lua_State* L) {
     lua_setfield(L, -2, "wifi_status");
     lua_pushcfunction(L, lua_get_ip);
     lua_setfield(L, -2, "get_ip");
+    lua_pushcfunction(L, lua_get_language);
+    lua_setfield(L, -2, "get_language");
+    lua_pushcfunction(L, lua_get_language);
+    lua_setfield(L, -2, "getLanguage");
 }

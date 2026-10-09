@@ -1,4 +1,5 @@
 #include "FileManagerView.hpp"
+#include "FileManagerLanguage.hpp"
 #include "GalleryView.hpp"
 #include "TextEditorView.hpp"
 #include "LuaRunnerView.hpp"
@@ -78,7 +79,7 @@ struct DeleteModalContext {
 };
 
 FileManagerView::FileManagerView(const std::string& initialPath)
-    : BaseView("Explorador"),
+    : BaseView(cbdos::files::lang::tr(cbdos::files::lang::Str::TITLE)),
       m_currentStorage(cbdos::storage::StorageType::SdCard),
       m_currentPath(initialPath.empty() ? "/" : initialPath) {
 }
@@ -87,7 +88,7 @@ bool FileManagerView::onCreate(lv_obj_t* parent) {
     if (!parent) return false;
 
     // Configurar cabecera
-    UIManager::getInstance().getHeaderBar().setTitle("Explorador");
+    UIManager::getInstance().getHeaderBar().setTitle(cbdos::files::lang::tr(cbdos::files::lang::Str::TITLE));
     UIManager::getInstance().getHeaderBar().showWifi(false);
     UIManager::getInstance().getHeaderBar().showBackButton(true, []() {
         UIManager::getInstance().popView();
@@ -185,7 +186,7 @@ void FileManagerView::renderUnitSelector(lv_obj_t* parent) {
     lv_obj_add_event_cb(m_btnUnitSD, unitSdClickCb, LV_EVENT_CLICKED, this);
 
     lv_obj_t* lblSD = lv_label_create(m_btnUnitSD);
-    lv_label_set_text_fmt(lblSD, "%s %s", LV_SYMBOL_SD_CARD, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_SD));
+    lv_label_set_text_fmt(lblSD, "%s %s", LV_SYMBOL_SD_CARD, cbdos::files::lang::tr(cbdos::files::lang::Str::TAB_SD));
     lv_obj_set_style_text_font(lblSD, &lv_font_montserrat_12, 0);
     lv_obj_center(lblSD);
 
@@ -198,13 +199,13 @@ void FileManagerView::renderUnitSelector(lv_obj_t* parent) {
     lv_obj_add_event_cb(m_btnUnitFlash, unitFlashClickCb, LV_EVENT_CLICKED, this);
 
     lv_obj_t* lblFlash = lv_label_create(m_btnUnitFlash);
-    lv_label_set_text_fmt(lblFlash, "%s %s", LV_SYMBOL_SAVE, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_FLASH));
+    lv_label_set_text_fmt(lblFlash, "%s %s", LV_SYMBOL_SAVE, cbdos::files::lang::tr(cbdos::files::lang::Str::TAB_FLASH));
     lv_obj_set_style_text_font(lblFlash, &lv_font_montserrat_12, 0);
     lv_obj_center(lblFlash);
 
     // Etiqueta de información de almacenamiento
     m_unitInfoLabel = lv_label_create(unitCard);
-    lv_label_set_text(m_unitInfoLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_CALC));
+    lv_label_set_text(m_unitInfoLabel, cbdos::files::lang::tr(cbdos::files::lang::Str::CALC));
     lv_obj_set_style_text_color(m_unitInfoLabel, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(m_unitInfoLabel, &lv_font_montserrat_12, 0);
     lv_obj_set_style_pad_left(m_unitInfoLabel, 2, 0);
@@ -364,7 +365,7 @@ void FileManagerView::renderFileList(lv_obj_t* parent) {
 
     if (files.empty()) {
         lv_obj_t* emptyLabel = lv_label_create(parent);
-        lv_label_set_text(emptyLabel, m_forensicMode ? cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_EMPTY_DEL) : cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_EMPTY));
+        lv_label_set_text(emptyLabel, m_forensicMode ? cbdos::files::lang::tr(cbdos::files::lang::Str::EMPTY_DEL) : cbdos::files::lang::tr(cbdos::files::lang::Str::EMPTY));
         lv_obj_set_style_text_color(emptyLabel, DefaultTheme::getMutedTextColor(), 0);
         lv_obj_set_style_text_font(emptyLabel, &lv_font_montserrat_12, 0);
         lv_obj_set_style_margin_top(emptyLabel, 20, 0);
@@ -424,7 +425,7 @@ void FileManagerView::renderFileList(lv_obj_t* parent) {
 
         lv_obj_t* sizeLbl = lv_label_create(textCont);
         if (item.isDirectory) {
-            lv_label_set_text(sizeLbl, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_DIR));
+            lv_label_set_text(sizeLbl, cbdos::files::lang::tr(cbdos::files::lang::Str::DIR));
         } else if (item.isDeleted) {
             char recBuf[64];
             snprintf(recBuf, sizeof(recBuf), "%s (Borrador / Recuperable)", formatBytes(item.size).c_str());
@@ -674,7 +675,7 @@ void FileManagerView::showDeleteConfirmModal(const cbdos::storage::FileEntry& fi
     lv_obj_set_style_pad_row(modal, 12, 0);
 
     lv_obj_t* title = lv_label_create(modal);
-    lv_label_set_text_fmt(title, "%s %s", LV_SYMBOL_WARNING, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_DEL_TITLE));
+    lv_label_set_text_fmt(title, "%s %s", LV_SYMBOL_WARNING, cbdos::files::lang::tr(cbdos::files::lang::Str::DEL_TITLE));
     lv_obj_set_style_text_color(title, lv_color_hex(0xFF453A), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
 
@@ -707,7 +708,7 @@ void FileManagerView::showDeleteConfirmModal(const cbdos::storage::FileEntry& fi
     lv_obj_set_size(btnCancel, btnW, 36);
     DefaultTheme::applyButton(btnCancel, 8);
     lv_obj_t* lblC = lv_label_create(btnCancel);
-    lv_label_set_text(lblC, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_CANCEL));
+    lv_label_set_text(lblC, cbdos::files::lang::tr(cbdos::files::lang::Str::CANCEL));
     lv_obj_set_style_text_color(lblC, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(lblC, &lv_font_montserrat_12, 0);
     lv_obj_center(lblC);
@@ -719,7 +720,7 @@ void FileManagerView::showDeleteConfirmModal(const cbdos::storage::FileEntry& fi
     DefaultTheme::applyButton(btnDel, 8);
     lv_obj_set_style_bg_color(btnDel, lv_color_hex(0xFF453A), 0);
     lv_obj_t* lblD = lv_label_create(btnDel);
-    lv_label_set_text(lblD, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_DEL_BTN));
+    lv_label_set_text(lblD, cbdos::files::lang::tr(cbdos::files::lang::Str::DEL_BTN));
     lv_obj_set_style_text_color(lblD, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_font(lblD, &lv_font_montserrat_12, 0);
     lv_obj_center(lblD);
@@ -757,7 +758,7 @@ void FileManagerView::showRecoveryModal(const cbdos::storage::FileEntry& file) {
     lv_obj_set_style_pad_row(modal, 10, 0);
 
     lv_obj_t* title = lv_label_create(modal);
-    lv_label_set_text_fmt(title, "%s %s", LV_SYMBOL_EYE_OPEN, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_FOR_TITLE));
+    lv_label_set_text_fmt(title, "%s %s", LV_SYMBOL_EYE_OPEN, cbdos::files::lang::tr(cbdos::files::lang::Str::FOR_TITLE));
     lv_obj_set_style_text_color(title, lv_color_hex(0xF59E0B), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
 
@@ -780,7 +781,7 @@ void FileManagerView::showRecoveryModal(const cbdos::storage::FileEntry& file) {
     DefaultTheme::applyButton(btnBackup, 8);
     lv_obj_set_style_bg_color(btnBackup, lv_color_hex(0x0284C7), 0);
     lv_obj_t* lblB = lv_label_create(btnBackup);
-    lv_label_set_text_fmt(lblB, "%s %s", LV_SYMBOL_SAVE, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_BACKUP_FLASH));
+    lv_label_set_text_fmt(lblB, "%s %s", LV_SYMBOL_SAVE, cbdos::files::lang::tr(cbdos::files::lang::Str::BACKUP_FLASH));
     lv_obj_set_style_text_font(lblB, &lv_font_montserrat_12, 0);
     lv_obj_center(lblB);
     lv_obj_add_event_cb(btnBackup, [](lv_event_t* e) {
@@ -804,7 +805,7 @@ void FileManagerView::showRecoveryModal(const cbdos::storage::FileEntry& file) {
     DefaultTheme::applyButton(btnUndelete, 8);
     lv_obj_set_style_bg_color(btnUndelete, lv_color_hex(0x059669), 0);
     lv_obj_t* lblU = lv_label_create(btnUndelete);
-    lv_label_set_text_fmt(lblU, "%s %s", LV_SYMBOL_REFRESH, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_RESTORE_SD));
+    lv_label_set_text_fmt(lblU, "%s %s", LV_SYMBOL_REFRESH, cbdos::files::lang::tr(cbdos::files::lang::Str::RESTORE_SD));
     lv_obj_set_style_text_font(lblU, &lv_font_montserrat_12, 0);
     lv_obj_center(lblU);
     lv_obj_add_event_cb(btnUndelete, [](lv_event_t* e) {
@@ -827,7 +828,7 @@ void FileManagerView::showRecoveryModal(const cbdos::storage::FileEntry& file) {
     lv_obj_set_size(btnClose, screenW >= 480 ? 320 : 240, 36);
     DefaultTheme::applyButton(btnClose, 8);
     lv_obj_t* lblCl = lv_label_create(btnClose);
-    lv_label_set_text(lblCl, cbdos::lang::tr(cbdos::lang::StrId::STR_FILE_CLOSE));
+    lv_label_set_text(lblCl, cbdos::files::lang::tr(cbdos::files::lang::Str::CLOSE));
     lv_obj_set_style_text_font(lblCl, &lv_font_montserrat_12, 0);
     lv_obj_center(lblCl);
     lv_obj_add_event_cb(btnClose, modalCancelCb, LV_EVENT_CLICKED, ctx);

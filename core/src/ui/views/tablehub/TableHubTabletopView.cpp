@@ -1,4 +1,5 @@
 #include "TableHubTabletopView.hpp"
+#include "TableHubLanguage.hpp"
 #include "../../UIManager.hpp"
 #include "../../themes/DefaultTheme.h"
 #include "cbdos/system.hpp"
@@ -9,14 +10,14 @@ namespace ui {
 static const char* TAG = "TableHubTabletop";
 
 TableHubTabletopView::TableHubTabletopView()
-    : BaseView("TableHub Mesa") {
+    : BaseView(tablehub::lang::tr(tablehub::lang::Str::TABLE_TITLE)) {
 }
 
 static void serviceBtnCb(lv_event_t* e) {
     const char* action = static_cast<const char*>(lv_event_get_user_data(e));
     if (action) {
         char toastMsg[64];
-        snprintf(toastMsg, sizeof(toastMsg), "Solicitud enviada: %s", action);
+        snprintf(toastMsg, sizeof(toastMsg), tablehub::lang::tr(tablehub::lang::Str::TOAST_REQ_SENT_FMT), action);
         UIManager::showToast(toastMsg);
     }
 }
@@ -45,7 +46,7 @@ bool TableHubTabletopView::onCreate(lv_obj_t* parent) {
     lv_obj_remove_flag(m_serviceBar, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t* lblTable = lv_label_create(m_serviceBar);
-    lv_label_set_text(lblTable, LV_SYMBOL_HOME " MESA 01 - CARTA DIGITAL");
+    lv_label_set_text(lblTable, tablehub::lang::tr(tablehub::lang::Str::TABLE_HEADER));
     lv_obj_set_style_text_color(lblTable, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_set_style_text_font(lblTable, &lv_font_montserrat_14, 0);
 
@@ -64,20 +65,20 @@ bool TableHubTabletopView::onCreate(lv_obj_t* parent) {
     DefaultTheme::applyButton(m_btnCallWaiter, 8);
     lv_obj_set_style_bg_color(m_btnCallWaiter, lv_color_hex(0x0284C7), 0);
     lv_obj_t* lblWaiter = lv_label_create(m_btnCallWaiter);
-    lv_label_set_text(lblWaiter, LV_SYMBOL_CALL " Llamar Camarero");
+    lv_label_set_text(lblWaiter, tablehub::lang::tr(tablehub::lang::Str::BTN_CALL_WAITER));
     lv_obj_set_style_text_font(lblWaiter, &lv_font_montserrat_12, 0);
     lv_obj_center(lblWaiter);
-    lv_obj_add_event_cb(m_btnCallWaiter, serviceBtnCb, LV_EVENT_CLICKED, (void*)"Llamar Camarero");
+    lv_obj_add_event_cb(m_btnCallWaiter, serviceBtnCb, LV_EVENT_CLICKED, (void*)tablehub::lang::tr(tablehub::lang::Str::ACT_CALL_WAITER));
 
     m_btnAskBill = lv_button_create(btnBox);
     lv_obj_set_size(m_btnAskBill, 120, 32);
     DefaultTheme::applyButton(m_btnAskBill, 8);
     lv_obj_set_style_bg_color(m_btnAskBill, lv_color_hex(0x10B981), 0);
     lv_obj_t* lblBill = lv_label_create(m_btnAskBill);
-    lv_label_set_text(lblBill, LV_SYMBOL_CHARGE " Pedir Cuenta");
+    lv_label_set_text(lblBill, tablehub::lang::tr(tablehub::lang::Str::BTN_ASK_BILL));
     lv_obj_set_style_text_font(lblBill, &lv_font_montserrat_12, 0);
     lv_obj_center(lblBill);
-    lv_obj_add_event_cb(m_btnAskBill, serviceBtnCb, LV_EVENT_CLICKED, (void*)"Pedir Cuenta");
+    lv_obj_add_event_cb(m_btnAskBill, serviceBtnCb, LV_EVENT_CLICKED, (void*)tablehub::lang::tr(tablehub::lang::Str::ACT_ASK_BILL));
 
     // Catálogo / Contenedor de Menú
     m_menuContainer = lv_obj_create(m_container);
@@ -89,11 +90,16 @@ bool TableHubTabletopView::onCreate(lv_obj_t* parent) {
     lv_obj_set_flex_flow(m_menuContainer, LV_FLEX_FLOW_COLUMN);
 
     lv_obj_t* lblMenuTitle = lv_label_create(m_menuContainer);
-    lv_label_set_text(lblMenuTitle, "Categorías de la Carta");
+    lv_label_set_text(lblMenuTitle, tablehub::lang::tr(tablehub::lang::Str::MENU_CATEGORIES_TITLE));
     lv_obj_set_style_text_color(lblMenuTitle, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(lblMenuTitle, &lv_font_montserrat_16, 0);
 
-    const char* categories[] = {"Entrantes y Tapas", "Platos Principales", "Bebidas y Cócteles", "Postres y Cafés"};
+    const char* categories[] = {
+        tablehub::lang::tr(tablehub::lang::Str::CAT_STARTERS),
+        tablehub::lang::tr(tablehub::lang::Str::CAT_MAINS),
+        tablehub::lang::tr(tablehub::lang::Str::CAT_DRINKS),
+        tablehub::lang::tr(tablehub::lang::Str::CAT_DESSERTS)
+    };
     const char* icons[] = {LV_SYMBOL_LIST, LV_SYMBOL_PLAY, LV_SYMBOL_REFRESH, LV_SYMBOL_OK};
 
     for (int i = 0; i < 4; i++) {
@@ -119,7 +125,7 @@ bool TableHubTabletopView::onCreate(lv_obj_t* parent) {
         lv_obj_set_style_text_font(lblChevron, &lv_font_montserrat_14, 0);
 
         lv_obj_add_event_cb(catCard, [](lv_event_t* e) {
-            UIManager::showToast("Abriendo categoría...");
+            UIManager::showToast(tablehub::lang::tr(tablehub::lang::Str::TOAST_CAT_OPENING));
         }, LV_EVENT_CLICKED, nullptr);
     }
 

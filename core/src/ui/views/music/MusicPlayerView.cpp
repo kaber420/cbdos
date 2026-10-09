@@ -1,4 +1,5 @@
 #include "MusicPlayerView.hpp"
+#include "MusicPlayerLanguage.hpp"
 #include "cbdos/audio.hpp"
 #include "cbdos/storage.hpp"
 #include "cbdos/display.hpp"
@@ -14,7 +15,7 @@ namespace cbdos {
 namespace ui {
 
 MusicPlayerView::MusicPlayerView()
-    : BaseView(cbdos::lang::tr(cbdos::lang::StrId::STR_MUSIC_TITLE)) {
+    : BaseView(cbdos::music::lang::tr(cbdos::music::lang::Str::TITLE)) {
 }
 
 bool MusicPlayerView::onCreate(lv_obj_t* parent) {
@@ -66,7 +67,7 @@ bool MusicPlayerView::onCreate(lv_obj_t* parent) {
 
     // Título de la canción (con scroll circular)
     m_titleLabel = lv_label_create(m_playerCard);
-    lv_label_set_text(m_titleLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_MUSIC_SELECT));
+    lv_label_set_text(m_titleLabel, cbdos::music::lang::tr(cbdos::music::lang::Str::SELECT_TRACK));
     lv_obj_set_style_text_font(m_titleLabel, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(m_titleLabel, DefaultTheme::getTextColor(), 0);
     lv_label_set_long_mode(m_titleLabel, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -75,7 +76,7 @@ bool MusicPlayerView::onCreate(lv_obj_t* parent) {
 
     // Estado / Formato
     m_statusLabel = lv_label_create(m_playerCard);
-    lv_label_set_text(m_statusLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_MUSIC_GREET));
+    lv_label_set_text(m_statusLabel, cbdos::music::lang::tr(cbdos::music::lang::Str::GREET_BITBOT));
     lv_obj_set_style_text_font(m_statusLabel, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(m_statusLabel, DefaultTheme::getMutedTextColor(), 0);
 
@@ -179,7 +180,7 @@ void MusicPlayerView::scanAudioFilesSD() {
 void MusicPlayerView::renderPlaylist(lv_obj_t* parent) {
     if (m_playlist.empty()) {
         lv_obj_t* emptyLbl = lv_label_create(parent);
-        lv_label_set_text(emptyLbl, cbdos::lang::tr(cbdos::lang::StrId::STR_MUSIC_EMPTY));
+        lv_label_set_text(emptyLbl, cbdos::music::lang::tr(cbdos::music::lang::Str::EMPTY_SD));
         lv_obj_set_style_text_color(emptyLbl, DefaultTheme::getMutedTextColor(), 0);
         lv_obj_set_style_text_align(emptyLbl, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_center(emptyLbl);
@@ -212,14 +213,13 @@ void MusicPlayerView::renderPlaylist(lv_obj_t* parent) {
 void MusicPlayerView::updateNavHeaderBtn() {
     if (!m_playerCard || !lv_obj_is_valid(m_playerCard)) return;
 
-    namespace lang = cbdos::lang;
     if (lv_obj_has_flag(m_playerCard, LV_OBJ_FLAG_HIDDEN)) {
-        std::string label = std::string(LV_SYMBOL_AUDIO) + " " + lang::tr(lang::StrId::STR_MUSIC_VIEW_PLAYER);
+        std::string label = std::string(LV_SYMBOL_AUDIO) + " " + cbdos::music::lang::tr(cbdos::music::lang::Str::VIEW_PLAYER);
         UIManager::getInstance().getHeaderBar().setRightAction(label.c_str(), [this]() {
             this->showPlayerScreen();
         });
     } else {
-        std::string label = std::string(LV_SYMBOL_LIST) + " " + lang::tr(lang::StrId::STR_MUSIC_VIEW_LIST);
+        std::string label = std::string(LV_SYMBOL_LIST) + " " + cbdos::music::lang::tr(cbdos::music::lang::Str::VIEW_LIST);
         UIManager::getInstance().getHeaderBar().setRightAction(label.c_str(), [this]() {
             this->showListScreen();
         });
@@ -247,7 +247,7 @@ void MusicPlayerView::startTrack(int index) {
     m_currentTrackIndex = index;
 
     lv_label_set_text(m_titleLabel, m_playlist[index].name.c_str());
-    lv_label_set_text(m_statusLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_MUSIC_PLAYING));
+    lv_label_set_text(m_statusLabel, cbdos::music::lang::tr(cbdos::music::lang::Str::PLAYING));
     lv_label_set_text(m_playBtnLabel, LV_SYMBOL_PAUSE);
 
     cbdos::audio::playFile(m_playlist[index].path.c_str());
@@ -273,13 +273,13 @@ void MusicPlayerView::playPauseCb(lv_event_t* e) {
     if (stats.isPlaying) {
         cbdos::audio::pause();
         lv_label_set_text(self->m_playBtnLabel, LV_SYMBOL_PLAY);
-        lv_label_set_text(self->m_statusLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_MUSIC_PAUSED));
+        lv_label_set_text(self->m_statusLabel, cbdos::music::lang::tr(cbdos::music::lang::Str::PAUSED));
         self->m_mascot.setState(MascotState::IDLE);
     } else {
         if (self->m_currentTrackIndex >= 0) {
             cbdos::audio::resume();
             lv_label_set_text(self->m_playBtnLabel, LV_SYMBOL_PAUSE);
-            lv_label_set_text(self->m_statusLabel, cbdos::lang::tr(cbdos::lang::StrId::STR_MUSIC_PLAYING));
+            lv_label_set_text(self->m_statusLabel, cbdos::music::lang::tr(cbdos::music::lang::Str::PLAYING));
             self->m_mascot.setState(MascotState::DANCING);
         } else if (!self->m_playlist.empty()) {
             self->startTrack(0);

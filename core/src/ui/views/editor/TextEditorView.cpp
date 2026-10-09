@@ -1,4 +1,5 @@
 #include "TextEditorView.hpp"
+#include "TextEditorLanguage.hpp"
 #include "LuaRunnerView.hpp"
 #include "cbdos/storage.hpp"
 #include "cbdos/display.hpp"
@@ -14,7 +15,7 @@ namespace cbdos {
 namespace ui {
 
 TextEditorView::TextEditorView(const std::string& initialPath)
-    : BaseView("Editor"),
+    : BaseView(cbdos::editor::lang::tr(cbdos::editor::lang::Str::TITLE)),
       m_fileLabel(nullptr),
       m_btnRun(nullptr),
       m_btnKb(nullptr),
@@ -326,7 +327,7 @@ void TextEditorView::showSaveAsModal() {
 
     // Título
     lv_obj_t* title = lv_label_create(modal);
-    lv_label_set_text(title, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_SAVE_AS));
+    lv_label_set_text(title, cbdos::editor::lang::tr(cbdos::editor::lang::Str::SAVE_AS));
     lv_obj_set_style_text_color(title, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
 
@@ -346,7 +347,7 @@ void TextEditorView::showSaveAsModal() {
     lv_obj_set_size(m_btnSaveTargetFlash, unitBtnW, 34);
     DefaultTheme::applyButton(m_btnSaveTargetFlash, 8);
     lv_obj_t* lblFlash = lv_label_create(m_btnSaveTargetFlash);
-    lv_label_set_text_fmt(lblFlash, "%s %s", LV_SYMBOL_SAVE, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_FLASH));
+    lv_label_set_text_fmt(lblFlash, "%s %s", LV_SYMBOL_SAVE, cbdos::editor::lang::tr(cbdos::editor::lang::Str::FLASH));
     lv_obj_set_style_text_font(lblFlash, &lv_font_montserrat_12, 0);
     lv_obj_center(lblFlash);
     lv_obj_add_event_cb(m_btnSaveTargetFlash, modalSaveUnitFlashCb, LV_EVENT_CLICKED, this);
@@ -355,7 +356,7 @@ void TextEditorView::showSaveAsModal() {
     lv_obj_set_size(m_btnSaveTargetSd, unitBtnW, 34);
     DefaultTheme::applyButton(m_btnSaveTargetSd, 8);
     lv_obj_t* lblSd = lv_label_create(m_btnSaveTargetSd);
-    lv_label_set_text_fmt(lblSd, "%s %s", LV_SYMBOL_SD_CARD, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_SD));
+    lv_label_set_text_fmt(lblSd, "%s %s", LV_SYMBOL_SD_CARD, cbdos::editor::lang::tr(cbdos::editor::lang::Str::SD));
     lv_obj_set_style_text_font(lblSd, &lv_font_montserrat_12, 0);
     lv_obj_center(lblSd);
     lv_obj_add_event_cb(m_btnSaveTargetSd, modalSaveUnitSdCb, LV_EVENT_CLICKED, this);
@@ -395,7 +396,7 @@ void TextEditorView::showSaveAsModal() {
     lv_obj_set_size(btnCancel, btnW, 36);
     DefaultTheme::applyButton(btnCancel, 8);
     lv_obj_t* lblC = lv_label_create(btnCancel);
-    lv_label_set_text(lblC, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_CANCEL));
+    lv_label_set_text(lblC, cbdos::editor::lang::tr(cbdos::editor::lang::Str::CANCEL));
     lv_obj_center(lblC);
     lv_obj_add_event_cb(btnCancel, modalSaveCancelCb, LV_EVENT_CLICKED, this);
 
@@ -404,7 +405,7 @@ void TextEditorView::showSaveAsModal() {
     DefaultTheme::applyButton(btnSave, 8);
     lv_obj_set_style_bg_color(btnSave, lv_color_hex(0x1B5E20), 0);
     lv_obj_t* lblS = lv_label_create(btnSave);
-    lv_label_set_text(lblS, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_SAVE));
+    lv_label_set_text(lblS, cbdos::editor::lang::tr(cbdos::editor::lang::Str::SAVE));
     lv_obj_set_style_text_color(lblS, lv_color_hex(0x00E676), 0);
     lv_obj_center(lblS);
     lv_obj_add_event_cb(btnSave, modalSaveConfirmCb, LV_EVENT_CLICKED, this);
@@ -552,7 +553,7 @@ void TextEditorView::showOpenFileModal() {
     DefaultTheme::disableScroll(header);
 
     lv_obj_t* title = lv_label_create(header);
-    lv_label_set_text(title, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_OPEN));
+    lv_label_set_text(title, cbdos::editor::lang::tr(cbdos::editor::lang::Str::OPEN));
     lv_obj_set_style_text_color(title, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
 
@@ -604,7 +605,7 @@ void TextEditorView::showOpenFileModal() {
 
     if (m_foundFiles.empty()) {
         lv_obj_t* emptyLbl = lv_label_create(list);
-        lv_label_set_text(emptyLbl, cbdos::lang::tr(cbdos::lang::StrId::STR_TXT_EMPTY));
+        lv_label_set_text(emptyLbl, cbdos::editor::lang::tr(cbdos::editor::lang::Str::EMPTY));
         lv_obj_set_style_text_color(emptyLbl, DefaultTheme::getMutedTextColor(), 0);
         lv_obj_set_style_text_align(emptyLbl, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_center(emptyLbl);

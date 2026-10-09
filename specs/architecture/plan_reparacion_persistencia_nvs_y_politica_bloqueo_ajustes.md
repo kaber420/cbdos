@@ -1,7 +1,7 @@
 # 🔐 Plan de Reparación: Persistencia NVS de Seguridad y Política de Bloqueo de Ajustes
 
 **Fecha:** 2026-10-08  
-**Estado:** Ejecutado y Validado en Compilación Dual-Target (Pendiente Flasheo Físico)  
+**Estado:** ✅ Completado y Flasheado en Hardware Dual-Target (ESP32-S3 y ESP32-P4)  
 **Versión de CBDos:** `v0.2.4-dev`  
 **Ubicación:** `specs/architecture/plan_reparacion_persistencia_nvs_y_politica_bloqueo_ajustes.md`  
 
@@ -89,4 +89,4 @@ Para responder a la pregunta de diseño arquitectónico en **CBDos**:
 - [x] **Paso 3:** Integrar `LockService::init()` y bloqueo de arranque en `bsp/esp32_s3_jc3248/src/main.cpp` y `bsp/esp32_p4_jc4880/main/main.cpp`.
 - [x] **Paso 4:** Proteger acceso a `ConfigView` bajo `SettingsOnly` en `AppRegistry.cpp` y `QuickSettingsPanel.cpp`.
 - [x] **Paso 5:** Compilación y verificación dual-target (`pio run` en S3 y `idf.py build` en P4).
-- [ ] **Paso 6:** Flasheo y prueba de confirmación física en el ESP32-S3.
+- [x] **Paso 6:** Flasheo y prueba de confirmación física en ESP32-S3 y ESP32-P4.

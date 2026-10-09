@@ -78,15 +78,15 @@ enum class StrId : uint16_t {
     STR_ABOUT_HW = 0x0036,
     STR_ABOUT_CLOSE = 0x0037,
 
-    // MusicPlayer
-    STR_MUSIC_TITLE = 0x0038,
-    STR_MUSIC_SELECT = 0x0039,
-    STR_MUSIC_GREET = 0x003A,
-    STR_MUSIC_EMPTY = 0x003B,
-    STR_MUSIC_VIEW_PLAYER = 0x003C,  // palabra "Player"
-    STR_MUSIC_VIEW_LIST = 0x003D,    // "Lista"/"List"
-    STR_MUSIC_PLAYING = 0x003E,
-    STR_MUSIC_PAUSED = 0x003F,
+    // MusicPlayer (DEPRECATED: migrado a views/music/MusicPlayerLanguage.hpp - Reservado TLV)
+    STR_MUSIC_TITLE = 0x0038,        // DEPRECATED
+    STR_MUSIC_SELECT = 0x0039,       // DEPRECATED
+    STR_MUSIC_GREET = 0x003A,        // DEPRECATED
+    STR_MUSIC_EMPTY = 0x003B,        // DEPRECATED
+    STR_MUSIC_VIEW_PLAYER = 0x003C,  // DEPRECATED
+    STR_MUSIC_VIEW_LIST = 0x003D,    // DEPRECATED
+    STR_MUSIC_PLAYING = 0x003E,      // DEPRECATED
+    STR_MUSIC_PAUSED = 0x003F,       // DEPRECATED
 
     // Selector de idioma (modal)
     STR_LANG_SPANISH = 0x0040,  // "Espanol" (igual en ambos; sin ñ por montserrat)
@@ -191,27 +191,27 @@ enum class StrId : uint16_t {
     STR_TIME_ST_LOCAL = 0x0099,
     STR_TIME_ST_UNSYNC = 0x009A,
 
-    // FileManager
-    STR_FILE_CALC = 0x009B,
-    STR_FILE_EMPTY_DEL = 0x009C,
-    STR_FILE_EMPTY = 0x009D,
-    STR_FILE_DIR = 0x009E,
-    STR_FILE_CANCEL = 0x009F,
-    STR_FILE_DEL_BTN = 0x00A0,
-    STR_FILE_DEL_TITLE = 0x00A1,
-    STR_FILE_FOR_TITLE = 0x00A2,
-    STR_FILE_BACKUP_FLASH = 0x00A3,
-    STR_FILE_RESTORE_SD = 0x00A4,
-    STR_FILE_CLOSE = 0x00A5,
+    // FileManager (DEPRECATED: migrado a views/files/FileManagerLanguage.hpp - Reservado TLV)
+    STR_FILE_CALC = 0x009B,          // DEPRECATED
+    STR_FILE_EMPTY_DEL = 0x009C,     // DEPRECATED
+    STR_FILE_EMPTY = 0x009D,         // DEPRECATED
+    STR_FILE_DIR = 0x009E,           // DEPRECATED
+    STR_FILE_CANCEL = 0x009F,        // DEPRECATED
+    STR_FILE_DEL_BTN = 0x00A0,       // DEPRECATED
+    STR_FILE_DEL_TITLE = 0x00A1,     // DEPRECATED
+    STR_FILE_FOR_TITLE = 0x00A2,     // DEPRECATED
+    STR_FILE_BACKUP_FLASH = 0x00A3,  // DEPRECATED
+    STR_FILE_RESTORE_SD = 0x00A4,    // DEPRECATED
+    STR_FILE_CLOSE = 0x00A5,         // DEPRECATED
 
-    // TextEditor
-    STR_TXT_SAVE_AS = 0x00A6,
-    STR_TXT_FLASH = 0x00A7,
-    STR_TXT_SD = 0x00A8,
-    STR_TXT_CANCEL = 0x00A9,
-    STR_TXT_SAVE = 0x00AA,
-    STR_TXT_OPEN = 0x00AB,
-    STR_TXT_EMPTY = 0x00AC,
+    // TextEditor (DEPRECATED: migrado a views/editor/TextEditorLanguage.hpp - Reservado TLV)
+    STR_TXT_SAVE_AS = 0x00A6,        // DEPRECATED
+    STR_TXT_FLASH = 0x00A7,          // DEPRECATED
+    STR_TXT_SD = 0x00A8,             // DEPRECATED
+    STR_TXT_CANCEL = 0x00A9,         // DEPRECATED
+    STR_TXT_SAVE = 0x00AA,           // DEPRECATED
+    STR_TXT_OPEN = 0x00AB,           // DEPRECATED
+    STR_TXT_EMPTY = 0x00AC,          // DEPRECATED
 
     // Lote 1 Fase 3
     STR_TERM_TITLE = 0x00AD,

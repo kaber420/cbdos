@@ -66,14 +66,14 @@ static const char* const lang_es[] = {
     "Enlace de la Licencia",                       // 0x0035
     "Hardware Target",                             // 0x0036
     "Cerrar",                                      // 0x0037
-    "Musica SD",                                   // 0x0038
-    "Selecciona una cancion",                      // 0x0039
-    "Toca a BitBot para saludar",                  // 0x003A
-    "No se encontraron canciones en la MicroSD\n(Copia archivos .mp3 en /sdcard o /sdcard/musica)", // 0x003B
-    "Player",                                      // 0x003C
-    "Lista",                                       // 0x003D
-    "Reproduciendo...",                            // 0x003E
-    "En Pausa",                                    // 0x003F
+    "",                                            // 0x0038 DEPRECATED (migrado a music/)
+    "",                                            // 0x0039 DEPRECATED (migrado a music/)
+    "",                                            // 0x003A DEPRECATED (migrado a music/)
+    "",                                            // 0x003B DEPRECATED (migrado a music/)
+    "",                                            // 0x003C DEPRECATED (migrado a music/)
+    "",                                            // 0x003D DEPRECATED (migrado a music/)
+    "",                                            // 0x003E DEPRECATED (migrado a music/)
+    "",                                            // 0x003F DEPRECATED (migrado a music/)
     "Espanol",                                     // 0x0040 (sin ñ: montserrat 12/14/16 no la trae)
     "English",                                     // 0x0041
     // WiFi 0x0042-0x004B
@@ -170,26 +170,26 @@ static const char* const lang_es[] = {
     "Sincronizado (Torre/Gateway)",
     "Sincronizado (Local)",
     "Sin sincronizar / Reloj local",
-    // FileManager 0x009B-0x00A5
-    "Espacio: Calculando...",
-    "(Sin archivos borrados detectados)",
-    "(Carpeta vacia o sin acceso)",
-    "<Directorio>",
-    "Cancelar",
-    "Eliminar",
-    "Eliminar",
-    "Recuperacion Forense",
-    "Backup a Flash Interna",
-    "Restaurar en MicroSD",
-    "Cerrar",
-    // TextEditor 0x00A6-0x00AC
-    "Guardar Archivo Como...",
-    "Flash Interna",
-    "MicroSD",
-    "Cancelar",
-    "Guardar",
-    "Abrir Archivo",
-    "No se encontraron archivos de texto\no scripts en la MicroSD.",
+    // FileManager 0x009B-0x00A5 (DEPRECATED: migrado a files/)
+    "",                                            // 0x009B
+    "",                                            // 0x009C
+    "",                                            // 0x009D
+    "",                                            // 0x009E
+    "",                                            // 0x009F
+    "",                                            // 0x00A0
+    "",                                            // 0x00A1
+    "",                                            // 0x00A2
+    "",                                            // 0x00A3
+    "",                                            // 0x00A4
+    "",                                            // 0x00A5
+    // TextEditor 0x00A6-0x00AC (DEPRECATED: migrado a editor/)
+    "",                                            // 0x00A6
+    "",                                            // 0x00A7
+    "",                                            // 0x00A8
+    "",                                            // 0x00A9
+    "",                                            // 0x00AA
+    "",                                            // 0x00AB
+    "",                                            // 0x00AC
     // Lote 1
     "Terminal Universal",
     "Modo:",
@@ -307,14 +307,14 @@ static const char* const lang_en[] = {
     "License Link",
     "Hardware Target",
     "Close",
-    "SD Music",
-    "Select a song",
-    "Tap BitBot to say hi",
-    "No songs found on MicroSD\n(Copy .mp3 files to /sdcard or /sdcard/music)",
-    "Player",
-    "List",
-    "Playing...",
-    "Paused",
+    "",                                            // 0x0038 DEPRECATED (migrado a music/)
+    "",                                            // 0x0039 DEPRECATED (migrado a music/)
+    "",                                            // 0x003A DEPRECATED (migrado a music/)
+    "",                                            // 0x003B DEPRECATED (migrado a music/)
+    "",                                            // 0x003C DEPRECATED (migrado a music/)
+    "",                                            // 0x003D DEPRECATED (migrado a music/)
+    "",                                            // 0x003E DEPRECATED (migrado a music/)
+    "",                                            // 0x003F DEPRECATED (migrado a music/)
     "Espanol",
     "English",
     // WiFi 0x0042-0x004B
@@ -411,26 +411,26 @@ static const char* const lang_en[] = {
     "Synced (Tower/Gateway)",
     "Synced (Local)",
     "Unsynced / Local clock",
-    // FileManager 0x009B-0x00A5
-    "Space: Calculating...",
-    "(No deleted files detected)",
-    "(Empty folder or access denied)",
-    "<Directory>",
-    "Cancel",
-    "Delete",
-    "Delete",
-    "Forensic Recovery",
-    "Backup to Internal Flash",
-    "Restore to MicroSD",
-    "Close",
-    // TextEditor 0x00A6-0x00AC
-    "Save File As...",
-    "Internal Flash",
-    "MicroSD",
-    "Cancel",
-    "Save",
-    "Open File",
-    "No text files or scripts\nfound on MicroSD.",
+    // FileManager 0x009B-0x00A5 (DEPRECATED: migrado a files/)
+    "",                                            // 0x009B
+    "",                                            // 0x009C
+    "",                                            // 0x009D
+    "",                                            // 0x009E
+    "",                                            // 0x009F
+    "",                                            // 0x00A0
+    "",                                            // 0x00A1
+    "",                                            // 0x00A2
+    "",                                            // 0x00A3
+    "",                                            // 0x00A4
+    "",                                            // 0x00A5
+    // TextEditor 0x00A6-0x00AC (DEPRECATED: migrado a editor/)
+    "",                                            // 0x00A6
+    "",                                            // 0x00A7
+    "",                                            // 0x00A8
+    "",                                            // 0x00A9
+    "",                                            // 0x00AA
+    "",                                            // 0x00AB
+    "",                                            // 0x00AC
     // Lote 1
     "Universal Terminal",
     "Mode:",

@@ -7,13 +7,13 @@
 
 // Vistas del sistema
 #include "views/ConfigView.hpp"
-#include "views/MusicPlayerView.hpp"
+#include "views/music/MusicPlayerView.hpp"
 #include "views/AudioRecorderView.hpp"
 #include "views/GalleryListView.hpp"
 #include "views/RadioView.hpp"
 #include "views/LuaRunnerView.hpp"
-#include "views/TextEditorView.hpp"
-#include "views/FileManagerView.hpp"
+#include "views/editor/TextEditorView.hpp"
+#include "views/files/FileManagerView.hpp"
 #include "views/HidView.hpp"
 #include "views/UtilitiesView.hpp"
 #include "views/TlvBrowserView.hpp"
