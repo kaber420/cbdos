@@ -267,6 +267,24 @@ static void cmdUptime(const std::string& args, const CommandContext& ctx) {
     if (ctx.write) ctx.write(buf);
 }
 
+static void cmdLua(const std::string& args, const CommandContext& ctx) {
+    if (args.empty()) {
+        if (ctx.write) ctx.write("[LUA] Uso: lua: <código> (ej: lua: return 10 * 5)\n");
+        return;
+    }
+    std::string outRes;
+    bool ok = ::LuaEngine::getInstance().executeString(args, &outRes);
+    if (ok) {
+        if (!outRes.empty() && ctx.write) {
+            ctx.write("[LUA_OUT] " + outRes + "\n");
+        }
+    } else {
+        if (ctx.write) {
+            ctx.write("[LUA_ERR] " + ::LuaEngine::getInstance().getLastError() + "\n");
+        }
+    }
+}
+
 static void cmdHelp(const std::string& args, const CommandContext& ctx) {
     (void)args;
     const char* helpText =
@@ -276,12 +294,12 @@ static void cmdHelp(const std::string& args, const CommandContext& ctx) {
         "  temp [-c N] [-i T]     Temperatura del SoC (ej: temp -c 10 -i 50ms)\n"
         "  mem [-c N] [-i T]      Métricas de memoria Heap y PSRAM libre\n"
         "  uptime                 Tiempo de actividad del sistema\n"
+        "  lua: <expresión>       Ejecutar script o expresión Lua (ej: lua: return 21 * 2)\n"
         "  help / ?               Mostrar este manual de comandos\n"
         "Flags opcionales:\n"
         "  -c <N>       Cantidad de iteraciones (default: 1)\n"
         "  -i <T>       Intervalo entre muestras (ms o s, ej: 50ms, 1s, mín 10ms)\n"
-        "  -t <T>       Timeout máximo de respuesta para pruebas de radio/red\n"
-        "* Cualquier otra expresión será evaluada por el intérprete Lua++.\n";
+        "  -t <T>       Timeout máximo de respuesta para pruebas de radio/red\n";
     if (ctx.write) ctx.write(helpText);
 }
 
@@ -303,6 +321,7 @@ void init() {
     registerCommand("sys: help", cmdHelp);
     registerCommand("help", cmdHelp);
     registerCommand("?", cmdHelp);
+    registerCommand("lua", cmdLua);
 }
 
 void dispatch(const std::string& line, const CommandContext& ctx) {
@@ -354,18 +373,10 @@ void dispatch(const std::string& line, const CommandContext& ctx) {
         }
     }
 
-    // 4. Fallback: Intérprete Lua++
-    std::string outRes;
-    bool ok = ::LuaEngine::getInstance().executeString(trimmed, &outRes);
-    if (ok) {
-        if (!outRes.empty()) {
-            std::string msg = "[SERIAL_CLI_OUT] OK: " + outRes + "\n";
-            if (ctx.write) ctx.write(msg);
-        }
-    } else {
-        std::string err = "[SERIAL_CLI_ERR] " + ::LuaEngine::getInstance().getLastError() + "\n";
-        if (ctx.write) ctx.write(err);
-    }
+    // 4. Comando no reconocido (reemplazo determinista del fallback ciego)
+    char errBuf[160];
+    snprintf(errBuf, sizeof(errBuf), "[SYS] Comando desconocido: \"%.64s\". Escribe 'help' o '?' para ver la lista de comandos.\n", trimmed.c_str());
+    if (ctx.write) ctx.write(errBuf);
 }
 
 } // namespace cli

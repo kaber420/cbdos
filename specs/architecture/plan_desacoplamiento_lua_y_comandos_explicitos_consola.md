@@ -1,8 +1,8 @@
 # 🧩 Especificación Técnica y Plan: Desacoplamiento de Lua y Comandos Explícitos en la Consola del Sistema
 
 **Fecha:** 2026-10-09  
-**Estado:** Propuesto para Aprobación  
-**Versión:** `v1.0.0`  
+**Estado:** Aprobado  
+**Versión:** `v1.1.0`  
 **Ubicación:** `specs/architecture/plan_desacoplamiento_lua_y_comandos_explicitos_consola.md`  
 
 ---
@@ -27,7 +27,7 @@ Actualmente, el despachador de la consola del sistema (`cbdos::cli::dispatch` en
   ```text
   [SYS] Comando desconocido: "asdf". Escribe 'help' o '?' para ver la lista de comandos.
   ```
-* **Lua como Subsistema Formal de Primera Clase (`lua:`):**
+* **Lua como Subsistema Formal de Primera Clase (`lua:` / `lua`):**
   Para ejecutar una expresión o script de Lua, el operador debe precederlo explícitamente con su prefijo:
   ```text
   cbdos> lua: return 21 * 2
@@ -36,10 +36,13 @@ Actualmente, el despachador de la consola del sistema (`cbdos::cli::dispatch` en
   cbdos> lua: hid.type("ls -la\n")
   [LUA_OUT] OK
   ```
-* **Soporte de Modo Interactivo (Opcional - REPL de Lua):**
+* **Sintaxis y Ayuda Rápida:**
   Si el usuario escribe `lua` o `lua:` sin argumentos:
-  - La consola entra temporalmente al entorno interactivo de Lua con prompt `lua> `.
-  - Para salir y volver al prompt del sistema operativo (`cbdos> `), el usuario escribe `exit` o `quit`.
+  ```text
+  [LUA] Uso: lua: <código> (ej: lua: return 10 * 5)
+  ```
+* **Modo Interactivo (REPL con prompt `lua>` - Fase 2):**
+  La máquina de estados para sesión interactiva con cambio dinámico de prompt (`lua> ` vs `cbdos> `) queda desacoplada para la capa de consola/terminal interactiva (`hal_console_p4.cpp` / `TerminalView`).
 
 ---
 
@@ -47,15 +50,16 @@ Actualmente, el despachador de la consola del sistema (`cbdos::cli::dispatch` en
 
 1. **Eliminación del Fallback Ciego:**
    - En `dispatch()`: Remover la llamada incondicional a `LuaEngine` al final de la función.
-   - En su lugar, emitir:
+   - En su lugar, emitir con buffer protegido (truncado preventivo a 64 bytes):
      ```cpp
      char errBuf[160];
-     snprintf(errBuf, sizeof(errBuf), "[SYS] Comando desconocido: \"%s\". Escribe 'help' para ayuda.\n", trimmed.c_str());
+     snprintf(errBuf, sizeof(errBuf), "[SYS] Comando desconocido: \"%.64s\". Escribe 'help' o '?' para ver la lista de comandos.\n", trimmed.c_str());
      if (ctx.write) ctx.write(errBuf);
      ```
 
 2. **Registro de `cmdLua`:**
-   - Registrar `"lua:"` y `"lua"` en `cbdos::cli::init()`.
+   - Registrar `"lua"` en `cbdos::cli::init()` mediante `registerCommand("lua", cmdLua)`.
+   - Dado que el despachador reconoce automáticamente coincidencias de prefijo con espacio (`"lua "`) y con dos puntos (`"lua:"`), registrar `"lua"` cubre: `lua: <código>`, `lua:<code>`, `lua <código>` y `lua`.
    - Handler:
      ```cpp
      static void cmdLua(const std::string& args, const CommandContext& ctx) {

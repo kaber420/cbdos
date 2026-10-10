@@ -146,18 +146,19 @@ ExecutionOptions parseOptions(const std::string& args);
 * **Comandos Base registrados en Core:**
   - `sys: status`, `status`, `sys: info`, `info`
   - `sys: temp`, `sys: mem`, `sys: uptime` (todos soportan flags `-c`, `-i`)
+  - `lua: <código>`, `lua <código>` (evaluador explícito de scripts Lua)
   - `CBDOS:VERSION?` (identidad directa parseable por WebFlasher)
   - `CBDOS:BOOTLOADER` (reinicio inmediato a bootloader)
-  - *Fallback:* Cualquier línea no registrada se pasa a `LuaEngine::getInstance().executeString()`.
+  - *Comando Desconocido:* Respuestas deterministas `[SYS] Comando desconocido: "..."` (reemplaza el fallback ciego).
 
 * **Comandos Específicos registrados por los BSPs:**
   - `bsp/esp32_p4_jc4880` registra: `usb: status`, `c3: status`, `c3: ping` (soporta `-c`, `-i`, `-t`), `tts:`, `ducky:`.
 
 ### 3.2 Precedencia Estricta de Despacho
 1. **Comandos Críticos WebFlasher:** `CBDOS:VERSION?` y `CBDOS:BOOTLOADER` (evaluados primero sin latencia ni adornos).
-2. **Comandos Jerárquicos con Prefijo:** `sys:`, `usb:`, `c3:`, `tts:`, `ducky:`.
-3. **Alias Directos de Sistema:** `status`, `info`, `temp`, `mem`, `uptime`.
-4. **Evaluador Lua++:** Cualquier otra expresión se envía a Lua.
+2. **Comandos Jerárquicos con Prefijo:** `sys:`, `usb:`, `c3:`, `tts:`, `ducky:`, `lua:`.
+3. **Alias Directos de Sistema:** `status`, `info`, `temp`, `mem`, `uptime`, `lua`.
+4. **Respuesta Determinista de Error:** Cualquier otra entrada no reconocida emite `[SYS] Comando desconocido: "..."`.
 
 ### 3.3 Transporte Dual-Target Reactivo (Zero-Polling Estricto)
 * **ESP32-P4 (`hal_console_p4.cpp`):**
