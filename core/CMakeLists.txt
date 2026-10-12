@@ -169,6 +169,16 @@ if(CONFIG_CBDOS_PRODUCT_TABLEHUB)
     endif()
 endif()
 
+# Módulo SDR (Software Defined Radio Companion): Solo si está habilitado en Kconfig / perfil
+if(CONFIG_CBDOS_FEATURE_SDR)
+    list(APPEND CORE_SRCS
+        "src/sdr/sdr_cli.cpp"
+        "src/sdr/esp_sdr_client.cpp"
+        "src/sdr/sdr_dsp_engine.cpp"
+        "src/ui/views/SdrView.cpp"
+    )
+endif()
+
 idf_component_register(
     SRCS 
         ${CORE_SRCS}

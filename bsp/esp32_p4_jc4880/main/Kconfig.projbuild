@@ -22,6 +22,14 @@ if CBDOS_PRODUCT_CYBERDECK
     config CBDOS_PROFILE_LITE
         bool "Lite Profile (Slim Footprint)"
     endchoice
+
+    config CBDOS_FEATURE_SDR
+        bool "SDR Radio Companion Suite (ESP-SDR over USB Host CDC)"
+        default y if CBDOS_PROFILE_FULL
+        default n
+        help
+            Habilita el subsistema de radio definida por software (SDR),
+            los comandos de consola 'sdr' y la aplicación analizadora de espectro.
 endif
 
 if CBDOS_PRODUCT_TABLEHUB

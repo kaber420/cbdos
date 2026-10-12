@@ -1,7 +1,12 @@
 #include "cbdos/system_cli.hpp"
 #include "cbdos/system.hpp"
 #include "cbdos/board_identity.hpp"
+#include "cbdos_build_profile.h"
 #include "LuaEngine.hpp"
+
+#if CBDOS_FEATURE_SDR
+#include "cbdos/sdr/sdr_cli.hpp"
+#endif
 
 #include <vector>
 #include <string>
@@ -322,6 +327,10 @@ void init() {
     registerCommand("help", cmdHelp);
     registerCommand("?", cmdHelp);
     registerCommand("lua", cmdLua);
+
+#if CBDOS_FEATURE_SDR
+    cbdos::sdr::registerSdrCliCommands();
+#endif
 }
 
 void dispatch(const std::string& line, const CommandContext& ctx) {

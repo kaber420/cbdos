@@ -1,5 +1,11 @@
 #pragma once
 
+#if defined(__has_include)
+    #if __has_include(<sdkconfig.h>)
+        #include <sdkconfig.h>
+    #endif
+#endif
+
 // ============================================================================
 // CBDos Build Profiles & Modular Feature Flags
 // Especificación: specs/architecture/plan_perfiles_compilacion_productos_cbdos_y_tablehub.md
@@ -26,6 +32,7 @@
     #define CBDOS_FEATURE_HELIX_CODECS  0
     #define CBDOS_FEATURE_LUA           1
     #define CBDOS_FEATURE_TABLEHUB_MQTT 1
+    #define CBDOS_FEATURE_SDR           0
 
     #if defined(CONFIG_TABLEHUB_MODE_KDS)
         #define CBDOS_PROFILE_NAME      "TableHub KDS"
@@ -60,6 +67,7 @@
         #define CBDOS_FEATURE_PICOTTS   0
         #define CBDOS_FEATURE_HELIX_CODECS 0
         #define CBDOS_FEATURE_LUA       0
+        #define CBDOS_FEATURE_SDR       0
     #else
         #ifndef CONFIG_CBDOS_PROFILE_FULL
             #define CONFIG_CBDOS_PROFILE_FULL 1
@@ -72,6 +80,12 @@
         #define CBDOS_FEATURE_PICOTTS   1
         #define CBDOS_FEATURE_HELIX_CODECS 1
         #define CBDOS_FEATURE_LUA       1
+
+        #if defined(CONFIG_CBDOS_FEATURE_SDR) || defined(CBDOS_ENABLE_SDR)
+            #define CBDOS_FEATURE_SDR   1
+        #else
+            #define CBDOS_FEATURE_SDR   0
+        #endif
     #endif
 
 #endif

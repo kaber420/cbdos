@@ -14,7 +14,7 @@ Aprovechar el descubrimiento del proyecto de código abierto **ESP-SDR** (desarr
 
 La placa base oficial de CBDos (**Guition JC4880P443C**) ya incluye físicamente en su diseño un coprocesador **ESP32-C6 (U3)** soldado e interconectado directamente con el ESP32-P4 mediante un bus **SDIO de alta velocidad** y líneas de control de reset y arranque. 
 
-Al combinar el bypass de ADC de radio de ESP-SDR en el C6 con el rendimiento masivo del P4 (Dual-Core RISC-V @ 400 MHz, bus SDIO 50 MHz y 32 MB de Hexal-PSRAM @ 200 MHz), CBDos se convierte en el **primer Cyberdeck autónomo con analizador de espectro continuo de 10 MHz y sniffer universal de 2.4 GHz en tiempo real**.
+Al combinar el bypass de ADC de radio de ESP-SDR en el C6 con el rendimiento masivo del P4 (Dual-Core RISC-V @ 400 MHz, bus SDIO 50 MHz y 32 MB de Hexal-PSRAM @ 200 MHz), CBDos se convierte en el **primer Cyberdeck autónomo con analizador de espectro por barrido a ráfagas y sniffer 2.4 GHz por duty-cycle**.
 
 ---
 
@@ -42,12 +42,13 @@ Todos los pines necesarios ya están soldados y ruteados en el PCB de la placa (
 └───────────────────────────────────────┘             └────────────────────────────────────────┘
 ```
 
-### Ancho de Banda y Rendimiento del Bus
-* **Bus SDIO:** 4 bits @ 50 MHz $\rightarrow$ Ancho de banda teórico de 200 Mbps (~25 MB/s). Rendimiento sostenido con DMA en ESP-IDF: **~18 a 20 MB/s**.
+### Ancho de Banda y Rendimiento del Bus (modelo por ráfagas)
+* **Bus SDIO:** 4 bits @ 50 MHz $\rightarrow$ Ancho de banda teórico de 200 Mbps (~25 MB/s). Rendimiento sostenido con DMA en ESP-IDF: **~18 a 20 MB/s para vaciado de ráfagas**.
 * **Formato I/Q de Muestras:** 8 bits I + 8 bits Q = 2 bytes por muestra.
-* **Tasa de Muestreo Sostenida:** $\frac{20 \text{ MB/s}}{2 \text{ bytes}} = \mathbf{10 \text{ MSa/s CONTINUAS}}$.
-* **Ancho de Banda RF Instantáneo:** **10 MHz ininterrumpidos** (cero pérdida de paquetes, sin ráfagas ciegas).
-* **Impacto en Hexal-PSRAM:** 20 MB/s sobre un bus de 800 MB/s $\rightarrow$ **Ocupa apenas el 2.5% del ancho de banda de la RAM**.
+* **Captura en C6:** ráfagas de ~0.5-1.6 ms a 80 MSa/s nominal a SRAM interna (~512 KB). Sin tasa continua: duty-cycle 5-10%.
+* **Transferencia C6 $\to$ P4:** vaciado de cada ráfaga por SDIO (~15-25 ms por ráfaga típica). El P4 procesa por DMA mientras el C6 captura la siguiente.
+* **Ancho de Banda RF Instantáneo:** **hasta ~12-54 MHz durante la ráfaga** (según ESP-SDR en C6). Entre ráfagas hay tiempo ciego por vaciado/procesado.
+* **Impacto en Hexal-PSRAM:** tráfico a ráfagas, media <2 MB/s $\rightarrow$ **<1% del ancho de banda de la RAM**.
 
 ---
 
@@ -72,16 +73,16 @@ Todos los pines necesarios ya están soldados y ruteados en el PCB de la placa (
 ┌──────────────────────────────────┴─────────────────────────────────────┐
 │                   CAPA 2: DRIVER HAL SDIO EN ESP32-P4                  │
 │   - HalSdrSdio: SDIO Host Controller con descriptores DMA enlazados    │
-│   - Doble buffer ping-pong circular asignado en Hexal-PSRAM (2x 2 MB)  │
+│   - Doble buffer ping-pong para ráfagas asignado en Hexal-PSRAM (2x 512 KB) │
 │   - Control de alimentación/reset del C6 (GPIO 54) y handshake (GPIO 6)│
 └──────────────────────────────────▲─────────────────────────────────────┘
-                                   │ Bus Físico SDIO (20 MB/s)
+                                   │ Bus Físico SDIO (vaciado de ráfagas ~20 MB/s pico)
 ┌──────────────────────────────────┴─────────────────────────────────────┐
 │                 CAPA 1: FIRMWARE SDR DEL ESP32-C6                      │
 │   - Modificación de ESP-SDR adaptado para slave SDIO                   │
-│   - Bypass de módem mediante adctrig / librftest                       │
-│   - Decimación del ADC (80 MSa/s -> 10 MSa/s)                          │
-│   - Streaming continuo hacia endpoints SDIO DMA                        │
+│   - Bypass de módem mediante adctrig / librftest a 80 MSa/s nominal    │
+│   - Captura a ráfagas a SRAM interna (trigger -> dump -> send -> repeat)│
+│   - Sin decimación en C6: se envía ráfaga cruda u espectro pre-calculado │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -101,7 +102,7 @@ Para adaptarse tanto a un dispositivo de uso diario como a una estación de radi
 
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                   OPCIÓN B: ESTACIÓN SIGINT / SDR TÁCTICA DEDICADA                     │
-│  - C6 dedicado 100% como SDR Front-End permanente en 2.4 GHz (streaming SDIO continuo).│
+│  - C6 dedicado 100% como SDR Front-End por ráfagas en 2.4 GHz (vaciado por SDIO).│
 │  - Cero overhead de Wi-Fi; máxima sensibilidad y tasa de muestreo.                     │
 │  - Comunicaciones y TX cubiertos por módulos Semtech en cabecera JP1 (SPI):           │
 │      • SX1262 (Sub-GHz 433/868/915 MHz LoRa/FSK)                                      │
@@ -135,7 +136,7 @@ Para adaptarse tanto a un dispositivo de uso diario como a una estación de radi
      ```
   4. Si el usuario confirma, el P4 envía el comando SDIO `CMD_SET_RADIO_MODE(MODE_SDR)`:
      * El C6 detiene limpiamente el stack Wi-Fi (`esp_wifi_stop()`).
-     * Activa el bypass de radio (`adctrig`) y empieza a transmitir las muestras I/Q por `IF_TYPE_SDR`.
+      * Activa el bypass de radio (`adctrig`) y empieza a transmitir ráfagas I/Q por `IF_TYPE_SDR`.
      * **Cero reinicios físicos y cero escrituras en Flash.**
   5. Al cerrar la app, el comando `CMD_SET_RADIO_MODE(MODE_WIFI)` reactiva la red normal.
 
@@ -144,7 +145,7 @@ Para adaptarse tanto a un dispositivo de uso diario como a una estación de radi
 ### Opción B: Cyberdeck SIGINT Dedicado + Suite Multi-Radio Semtech
 
 Si se destina una unidad del **ESP32-P4 como terminal de radiofrecuencia y guerra electrónica dedicada**:
-* **El ESP32-C6 no hace Wi-Fi:** Su único propósito en la vida es actuar como un receptor SDR sintonizable de 2.4 GHz bombeando 10 MSa/s ininterrumpidas por SDIO hacia los 32 MB de Hexal-PSRAM del P4.
+* **El ESP32-C6 no hace Wi-Fi:** Su único propósito en la vida es actuar como un receptor SDR sintonizable de 2.4 GHz por ráfagas (captura a 80 MSa/s en SRAM, vaciado por SDIO a Hexal-PSRAM del P4).
 * **Transmisión y Telemetría Táctica (TX/RX):**
   Como el C6 está ocupado en RX SDR, las comunicaciones bidireccionales de CBDos se delegan a transceptores de hardware dedicados conectados al bus **SPI y pines de control en la cabecera JP1**:
 
@@ -168,10 +169,10 @@ Si se destina una unidad del **ESP32-P4 como terminal de radiofrecuencia y guerr
        ┌──────────────────────────────────────┐          ┌───────────────────────────────────┐
        │         ESP32-C6 (Oídos SDR)         │          │     SUITE SEMTECH (Voz / TX/RX)   │
        │                                      │          │                                   │
-       │ • Bypass ADC RF (ESP-SDR)            │          │ • SX1262: LoRa Sub-GHz (+22dBm)   │
-       │ • Streaming I/Q continuo a 10 MSa/s  │          │ • SX1280: FLRC 2.4G & Ranging     │
-       │ • Escáner de 2.4 GHz en cascada      │          │ • LR1121: Multi-Banda + Satélite  │
-       │ • Sniffer continuo nRF24 y Zigbee    │          │ • Malla CBDos / Enlace Táctico    │
+        │ • Bypass ADC RF (ESP-SDR)            │          │ • SX1262: LoRa Sub-GHz (+22dBm)   │
+        │ • Captura I/Q por ráfagas a 80 MSa/s │          │ • SX1280: FLRC 2.4G & Ranging     │
+        │ • Escáner de 2.4 GHz por barrido     │          │ • LR1121: Multi-Banda + Satélite  │
+        │ • Sniffer por duty-cycle nRF24/Zigbee│          │ • Malla CBDos / Enlace Táctico    │
        └──────────────────────────────────────┘          └───────────────────────────────────┘
 ```
 
@@ -185,13 +186,13 @@ Esta configuración convierte al Cyberdeck en una **estación de radio táctica 
 ## 5. Capacidades Funcionales en CBDos y Realismo de Espectro
 
 ### A. Analizador de Espectro: Instantáneo vs Barrido
-* **Banda Instantánea (10 MHz continuos):** Permite monitorear un canal Wi-Fi completo (o 2-3 canales Zigbee/nRF24) sin perder un solo microsegundo.
-* **Banda Completa (83.5 MHz de la banda ISM 2.4 GHz):** Para cubrir de 2.400 a 2.4835 GHz, el C6 realiza un **barrido ágil del sintetizador PLL (Frequency Hopping Sweep)** en 8 saltos de 10 MHz.
+* **Banda Instantánea (hasta ~12-54 MHz durante la ráfaga, según C6):** Permite monitorear 1-2 canales Wi-Fi o varios Zigbee/nRF24 solo durante la ráfaga (~1 ms). Entre ráfagas hay tiempo ciego de vaciado.
+* **Banda Completa (83.5 MHz de la banda ISM 2.4 GHz):** Para cubrir de 2.400 a 2.4835 GHz, el C6 realiza un **barrido ágil del sintetizador PLL (Frequency Hopping Sweep)** en saltos sucesivos.
   * *Realidad de ingeniería:* Durante el barrido global hay tiempos ciegos inevitables entre canales, pero permite un refresco de cascada visual de 15 a 30 FPS muy fluido en el panel ST7701S.
 
-### B. Sniffer de Protocolos (Canal Fijo Dedicado)
-* **nRF24L01+:** Sintonizado en canal fijo o salto selectivo en canales típicos (ej. canales de periféricos Logitech o drones), decodificando paquetes GFSK en Core 1 del P4.
-* **Zigbee / Thread (IEEE 802.15.4):** Sintonizado en canal fijo de domótica (ej. Canales 11, 15, 20 o 25) para captura 100% continua sin pérdida de tramas.
+### B. Sniffer de Protocolos (Canal Fijo Dedicado, por duty-cycle)
+* **nRF24L01+:** Sintonizado en canal fijo o salto selectivo en canales típicos (ej. canales de periféricos Logitech o drones), decodificando paquetes GFSK en Core 1 del P4 a partir de ráfagas.
+* **Zigbee / Thread (IEEE 802.15.4):** Sintonizado en canal fijo de domótica (ej. Canales 11, 15, 20 o 25) para captura por ráfagas con duty-cycle (sin garantía de trama 100%).
 
 ---
 
@@ -201,8 +202,8 @@ Esta configuración convierte al Cyberdeck en una **estación de radio táctica 
 
 | Fase | Tarea Principal | Criterio de Aceptación (Go / No-Go) |
 | :---: | :--- | :--- |
-| **Fase 1 (Bloqueante)** | **PoC de Transporte SDIO C6 $\to$ P4** | • Medir transferencia continua sostenida por SDIO a 50 MHz con datos sintéticos DMA en Hexal-PSRAM.<br>• **Meta:** $\ge 16 \text{ MB/s}$ sin desbordamiento de FIFO.<br>• Si no se alcanzan $\ge 12 \text{ MB/s}$, se degrada la arquitectura a modo On-Chip FFT o capturas a ráfagas. |
-| **Fase 2** | **Port de ESP-SDR con Salida SDIO** | Modificar ESP-SDR en C6 integrando el driver `sdio_slave` y decaimiento del ADC. Validar dual-OTA con GPIO 6. |
+| **Fase 1 (Bloqueante)** | **PoC de Transporte SDIO C6 $\to$ P4 por ráfagas** | • Medir vaciado de ráfagas por SDIO a 50 MHz con datos sintéticos DMA en Hexal-PSRAM.<br>• **Meta:** pico $\ge 16 \text{ MB/s}$ durante el vaciado, duty 5-10%.<br>• Criterio: FFT/espectro estable por barrido, modo ráfagas únicamente. |
+| **Fase 2** | **Port de ESP-SDR con Salida SDIO por ráfagas** | Modificar ESP-SDR en C6 integrando el driver `sdio_slave` en modo trigger-dump-send-repeat a 80 MSa/s nominal. Sin decimación (no fiable en C6). Validar dual-OTA con GPIO 6. |
 | **Fase 3** | **Pipeline DSP en Core 1 del P4** | Implementar `SdrDspEngine` (FFT y demoduladores GFSK/DSSS) aislado en Core 1 sin afectar los 60 FPS de LVGL en Core 0. |
 | **Fase 4** | **Vista LVGL 9.5 (`SpectrumView`)** | Canvas de cascada cromática acelerado por PPA y gráfica de barras dBm. |
 | **Fase 5** | **Logging & Captura PCAP** | Almacenamiento de paquetes sniffados en tarjeta MicroSD (`/sdcard/captures/`). |
@@ -212,11 +213,11 @@ Esta configuración convierte al Cyberdeck en una **estación de radio táctica 
 ## 7. Evaluación de Riesgos y Mitigaciones
 
 1. **Latencia del SDIO Slave en el C6:**
-   * *Riesgo:* Que el C6 sufra desbordamiento de buffer (*underrun/overflow*) si el ADC genera datos más rápido de lo que la DMA del SDIO desocupa.
-   * *Mitigación:* Ajustar la decimación de entrada a 8 MSa/s (16 MB/s) para dejar un 30% de margen de seguridad en el bus SDIO de 50 MHz.
+   * *Riesgo:* Que el C6 sufra desbordamiento de buffer (*underrun/overflow*) si la ráfaga no se vacía antes del siguiente trigger.
+   * *Mitigación:* Modelo trigger-dump-send-repeat con duty 5-10% y handshake por GPIO 6; sin tasa continua ni decimación 80→10.
 2. **Temperatura del C6:**
-   * *Riesgo:* Mantener el frontend RF muestreando a máxima velocidad de forma ininterrumpida eleva la temperatura del silicio.
-   * *Mitigación:* Implementar un modo de descanso configurable (*Duty Cycle*) y monitorear la temperatura interna vía sensor térmico integrado en el C6.
+   * *Riesgo:* Mantener el frontend RF muestreando a máxima velocidad eleva la temperatura del silicio.
+   * *Mitigación:* Duty-cycle obligatorio por diseño (ráfagas + descanso) y monitoreo térmico interno del C6.
 3. **Licenciamiento GPL-3.0:**
    * *Riesgo:* Contaminación de la base de código del Core de CBDos.
    * *Mitigación:* El firmware del C6 es un ejecutable 100% independiente (código abierto GPL-3.0). El ESP32-P4 solo interactúa con él a través de una especificación abierta de tramas sobre SDIO, preservando el Core de CBDos limpio y desacoplado.

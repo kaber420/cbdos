@@ -35,6 +35,9 @@
 #if CBDOS_FEATURE_LAN_RECON
 #include "views/LanReconView.hpp"
 #endif
+#if CBDOS_FEATURE_SDR
+#include "views/SdrView.hpp"
+#endif
 
 #include <algorithm>
 
@@ -201,6 +204,19 @@ void AppRegistry::initSystemApps() {
         0x00F5D4,
         true,
         []() { UIManager::getInstance().pushView(std::make_shared<LanReconView>()); }
+    });
+#endif
+
+#if CBDOS_FEATURE_SDR
+    // 13b. SDR Spectrum Analyzer (ESPARGOS Companion)
+    registerApp({
+        "sdr",
+        "SDR Spectrum",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_WIFI },
+        0x37C964,
+        true,
+        []() { UIManager::getInstance().pushView(std::make_shared<SdrView>()); }
     });
 #endif
 
