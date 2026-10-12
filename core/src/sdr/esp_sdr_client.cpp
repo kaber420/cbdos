@@ -35,6 +35,68 @@ static void initCrc32Table() {
     s_crcTableInit = true;
 }
 
+struct SpecProfile {
+    uint32_t sampleRate;
+    int divider;
+    uint16_t fftBins;
+    int param3;
+    int upf;
+};
+
+static const SpecProfile kSpecProfiles[] = {
+    // 4 MSa/s (divider 5)
+    {4000000, 5, 256, 1, 1},
+    {4000000, 5, 512, 1, 1},
+    {4000000, 5, 1024, 1, 2},
+    {4000000, 5, 2048, 1, 4},
+    // 8 MSa/s (divider 4)
+    {8000000, 4, 256, 1, 1},
+    {8000000, 4, 512, 1, 1},
+    {8000000, 4, 1024, 2, 2},
+    {8000000, 4, 2048, 2, 4},
+    // 10 MSa/s (divider 3)
+    {10000000, 3, 256, 2, 1},
+    {10000000, 3, 512, 2, 2},
+    {10000000, 3, 1024, 2, 3},
+    {10000000, 3, 2048, 2, 5},
+    // 16 MSa/s (divider 6)
+    {16000000, 6, 256, 2, 1},
+    {16000000, 6, 512, 2, 2},
+    {16000000, 6, 1024, 2, 4},
+    {16000000, 6, 2048, 3, 7},
+    // 20 MSa/s (divider 2)
+    {20000000, 2, 256, 3, 2},
+    {20000000, 2, 512, 3, 3},
+    {20000000, 2, 1024, 3, 5},
+    {20000000, 2, 2048, 4, 9},
+    // 40 MSa/s (divider 1)
+    {40000000, 1, 256, 5, 3},
+    {40000000, 1, 512, 5, 5},
+    {40000000, 1, 1024, 5, 9},
+    {40000000, 1, 2048, 7, 17},
+    // 80 MSa/s (divider 0)
+    {80000000, 0, 256, 10, 6},
+    {80000000, 0, 512, 10, 10},
+    {80000000, 0, 1024, 10, 18},
+    {80000000, 0, 2048, 15, 35}
+};
+
+static const SpecProfile* findSpecProfile(uint32_t rate, uint16_t bins) {
+    for (size_t i = 0; i < sizeof(kSpecProfiles) / sizeof(kSpecProfiles[0]); i++) {
+        if (kSpecProfiles[i].sampleRate == rate && kSpecProfiles[i].fftBins == bins) {
+            return &kSpecProfiles[i];
+        }
+    }
+    // Búsqueda por coincidencia de tasa
+    for (size_t i = 0; i < sizeof(kSpecProfiles) / sizeof(kSpecProfiles[0]); i++) {
+        if (kSpecProfiles[i].sampleRate == rate) {
+            return &kSpecProfiles[i];
+        }
+    }
+    // Default oficial: 80 MSa/s, 2048 bins
+    return &kSpecProfiles[sizeof(kSpecProfiles) / sizeof(kSpecProfiles[0]) - 1];
+}
+
 // Helper para leer una línea terminada en '\n' desde IUsbCdcChannel
 static std::string readLineFromCdc(cbdos::usb::IUsbCdcChannel* cdc, uint32_t timeoutMs, size_t maxBytes = 256) {
     if (!cdc) return "";
@@ -357,25 +419,192 @@ void EspSdrClient::streamTaskTrampoline(void* arg) {
 }
 
 void EspSdrClient::streamTaskLoop() {
-    SdrFrame frame;
-    frame.iqData.reserve(4096);
-    SdrFrame dspFrame;
+    auto* host = cbdos::usb::getUsbHostBackend();
+    if (!host) return;
+    auto* cdc = host->getCdcChannel();
+    if (!cdc) return;
+
+    if (m_streamConfig.captureMode == CaptureMode::RawIQ) {
+        // Fallback: Captura secuencial por ráfagas crudas
+        SdrFrame frame;
+        frame.iqData.reserve(4096);
+        SdrFrame dspFrame;
+
+        while (m_streaming && m_connected) {
+            if (captureBurst(m_streamConfig, frame, 1500)) {
+                if (getSdrDspEngine().process(frame, dspFrame)) {
+                    if (m_streamCallback) {
+                        m_streamCallback(dspFrame);
+                    }
+                } else if (m_streamCallback) {
+                    m_streamCallback(frame);
+                }
+            } else {
+                cbdos::system::sleepMs(20);
+            }
+            cbdos::system::yieldTask();
+        }
+        return;
+    }
+
+    // Modo On-Chip Spectrum (SPEC / SPC1 de ESPARGOS): 200+ espectros/segundo
+    tune(m_streamConfig.frequencyMHz);
+    setGain(m_streamConfig.gainMode, m_streamConfig.gainIndex);
+
+    cdc->purge();
+
+    const auto* prof = findSpecProfile(m_streamConfig.sampleRate, m_streamConfig.fftBins);
+    uint16_t n = prof->fftBins;
+    size_t frameLen = 32 + n; // 4 (SPC1) + 24 (hdr) + n (bins) + 4 (crc)
+
+    int maxHold = m_streamConfig.maxHold ? 1 : 0;
+    char specCmd[64];
+    snprintf(specCmd, sizeof(specCmd), "SPEC 0 %d %d %d %d %u 1\n",
+             prof->param3, prof->upf, maxHold, prof->divider, (unsigned)n);
+    cdc->writeString(specCmd);
+
+    std::string ack = readLineFromCdc(cdc, 1500);
+    if (ack.rfind("SPEC", 0) != 0) {
+        m_streaming = false;
+        return;
+    }
+
+    std::vector<uint8_t> rxBuf;
+    rxBuf.reserve(8192);
+    uint8_t chunk[2048];
+
+    uint32_t lastFpsCheckMs = cbdos::system::getTimeMs();
+    uint32_t framesThisPeriod = 0;
 
     while (m_streaming && m_connected) {
-        if (captureBurst(m_streamConfig, frame, 1500)) {
-            if (getSdrDspEngine().process(frame, dspFrame)) {
-                if (m_streamCallback) {
-                    m_streamCallback(dspFrame);
+        size_t bytesRead = 0;
+        cbdos::usb::UsbIoResult res = cdc->read(chunk, sizeof(chunk), bytesRead, 20);
+
+        if (res == cbdos::usb::UsbIoResult::Ok && bytesRead > 0) {
+            rxBuf.insert(rxBuf.end(), chunk, chunk + bytesRead);
+
+            size_t at = 0;
+            while (rxBuf.size() - at >= 4) {
+                const uint8_t* b = rxBuf.data() + at;
+                if (b[0] != 'S' || b[1] != 'P') {
+                    at++;
+                    continue;
                 }
-            } else if (m_streamCallback) {
-                m_streamCallback(frame);
+
+                // Descartar o procesar SPECEND (fin de stream)
+                if (b[2] == 'E' && b[3] == 'C') {
+                    if (rxBuf.size() - at < 8) break;
+                    size_t nl = at;
+                    while (nl < rxBuf.size() && rxBuf[nl] != '\n') nl++;
+                    if (nl >= rxBuf.size()) break;
+                    at = nl + 1;
+                    continue;
+                }
+
+                // Descartar SPS1 (estadísticas del chip de 40 bytes)
+                if (b[2] == 'S' && b[3] == '1') {
+                    if (rxBuf.size() - at < 40) break;
+                    at += 40;
+                    continue;
+                }
+
+                // Trama de espectro SPC1
+                if (b[2] != 'C' || b[3] != '1') {
+                    at++;
+                    continue;
+                }
+
+                if (rxBuf.size() - at < frameLen) {
+                    break;
+                }
+
+                // Verificación CRC32 (los últimos 4 bytes son CRC little-endian)
+                uint32_t expectedCrc = (uint32_t)b[frameLen - 4] |
+                                      ((uint32_t)b[frameLen - 3] << 8) |
+                                      ((uint32_t)b[frameLen - 2] << 16) |
+                                      ((uint32_t)b[frameLen - 1] << 24);
+                uint32_t actualCrc = calculateCrc32(b, frameLen - 4);
+                if (actualCrc != expectedCrc) {
+                    m_stats.crcErrors++;
+                    at++;
+                    continue;
+                }
+
+                uint8_t step = b[27];
+                if (step == 0) step = 2;
+                const uint8_t* bins = b + 28;
+
+                SdrFrame frame;
+                frame.type = FrameType::Spectrum;
+                frame.sequence = ++m_sequence;
+                frame.frequencyMHz = m_currentFreqMHz;
+                frame.sampleRate = m_streamConfig.sampleRate;
+                frame.fftBins = n;
+                frame.crcOk = true;
+                frame.spectrumDbfs.resize(n);
+
+                float peakDb = -140.0f;
+                uint16_t peakIdx = 0;
+
+                // Decodificación exacta de la web: out[j] = (bins[(n/2 - j + n) % n] / step) - 84.3
+                for (uint16_t j = 0; j < n; j++) {
+                    uint16_t srcIdx = (n / 2 - j + n) % n;
+                    float v = (float)bins[srcIdx];
+                    float db = (v / (float)step) - 84.3f;
+                    frame.spectrumDbfs[j] = db;
+
+                    if (db > peakDb) {
+                        peakDb = db;
+                        peakIdx = j;
+                    }
+                }
+
+                // Puente DC (suprime la fuga local del oscilador en el bin central)
+                uint16_t c = n / 2;
+                if (c >= 2 && c + 2 < n) {
+                    float m = (frame.spectrumDbfs[c - 2] + frame.spectrumDbfs[c + 2]) / 2.0f;
+                    frame.spectrumDbfs[c - 1] = m;
+                    frame.spectrumDbfs[c]     = m;
+                    frame.spectrumDbfs[c + 1] = m;
+                }
+
+                float spanMHz = (float)frame.sampleRate / 1000000.0f;
+                float startFreqMHz = (float)frame.frequencyMHz - (spanMHz / 2.0f);
+                float stepMHz = spanMHz / (float)n;
+                frame.peakDbfs = peakDb;
+                frame.peakFreqMHz = startFreqMHz + (float)peakIdx * stepMHz;
+
+                m_stats.framesReceived++;
+                framesThisPeriod++;
+
+                uint32_t nowMs = cbdos::system::getTimeMs();
+                if (nowMs - lastFpsCheckMs >= 1000) {
+                    m_stats.fps = (float)framesThisPeriod * 1000.0f / (float)(nowMs - lastFpsCheckMs);
+                    framesThisPeriod = 0;
+                    lastFpsCheckMs = nowMs;
+                }
+
+                if (m_streamCallback) {
+                    m_streamCallback(frame);
+                }
+
+                at += frameLen;
             }
-        } else {
-            cbdos::system::sleepMs(20);
+
+            if (at > 0) {
+                rxBuf.erase(rxBuf.begin(), rxBuf.begin() + at);
+            }
+        } else if (res == cbdos::usb::UsbIoResult::Disconnected || res == cbdos::usb::UsbIoResult::HardwareError) {
+            break;
         }
-        // Yield para no saturar CPU y permitir arbitraje
+
         cbdos::system::yieldTask();
     }
+
+    // Parar streaming en S3: enviar '\n'
+    cdc->writeString("\n");
+    cbdos::system::sleepMs(30);
+    cdc->purge();
 }
 
 bool EspSdrClient::startStreaming(const SdrConfig& cfg, SdrFrameCallback callback) {
@@ -393,7 +622,7 @@ bool EspSdrClient::startStreaming(const SdrConfig& cfg, SdrFrameCallback callbac
         this,
         5,
         (TaskHandle_t*)&m_streamTaskHandle,
-        1 // Fijar en Core 1 para dejar Core 0 libre para LVGL 9.5
+        0 // Fijar en Core 0 para dejar Core 1 100% libre para LVGL 9.5
     );
 
     if (ret != pdPASS) {
@@ -409,13 +638,20 @@ void EspSdrClient::stopStreaming() {
     if (!m_streaming) return;
     m_streaming = false;
 
+    auto* host = cbdos::usb::getUsbHostBackend();
+    if (host) {
+        auto* cdc = host->getCdcChannel();
+        if (cdc) {
+            cdc->writeString("\n");
+        }
+    }
+
     if (m_streamTaskHandle) {
-        // Esperar brevemente a que termine el bucle de captura
         for (int i = 0; i < 20; i++) {
             if (eTaskGetState((TaskHandle_t)m_streamTaskHandle) == eDeleted) {
                 break;
             }
-            cbdos::system::sleepMs(20);
+            cbdos::system::sleepMs(10);
         }
         m_streamTaskHandle = nullptr;
     }

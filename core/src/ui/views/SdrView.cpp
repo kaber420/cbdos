@@ -18,19 +18,23 @@ namespace ui {
 
 namespace {
 
-struct WifiChannel {
-    int channel;
+struct FreqPreset {
+    const char* label;
     uint32_t freqMHz;
 };
 
-static const WifiChannel kChannels[] = {
-    {1,  2412}, {2,  2417}, {3,  2422}, {4,  2427},
-    {5,  2432}, {6,  2437}, {7,  2442}, {8,  2447},
-    {9,  2452}, {10, 2457}, {11, 2462}, {12, 2467},
-    {13, 2472}, {14, 2484}
+static const FreqPreset kPresets[] = {
+    {"Ch 1 (2412 MHz)",  2412},
+    {"Center (2420 MHz)",2420},
+    {"Ch 6 (2437 MHz)",  2437},
+    {"Ch 7 (2442 MHz)",  2442},
+    {"Ch 11 (2462 MHz)", 2462},
+    {"Ch 14 (2484 MHz)", 2484},
+    {"2.6 GHz ISM",      2600},
+    {"2.7 GHz Max",      2700}
 };
 
-static constexpr size_t kChannelCount = sizeof(kChannels) / sizeof(kChannels[0]);
+static constexpr size_t kPresetCount = sizeof(kPresets) / sizeof(kPresets[0]);
 
 } // anonymous namespace
 
@@ -40,11 +44,11 @@ bool     SdrView::s_colormapInit = false;
 void SdrView::initColormapLut() {
     if (s_colormapInit) return;
 
-    // Generar gradiente térmico de 256 niveles (ESPARGOS style)
+    // Gradiente térmico idéntico al visor oficial ESP-WebSDR:
     // 0..63:   Azul profundo -> Cian
     // 64..127: Cian -> Verde brillante
     // 128..191:Verde -> Amarillo intenso
-    // 192..255:Amarillo -> Rojo / Blanco cálido
+    // 192..255:Amarillo -> Naranja / Blanco cálido
     for (int i = 0; i < 256; i++) {
         float t = (float)i / 255.0f;
         uint8_t r = 0, g = 0, b = 0;
@@ -71,7 +75,6 @@ void SdrView::initColormapLut() {
             b = (uint8_t)(10 * (1.0f - f) + 220 * f);
         }
 
-        // Convertir RGB888 a RGB565
         uint16_t rgb565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
         s_colormapLut[i] = rgb565;
     }
@@ -82,12 +85,15 @@ SdrView::SdrView()
     : BaseView("SDR Analyzer") {
     initColormapLut();
 
-    m_config.frequencyMHz = 2412;
-    m_config.sampleRate   = 40000000;
+    // Configuración por defecto: 2420 MHz, 80 MS/s - 80 MHz, 2048 bins (On-Chip SPEC)
+    m_config.frequencyMHz = 2420;
+    m_config.sampleRate   = 80000000;
     m_config.sampleBits   = 8;
-    m_config.fftBins      = 512;
+    m_config.fftBins      = 2048;
     m_config.gainMode     = cbdos::sdr::GainMode::HardwareAgc;
     m_config.gainIndex    = 40;
+    m_config.maxHold      = false;
+    m_config.captureMode  = cbdos::sdr::CaptureMode::OnChipSpectrum;
 
     m_waterfallBufSize = kWaterfallW * kWaterfallH * sizeof(uint16_t);
     m_waterfallBuf = (uint16_t*)malloc(m_waterfallBufSize);
@@ -103,7 +109,6 @@ SdrView::~SdrView() {
 bool SdrView::onCreate(lv_obj_t* parent) {
     if (!parent) return false;
 
-    // Configuración de HeaderBar
     UIManager::getInstance().getHeaderBar().setTitle("SDR Analyzer");
 
     // Contenedor principal con scroll vertical
@@ -112,18 +117,19 @@ bool SdrView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_bg_opa(m_container, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(m_container, 0, 0);
     lv_obj_set_style_radius(m_container, 0, 0);
-    lv_obj_set_style_pad_all(m_container, 8, 0);
-    lv_obj_set_style_pad_row(m_container, 8, 0);
+    lv_obj_set_style_pad_all(m_container, 6, 0);
+    lv_obj_set_style_pad_row(m_container, 6, 0);
     lv_obj_set_flex_flow(m_container, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_scrollbar_mode(m_container, LV_SCROLLBAR_MODE_AUTO);
 
-    // Construcción de la interfaz
     createControlBar(m_container);
     createSpectrumPanel(m_container);
     createWaterfallPanel(m_container);
     createBottomBar(m_container);
 
-    // Timer de refresco LVGL @ ~30 FPS (33 ms)
+    updateAxisLabels();
+
+    // Timer de refresco LVGL @ 30 FPS
     m_renderTimer = lv_timer_create(onRefreshTimer, 33, this);
 
     return true;
@@ -172,37 +178,127 @@ void SdrView::createControlBar(lv_obj_t* parent) {
     lv_obj_t* bar = lv_obj_create(parent);
     lv_obj_set_width(bar, LV_PCT(100));
     lv_obj_set_height(bar, LV_SIZE_CONTENT);
-    DefaultTheme::applyRaisedCard(bar, 12);
-    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_all(bar, 8, 0);
+    DefaultTheme::applyRaisedCard(bar, 10);
+    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(bar, 6, 0);
+    lv_obj_set_style_pad_row(bar, 6, 0);
     DefaultTheme::disableScroll(bar);
 
-    // 1. Botón Play/Pausa
-    m_btnPlayPause = lv_button_create(bar);
-    lv_obj_set_size(m_btnPlayPause, 95, 36);
+    // --- Fila 1: Play/Pausa + Ajuste Fino Frecuencia (MHz) + Presets ---
+    lv_obj_t* row1 = lv_obj_create(bar);
+    lv_obj_set_size(row1, LV_PCT(100), 38);
+    lv_obj_set_style_bg_opa(row1, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(row1, 0, 0);
+    lv_obj_set_style_pad_all(row1, 0, 0);
+    lv_obj_set_flex_flow(row1, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(row1, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    DefaultTheme::disableScroll(row1);
+
+    // Botón Iniciar / Pausar
+    m_btnPlayPause = lv_button_create(row1);
+    lv_obj_set_size(m_btnPlayPause, 90, 36);
     DefaultTheme::applyButton(m_btnPlayPause, 8);
     lv_obj_set_style_bg_color(m_btnPlayPause, lv_color_hex(0x37C964), 0);
     lv_obj_add_event_cb(m_btnPlayPause, onPlayPauseClicked, LV_EVENT_CLICKED, this);
 
     m_lblPlayPause = lv_label_create(m_btnPlayPause);
-    lv_label_set_text(m_lblPlayPause, LV_SYMBOL_PLAY " Iniciar");
+    lv_label_set_text(m_lblPlayPause, LV_SYMBOL_PLAY " Start");
     lv_obj_center(m_lblPlayPause);
 
-    // 2. Selector de Canales Wi-Fi 2.4 GHz
-    m_ddChannels = lv_dropdown_create(bar);
-    lv_dropdown_set_options(m_ddChannels,
-        "Ch 1 (2412)\nCh 2 (2417)\nCh 3 (2422)\nCh 4 (2427)\n"
-        "Ch 5 (2432)\nCh 6 (2437)\nCh 7 (2442)\nCh 8 (2447)\n"
-        "Ch 9 (2452)\nCh 10 (2457)\nCh 11 (2462)\nCh 12 (2467)\n"
-        "Ch 13 (2472)\nCh 14 (2484)");
-    lv_dropdown_set_selected(m_ddChannels, 0);
-    lv_obj_set_size(m_ddChannels, 120, 36);
-    lv_obj_set_style_radius(m_ddChannels, 8, 0);
-    lv_obj_add_event_cb(m_ddChannels, onChannelSelected, LV_EVENT_VALUE_CHANGED, this);
+    // Botón Step -10M
+    lv_obj_t* btnM10 = lv_button_create(row1);
+    lv_obj_set_size(btnM10, 42, 36);
+    DefaultTheme::applyButton(btnM10, 8);
+    lv_obj_set_style_bg_color(btnM10, lv_color_hex(0x1F2937), 0);
+    lv_obj_set_user_data(btnM10, (void*)(intptr_t)-10);
+    lv_obj_add_event_cb(btnM10, onFreqStepClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t* lM10 = lv_label_create(btnM10);
+    lv_label_set_text(lM10, "-10");
+    lv_obj_center(lM10);
 
-    // 3. Botón de Ganancia AGC/Manual
-    m_btnGainMode = lv_button_create(bar);
+    // Botón Step -1M
+    lv_obj_t* btnM1 = lv_button_create(row1);
+    lv_obj_set_size(btnM1, 38, 36);
+    DefaultTheme::applyButton(btnM1, 8);
+    lv_obj_set_style_bg_color(btnM1, lv_color_hex(0x1F2937), 0);
+    lv_obj_set_user_data(btnM1, (void*)(intptr_t)-1);
+    lv_obj_add_event_cb(btnM1, onFreqStepClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t* lM1 = lv_label_create(btnM1);
+    lv_label_set_text(lM1, "-1");
+    lv_obj_center(lM1);
+
+    // Etiqueta Central Frecuencia
+    m_lblFreqValue = lv_label_create(row1);
+    lv_label_set_text(m_lblFreqValue, "2420 MHz");
+    lv_obj_set_style_text_color(m_lblFreqValue, lv_color_hex(0x00F5D4), 0);
+    lv_obj_set_style_text_font(m_lblFreqValue, &lv_font_montserrat_14, 0);
+
+    // Botón Step +1M
+    lv_obj_t* btnP1 = lv_button_create(row1);
+    lv_obj_set_size(btnP1, 38, 36);
+    DefaultTheme::applyButton(btnP1, 8);
+    lv_obj_set_style_bg_color(btnP1, lv_color_hex(0x1F2937), 0);
+    lv_obj_set_user_data(btnP1, (void*)(intptr_t)1);
+    lv_obj_add_event_cb(btnP1, onFreqStepClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t* lP1 = lv_label_create(btnP1);
+    lv_label_set_text(lP1, "+1");
+    lv_obj_center(lP1);
+
+    // Botón Step +10M
+    lv_obj_t* btnP10 = lv_button_create(row1);
+    lv_obj_set_size(btnP10, 42, 36);
+    DefaultTheme::applyButton(btnP10, 8);
+    lv_obj_set_style_bg_color(btnP10, lv_color_hex(0x1F2937), 0);
+    lv_obj_set_user_data(btnP10, (void*)(intptr_t)10);
+    lv_obj_add_event_cb(btnP10, onFreqStepClicked, LV_EVENT_CLICKED, this);
+    lv_obj_t* lP10 = lv_label_create(btnP10);
+    lv_label_set_text(lP10, "+10");
+    lv_obj_center(lP10);
+
+    // Presets Dropdown
+    m_ddPresets = lv_dropdown_create(row1);
+    lv_dropdown_set_options(m_ddPresets,
+        "Ch 1 (2412)\n"
+        "2420 MHz\n"
+        "Ch 6 (2437)\n"
+        "Ch 7 (2442)\n"
+        "Ch 11 (2462)\n"
+        "Ch 14 (2484)\n"
+        "2.60 GHz\n"
+        "2.70 GHz");
+    lv_dropdown_set_selected(m_ddPresets, 1);
+    lv_obj_set_size(m_ddPresets, 105, 36);
+    lv_obj_set_style_radius(m_ddPresets, 8, 0);
+    lv_obj_add_event_cb(m_ddPresets, onPresetFreqSelected, LV_EVENT_VALUE_CHANGED, this);
+
+    // --- Fila 2: Span (Bandwidth) + FFT Bins + Ganancia + Hold ---
+    lv_obj_t* row2 = lv_obj_create(bar);
+    lv_obj_set_size(row2, LV_PCT(100), 38);
+    lv_obj_set_style_bg_opa(row2, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(row2, 0, 0);
+    lv_obj_set_style_pad_all(row2, 0, 0);
+    lv_obj_set_flex_flow(row2, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(row2, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    DefaultTheme::disableScroll(row2);
+
+    // Dropdown Span / Sample rate
+    m_ddSpan = lv_dropdown_create(row2);
+    lv_dropdown_set_options(m_ddSpan, "80 MHz\n40 MHz\n20 MHz\n10 MHz\n4 MHz");
+    lv_dropdown_set_selected(m_ddSpan, 0); // 80 MHz default
+    lv_obj_set_size(m_ddSpan, 105, 36);
+    lv_obj_set_style_radius(m_ddSpan, 8, 0);
+    lv_obj_add_event_cb(m_ddSpan, onSpanSelected, LV_EVENT_VALUE_CHANGED, this);
+
+    // Dropdown FFT Bins
+    m_ddFftBins = lv_dropdown_create(row2);
+    lv_dropdown_set_options(m_ddFftBins, "2048\n1024\n512\n256");
+    lv_dropdown_set_selected(m_ddFftBins, 0); // 2048 bins default
+    lv_obj_set_size(m_ddFftBins, 90, 36);
+    lv_obj_set_style_radius(m_ddFftBins, 8, 0);
+    lv_obj_add_event_cb(m_ddFftBins, onFftBinsSelected, LV_EVENT_VALUE_CHANGED, this);
+
+    // Botón Gain AGC / Manual
+    m_btnGainMode = lv_button_create(row2);
     lv_obj_set_size(m_btnGainMode, 85, 36);
     DefaultTheme::applyButton(m_btnGainMode, 8);
     lv_obj_add_event_cb(m_btnGainMode, onGainModeClicked, LV_EVENT_CLICKED, this);
@@ -211,107 +307,172 @@ void SdrView::createControlBar(lv_obj_t* parent) {
     lv_label_set_text(m_lblGainMode, "AGC ON");
     lv_obj_center(m_lblGainMode);
 
-    // 4. Selector de Resolución FFT
-    m_ddFftBins = lv_dropdown_create(bar);
-    lv_dropdown_set_options(m_ddFftBins, "256\n512\n1024");
-    lv_dropdown_set_selected(m_ddFftBins, 1); // 512 bins default
-    lv_obj_set_size(m_ddFftBins, 80, 36);
-    lv_obj_set_style_radius(m_ddFftBins, 8, 0);
-    lv_obj_add_event_cb(m_ddFftBins, onFftBinsSelected, LV_EVENT_VALUE_CHANGED, this);
+    // Botón Max Hold Toggle
+    m_btnHold = lv_button_create(row2);
+    lv_obj_set_size(m_btnHold, 80, 36);
+    DefaultTheme::applyButton(m_btnHold, 8);
+    lv_obj_set_style_bg_color(m_btnHold, lv_color_hex(0xE6B969), 0);
+    lv_obj_add_event_cb(m_btnHold, onResetMaxHoldClicked, LV_EVENT_CLICKED, this);
 
-    // 5. Botón Reset Max-Hold
-    lv_obj_t* btnReset = lv_button_create(bar);
-    lv_obj_set_size(btnReset, 36, 36);
-    DefaultTheme::applyButton(btnReset, 8);
-    lv_obj_set_style_bg_color(btnReset, lv_color_hex(0x28334A), 0);
-    lv_obj_add_event_cb(btnReset, onResetMaxHoldClicked, LV_EVENT_CLICKED, this);
-
-    lv_obj_t* lblReset = lv_label_create(btnReset);
-    lv_label_set_text(lblReset, LV_SYMBOL_REFRESH);
-    lv_obj_center(lblReset);
+    lv_obj_t* lblHold = lv_label_create(m_btnHold);
+    lv_label_set_text(lblHold, "Hold ON");
+    lv_obj_center(lblHold);
 }
 
 void SdrView::createSpectrumPanel(lv_obj_t* parent) {
     lv_obj_t* card = lv_obj_create(parent);
     lv_obj_set_width(card, LV_PCT(100));
-    lv_obj_set_height(card, 210);
-    DefaultTheme::applyRaisedCard(card, 12);
-    lv_obj_set_style_pad_all(card, 8, 0);
+    lv_obj_set_height(card, 235);
+    DefaultTheme::applyRaisedCard(card, 10);
+    lv_obj_set_style_pad_all(card, 6, 0);
     DefaultTheme::disableScroll(card);
 
-    // Barra superior del panel con títulos y leyendas
-    lv_obj_t* topBox = lv_obj_create(card);
-    lv_obj_set_size(topBox, LV_PCT(100), 22);
-    lv_obj_set_style_bg_opa(topBox, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(topBox, 0, 0);
-    lv_obj_set_style_pad_all(topBox, 0, 0);
-    lv_obj_set_flex_flow(topBox, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(topBox, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    DefaultTheme::disableScroll(topBox);
+    // Encabezado del Espectro
+    lv_obj_t* head = lv_obj_create(card);
+    lv_obj_set_size(head, LV_PCT(100), 20);
+    lv_obj_set_style_bg_opa(head, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(head, 0, 0);
+    lv_obj_set_style_pad_all(head, 0, 0);
+    lv_obj_set_flex_flow(head, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(head, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    DefaultTheme::disableScroll(head);
 
-    m_lblCenterFreq = lv_label_create(topBox);
-    lv_label_set_text(m_lblCenterFreq, "2412 MHz (Ch 1)");
-    lv_obj_set_style_text_color(m_lblCenterFreq, lv_color_hex(0x00F5D4), 0);
+    lv_obj_t* title = lv_label_create(head);
+    lv_label_set_text(title, "Power spectrum");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xC0C9CD), 0);
 
-    lv_obj_t* legendBox = lv_obj_create(topBox);
-    lv_obj_set_size(legendBox, LV_SIZE_CONTENT, LV_PCT(100));
-    lv_obj_set_style_bg_opa(legendBox, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(legendBox, 0, 0);
-    lv_obj_set_style_pad_all(legendBox, 0, 0);
-    lv_obj_set_flex_flow(legendBox, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(legendBox, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    DefaultTheme::disableScroll(legendBox);
+    m_lblCursor = lv_label_create(head);
+    lv_label_set_text(m_lblCursor, "2420.0 MHz · -- dBFS");
+    lv_obj_set_style_text_color(m_lblCursor, lv_color_hex(0x00F5D4), 0);
 
-    lv_obj_t* lblLive = lv_label_create(legendBox);
-    lv_label_set_text(lblLive, "● Vivo ");
-    lv_obj_set_style_text_color(lblLive, lv_color_hex(0x37C964), 0);
+    // Contenedor del Gráfico con Eje Y izquierdo
+    m_chartContainer = lv_obj_create(card);
+    lv_obj_set_size(m_chartContainer, LV_PCT(100), 140);
+    lv_obj_set_style_bg_opa(m_chartContainer, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(m_chartContainer, 0, 0);
+    lv_obj_set_style_pad_all(m_chartContainer, 0, 0);
+    lv_obj_set_flex_flow(m_chartContainer, LV_FLEX_FLOW_ROW);
+    DefaultTheme::disableScroll(m_chartContainer);
 
-    lv_obj_t* lblMax = lv_label_create(legendBox);
-    lv_label_set_text(lblMax, "● Max-Hold");
-    lv_obj_set_style_text_color(lblMax, lv_color_hex(0xE6B969), 0);
+    // Columna Eje Y (dBFS)
+    lv_obj_t* axisY = lv_obj_create(m_chartContainer);
+    lv_obj_set_size(axisY, 32, LV_PCT(100));
+    lv_obj_set_style_bg_opa(axisY, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(axisY, 0, 0);
+    lv_obj_set_style_pad_all(axisY, 0, 0);
+    lv_obj_set_flex_flow(axisY, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(axisY, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
+    DefaultTheme::disableScroll(axisY);
 
-    // Gráfico de espectro lv_chart
-    m_chart = lv_chart_create(card);
-    lv_obj_set_size(m_chart, LV_PCT(100), 165);
-    lv_obj_align(m_chart, LV_ALIGN_BOTTOM_MID, 0, 0);
+    const char* yVals[] = {"-20", "-40", "-60", "-80", "-100"};
+    for (int i = 0; i < 5; i++) {
+        m_lblAxisY[i] = lv_label_create(axisY);
+        lv_label_set_text(m_lblAxisY[i], yVals[i]);
+        lv_obj_set_style_text_color(m_lblAxisY[i], lv_color_hex(0x718096), 0);
+    }
+
+    // Gráfico de Espectro
+    m_chart = lv_chart_create(m_chartContainer);
+    lv_obj_set_size(m_chart, LV_PCT(92), LV_PCT(100));
     lv_chart_set_type(m_chart, LV_CHART_TYPE_LINE);
-    lv_chart_set_point_count(m_chart, 128);
-    lv_chart_set_range(m_chart, LV_CHART_AXIS_PRIMARY_Y, -120, 0);
+    lv_chart_set_point_count(m_chart, 160);
+    // Rango dinámico oficial: -100 a -20 dBFS (80 dB span)
+    lv_chart_set_range(m_chart, LV_CHART_AXIS_PRIMARY_Y, -100, -20);
+    lv_chart_set_div_line_count(m_chart, 5, 9); // Grid lines horizontal y vertical
 
-    lv_obj_set_style_bg_color(m_chart, lv_color_hex(0x0F131D), 0);
-    lv_obj_set_style_border_color(m_chart, lv_color_hex(0x28334A), 0);
+    lv_obj_set_style_bg_color(m_chart, lv_color_hex(0x182126), 0);
+    lv_obj_set_style_border_color(m_chart, lv_color_hex(0x293135), 0);
     lv_obj_set_style_border_width(m_chart, 1, 0);
-    lv_obj_set_style_size(m_chart, 0, 0, LV_PART_INDICATOR); // Ocultar puntos, trazo continuo
+    lv_obj_set_style_line_color(m_chart, lv_color_hex(0x243038), LV_PART_MAIN); // Grid
+    lv_obj_set_style_size(m_chart, 0, 0, LV_PART_INDICATOR);
     lv_obj_set_style_line_width(m_chart, 2, LV_PART_ITEMS);
 
-    // Series
+    // Eventos táctiles para arrastrar horizontalmente (Pan & Drag)
+    lv_obj_add_flag(m_chart, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(m_chart, onChartTouch, LV_EVENT_PRESSED, this);
+    lv_obj_add_event_cb(m_chart, onChartTouch, LV_EVENT_PRESSING, this);
+    lv_obj_add_event_cb(m_chart, onChartTouch, LV_EVENT_RELEASED, this);
+
+    // Series: Live (Verde ESPARGOS #37C964) y Max-Hold (Dorado #E6B969)
     m_serMax  = lv_chart_add_series(m_chart, lv_color_hex(0xE6B969), LV_CHART_AXIS_PRIMARY_Y);
     m_serLive = lv_chart_add_series(m_chart, lv_color_hex(0x37C964), LV_CHART_AXIS_PRIMARY_Y);
 
-    // Inicializar valores en el piso de ruido (-120 dBFS)
-    for (int i = 0; i < 128; i++) {
-        lv_chart_set_value_by_id(m_chart, m_serMax, i, -120);
-        lv_chart_set_value_by_id(m_chart, m_serLive, i, -120);
+    for (int i = 0; i < 160; i++) {
+        lv_chart_set_value_by_id(m_chart, m_serMax, i, -100);
+        lv_chart_set_value_by_id(m_chart, m_serLive, i, -100);
     }
     lv_chart_refresh(m_chart);
+
+    // Eje X Inferior (Marcas de Frecuencia en MHz)
+    lv_obj_t* axisX = lv_obj_create(card);
+    lv_obj_set_size(axisX, LV_PCT(100), 20);
+    lv_obj_set_style_bg_opa(axisX, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(axisX, 0, 0);
+    lv_obj_set_style_pad_left(axisX, 32, 0);
+    lv_obj_set_style_pad_right(axisX, 4, 0);
+    lv_obj_set_style_pad_top(axisX, 0, 0);
+    lv_obj_set_style_pad_bottom(axisX, 0, 0);
+    lv_obj_set_flex_flow(axisX, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(axisX, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    DefaultTheme::disableScroll(axisX);
+
+    for (int i = 0; i < 5; i++) {
+        m_lblAxisX[i] = lv_label_create(axisX);
+        lv_label_set_text(m_lblAxisX[i], "----");
+        if (i == 2) {
+            lv_obj_set_style_text_color(m_lblAxisX[i], lv_color_hex(0xE0A040), 0); // Centro naranja
+        } else {
+            lv_obj_set_style_text_color(m_lblAxisX[i], lv_color_hex(0x8F9CA2), 0);
+        }
+    }
+
+    // Barra de Medidas ("Meas Bar") estilo oficial ESP-WebSDR
+    m_lblMeasBar = lv_label_create(card);
+    lv_obj_set_size(m_lblMeasBar, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_style_text_color(m_lblMeasBar, lv_color_hex(0x8F9CA2), 0);
+    lv_label_set_text(m_lblMeasBar, "Start: 2.380 GHz · Center: 2.420 GHz · Span: 80.0 MHz · Stop: 2.460 GHz · Bins: 2048");
 }
 
 void SdrView::createWaterfallPanel(lv_obj_t* parent) {
     lv_obj_t* card = lv_obj_create(parent);
     lv_obj_set_width(card, LV_PCT(100));
-    lv_obj_set_height(card, 215);
-    DefaultTheme::applyRaisedCard(card, 12);
+    lv_obj_set_height(card, 195);
+    DefaultTheme::applyRaisedCard(card, 10);
     lv_obj_set_style_pad_all(card, 6, 0);
     DefaultTheme::disableScroll(card);
+
+    // Encabezado
+    lv_obj_t* head = lv_obj_create(card);
+    lv_obj_set_size(head, LV_PCT(100), 20);
+    lv_obj_set_style_bg_opa(head, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(head, 0, 0);
+    lv_obj_set_style_pad_all(head, 0, 0);
+    lv_obj_set_flex_flow(head, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(head, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    DefaultTheme::disableScroll(head);
+
+    lv_obj_t* title = lv_label_create(head);
+    lv_label_set_text(title, "Waterfall");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xC0C9CD), 0);
+
+    lv_obj_t* scale = lv_label_create(head);
+    lv_label_set_text(scale, "-100 → -20 dBFS");
+    lv_obj_set_style_text_color(scale, lv_color_hex(0x8F9CA2), 0);
 
     // Canvas de cascada
     m_canvasWaterfall = lv_canvas_create(card);
     lv_obj_set_size(m_canvasWaterfall, kWaterfallW, kWaterfallH);
-    lv_obj_align(m_canvasWaterfall, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(m_canvasWaterfall, LV_ALIGN_BOTTOM_MID, 0, 0);
+
+    // También permitir arrastre sobre la cascada
+    lv_obj_add_flag(m_canvasWaterfall, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(m_canvasWaterfall, onChartTouch, LV_EVENT_PRESSED, this);
+    lv_obj_add_event_cb(m_canvasWaterfall, onChartTouch, LV_EVENT_PRESSING, this);
+    lv_obj_add_event_cb(m_canvasWaterfall, onChartTouch, LV_EVENT_RELEASED, this);
 
     if (m_waterfallBuf) {
         lv_canvas_set_buffer(m_canvasWaterfall, m_waterfallBuf, kWaterfallW, kWaterfallH, LV_COLOR_FORMAT_RGB565);
-        lv_canvas_fill_bg(m_canvasWaterfall, lv_color_hex(0x000520), LV_OPA_COVER);
+        lv_canvas_fill_bg(m_canvasWaterfall, lv_color_hex(0x11191E), LV_OPA_COVER);
     }
 }
 
@@ -326,29 +487,99 @@ void SdrView::createBottomBar(lv_obj_t* parent) {
     DefaultTheme::disableScroll(bar);
 
     m_lblStatus = lv_label_create(bar);
-    lv_label_set_text(m_lblStatus, "Listo (S3 USB)");
+    lv_label_set_text(m_lblStatus, "Listo (S3 USB Host)");
     lv_obj_set_style_text_color(m_lblStatus, lv_color_hex(0x00F5D4), 0);
 
     m_lblTelemetry = lv_label_create(bar);
-    lv_label_set_text(m_lblTelemetry, "Pico: -- dBFS | FFT: 0 µs | 0 FPS");
+    lv_label_set_text(m_lblTelemetry, "200+ spectra/s · 80 MS/s on chip");
     lv_obj_set_style_text_color(m_lblTelemetry, lv_color_hex(0x94A3B8), 0);
+}
+
+void SdrView::updateAxisLabels() {
+    uint32_t centerFreq = m_config.frequencyMHz;
+    uint32_t spanMHz = m_config.sampleRate / 1000000;
+    if (spanMHz == 0) spanMHz = 80;
+
+    uint32_t startFreq = (centerFreq > spanMHz / 2) ? (centerFreq - spanMHz / 2) : 0;
+    uint32_t stopFreq  = centerFreq + spanMHz / 2;
+
+    // Actualizar etiqueta central del encabezado
+    if (m_lblFreqValue) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%lu MHz", (unsigned long)centerFreq);
+        lv_label_set_text(m_lblFreqValue, buf);
+    }
+
+    // Actualizar marcas X (Start, 1/4, Center, 3/4, Stop)
+    uint32_t fSteps[5] = {
+        startFreq,
+        startFreq + spanMHz / 4,
+        centerFreq,
+        startFreq + (spanMHz * 3) / 4,
+        stopFreq
+    };
+
+    for (int i = 0; i < 5; i++) {
+        if (m_lblAxisX[i]) {
+            char buf[32];
+            if (i == 2) {
+                snprintf(buf, sizeof(buf), "▲ %lu", (unsigned long)fSteps[i]);
+            } else {
+                snprintf(buf, sizeof(buf), "%lu", (unsigned long)fSteps[i]);
+            }
+            lv_label_set_text(m_lblAxisX[i], buf);
+        }
+    }
+
+    // Actualizar MeasBar
+    if (m_lblMeasBar) {
+        char meas[128];
+        snprintf(meas, sizeof(meas), "Start %.3f GHz · Center %.3f GHz · Span %lu MHz · Stop %.3f GHz · Bins %u",
+                 (float)startFreq / 1000.0f,
+                 (float)centerFreq / 1000.0f,
+                 (unsigned long)spanMHz,
+                 (float)stopFreq / 1000.0f,
+                 (unsigned)m_config.fftBins);
+        lv_label_set_text(m_lblMeasBar, meas);
+    }
+}
+
+void SdrView::tuneToFrequency(uint32_t freqMHz) {
+    if (freqMHz < 100) freqMHz = 100;
+    if (freqMHz > 2750) freqMHz = 2750;
+
+    m_config.frequencyMHz = freqMHz;
+    updateAxisLabels();
+
+    auto& client = cbdos::sdr::getEspSdrClient();
+    if (m_isRunning) {
+        client.stopStreaming();
+        client.tune(freqMHz);
+        client.startStreaming(m_config, [this](const cbdos::sdr::SdrFrame& frame) {
+            this->m_sharedSpectrum = frame.spectrumDbfs;
+            this->m_sharedPeakDbfs = frame.peakDbfs;
+            this->m_sharedPeakFreqMHz = frame.peakFreqMHz;
+            this->m_hasNewFrame.store(true, std::memory_order_release);
+        });
+    } else {
+        client.tune(freqMHz);
+    }
 }
 
 void SdrView::updateWaterfallRow(const std::vector<float>& spectrum) {
     if (!m_waterfallBuf || spectrum.empty()) return;
 
-    // 1. Desplazar cascada hacia abajo 1 fila
+    // Desplazar cascada 1 fila hacia abajo
     memmove(m_waterfallBuf + kWaterfallW, m_waterfallBuf, (kWaterfallH - 1) * kWaterfallW * sizeof(uint16_t));
 
-    // 2. Dibujar fila 0 mapeando el vector de espectro a la LUT RGB565
+    // Mapeo térmico calibrado exactamente al rango oficial: Floor -100 dBFS, Range 80 dB (-20 dBFS top)
     size_t specSize = spectrum.size();
     for (int32_t x = 0; x < kWaterfallW; x++) {
         size_t binIdx = ((size_t)x * specSize) / kWaterfallW;
         if (binIdx >= specSize) binIdx = specSize - 1;
 
         float dbfs = spectrum[binIdx];
-        // Rango térmico: -110 dBFS a -20 dBFS
-        float norm = (dbfs - (-110.0f)) / 90.0f;
+        float norm = (dbfs - (-100.0f)) / 80.0f;
         if (norm < 0.0f) norm = 0.0f;
         if (norm > 1.0f) norm = 1.0f;
 
@@ -365,40 +596,70 @@ void SdrView::updateUiFromFrame() {
 
     if (m_sharedSpectrum.empty()) return;
 
-    // 1. Actualizar gráfico de espectro (downsampling a 128 puntos para el chart)
-    const int chartPoints = 128;
     size_t specSize = m_sharedSpectrum.size();
+
+    // Actualizar Max-Hold con decaimiento suave
+    if (m_holdEnabled) {
+        if (m_sharedMaxHold.size() != specSize) {
+            m_sharedMaxHold = m_sharedSpectrum;
+        } else {
+            for (size_t k = 0; k < specSize; k++) {
+                if (m_sharedSpectrum[k] > m_sharedMaxHold[k]) {
+                    m_sharedMaxHold[k] = m_sharedSpectrum[k];
+                } else {
+                    m_sharedMaxHold[k] -= 0.04f;
+                }
+            }
+        }
+    }
+
+    // 1. Actualizar gráfico del espectro (160 puntos para ajustarse al ancho)
+    const int chartPoints = 160;
     size_t step = specSize / chartPoints;
     if (step == 0) step = 1;
 
     for (int i = 0; i < chartPoints; i++) {
         size_t startIdx = (size_t)i * step;
-        float maxValLive = -120.0f;
-        float maxValHold = -120.0f;
+        float maxValLive = -100.0f;
+        float maxValHold = -100.0f;
 
         for (size_t s = 0; s < step && (startIdx + s) < specSize; s++) {
-            maxValLive = std::max(maxValLive, m_sharedSpectrum[startIdx + s]);
-            if (!m_sharedMaxHold.empty() && (startIdx + s) < m_sharedMaxHold.size()) {
-                maxValHold = std::max(maxValHold, m_sharedMaxHold[startIdx + s]);
+            float vLive = m_sharedSpectrum[startIdx + s];
+            if (vLive > maxValLive) maxValLive = vLive;
+
+            if (m_holdEnabled && (startIdx + s) < m_sharedMaxHold.size()) {
+                float vHold = m_sharedMaxHold[startIdx + s];
+                if (vHold > maxValHold) maxValHold = vHold;
             }
         }
-        lv_chart_set_value_by_id(m_chart, m_serLive, i, (int16_t)maxValLive);
-        lv_chart_set_value_by_id(m_chart, m_serMax, i, (int16_t)maxValHold);
+
+        int32_t valLive = (int32_t)std::round(std::max(-100.0f, std::min(-20.0f, maxValLive)));
+        lv_chart_set_value_by_id(m_chart, m_serLive, i, valLive);
+
+        if (m_holdEnabled) {
+            int32_t valHold = (int32_t)std::round(std::max(-100.0f, std::min(-20.0f, maxValHold)));
+            lv_chart_set_value_by_id(m_chart, m_serMax, i, valHold);
+        } else {
+            lv_chart_set_value_by_id(m_chart, m_serMax, i, -100);
+        }
     }
     lv_chart_refresh(m_chart);
 
-    // 2. Actualizar cascada
+    // 2. Actualizar fila de cascada
     updateWaterfallRow(m_sharedSpectrum);
 
-    // 3. Actualizar telemetría inferior
+    // 3. Telemetría y lectura del pico
+    if (m_lblCursor) {
+        char cur[64];
+        snprintf(cur, sizeof(cur), "%.1f MHz · %.1f dBFS", m_sharedPeakFreqMHz, m_sharedPeakDbfs);
+        lv_label_set_text(m_lblCursor, cur);
+    }
+
     const auto& stats = cbdos::sdr::getEspSdrClient().getStats();
-    char telemBuf[128];
-    snprintf(telemBuf, sizeof(telemBuf), "Pico: %.1f dBFS (%.1f MHz) | DSP: %lu µs | %.1f FPS",
-             m_sharedPeakDbfs, m_sharedPeakFreqMHz,
-             (unsigned long)m_sharedDspUs,
-             stats.fps);
     if (m_lblTelemetry) {
-        lv_label_set_text(m_lblTelemetry, telemBuf);
+        char telem[96];
+        snprintf(telem, sizeof(telem), "%.0f spectra/s · %.0f kB/s USB", stats.fps, stats.throughputKsps * 2.0f);
+        lv_label_set_text(m_lblTelemetry, telem);
     }
 }
 
@@ -416,22 +677,19 @@ void SdrView::onPlayPauseClicked(lv_event_t* e) {
     auto& client = cbdos::sdr::getEspSdrClient();
 
     if (!self->m_isRunning) {
-        // Iniciar streaming en Core 1
         bool ok = client.startStreaming(self->m_config, [self](const cbdos::sdr::SdrFrame& frame) {
             self->m_sharedSpectrum = frame.spectrumDbfs;
-            self->m_sharedMaxHold  = cbdos::sdr::getSdrDspEngine().getMaxHoldSpectrum();
             self->m_sharedPeakDbfs = frame.peakDbfs;
             self->m_sharedPeakFreqMHz = frame.peakFreqMHz;
-            self->m_sharedDspUs    = cbdos::sdr::getSdrDspEngine().getLastDspTimeUs();
             self->m_hasNewFrame.store(true, std::memory_order_release);
         });
 
         if (ok) {
             self->m_isRunning = true;
-            lv_label_set_text(self->m_lblPlayPause, LV_SYMBOL_PAUSE " Pausa");
+            lv_label_set_text(self->m_lblPlayPause, LV_SYMBOL_PAUSE " Pause");
             lv_obj_set_style_bg_color(self->m_btnPlayPause, lv_color_hex(0xEF4444), 0);
             if (self->m_lblStatus) {
-                lv_label_set_text(self->m_lblStatus, "En vivo (40 MSa/s)");
+                lv_label_set_text(self->m_lblStatus, "SPEC On-Chip");
                 lv_obj_set_style_text_color(self->m_lblStatus, lv_color_hex(0x37C964), 0);
             }
         } else {
@@ -441,10 +699,9 @@ void SdrView::onPlayPauseClicked(lv_event_t* e) {
             }
         }
     } else {
-        // Pausar streaming
         client.stopStreaming();
         self->m_isRunning = false;
-        lv_label_set_text(self->m_lblPlayPause, LV_SYMBOL_PLAY " Iniciar");
+        lv_label_set_text(self->m_lblPlayPause, LV_SYMBOL_PLAY " Start");
         lv_obj_set_style_bg_color(self->m_btnPlayPause, lv_color_hex(0x37C964), 0);
         if (self->m_lblStatus) {
             lv_label_set_text(self->m_lblStatus, "Pausado");
@@ -453,22 +710,50 @@ void SdrView::onPlayPauseClicked(lv_event_t* e) {
     }
 }
 
-void SdrView::onChannelSelected(lv_event_t* e) {
+void SdrView::onFreqStepClicked(lv_event_t* e) {
     auto* self = static_cast<SdrView*>(lv_event_get_user_data(e));
-    if (!self || !self->m_ddChannels) return;
+    if (!self) return;
 
-    uint32_t sel = lv_dropdown_get_selected(self->m_ddChannels);
-    if (sel < kChannelCount) {
-        uint32_t freq = kChannels[sel].freqMHz;
-        self->m_config.frequencyMHz = freq;
-        cbdos::sdr::getEspSdrClient().tune(freq);
+    lv_obj_t* target = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
+    intptr_t stepVal = (intptr_t)lv_obj_get_user_data(target);
+    if (stepVal == 0) return;
 
-        if (self->m_lblCenterFreq) {
-            char freqStr[64];
-            snprintf(freqStr, sizeof(freqStr), "%lu MHz (Ch %d)", (unsigned long)freq, kChannels[sel].channel);
-            lv_label_set_text(self->m_lblCenterFreq, freqStr);
-        }
-        cbdos::sdr::getSdrDspEngine().reset();
+    int32_t currentFreq = (int32_t)self->m_config.frequencyMHz;
+    int32_t newFreq = currentFreq + (int32_t)stepVal;
+    self->tuneToFrequency((uint32_t)newFreq);
+}
+
+void SdrView::onPresetFreqSelected(lv_event_t* e) {
+    auto* self = static_cast<SdrView*>(lv_event_get_user_data(e));
+    if (!self || !self->m_ddPresets) return;
+
+    uint32_t sel = lv_dropdown_get_selected(self->m_ddPresets);
+    if (sel < kPresetCount) {
+        self->tuneToFrequency(kPresets[sel].freqMHz);
+    }
+}
+
+void SdrView::onSpanSelected(lv_event_t* e) {
+    auto* self = static_cast<SdrView*>(lv_event_get_user_data(e));
+    if (!self || !self->m_ddSpan) return;
+
+    uint32_t sel = lv_dropdown_get_selected(self->m_ddSpan);
+    uint32_t rates[] = {80000000, 40000000, 20000000, 10000000, 4000000};
+    if (sel < sizeof(rates) / sizeof(rates[0])) {
+        self->m_config.sampleRate = rates[sel];
+        self->tuneToFrequency(self->m_config.frequencyMHz);
+    }
+}
+
+void SdrView::onFftBinsSelected(lv_event_t* e) {
+    auto* self = static_cast<SdrView*>(lv_event_get_user_data(e));
+    if (!self || !self->m_ddFftBins) return;
+
+    uint32_t sel = lv_dropdown_get_selected(self->m_ddFftBins);
+    uint16_t bins[] = {2048, 1024, 512, 256};
+    if (sel < sizeof(bins) / sizeof(bins[0])) {
+        self->m_config.fftBins = bins[sel];
+        self->tuneToFrequency(self->m_config.frequencyMHz);
     }
 }
 
@@ -492,23 +777,88 @@ void SdrView::onGainModeClicked(lv_event_t* e) {
     }
 }
 
-void SdrView::onFftBinsSelected(lv_event_t* e) {
+void SdrView::onResetMaxHoldClicked(lv_event_t* e) {
     auto* self = static_cast<SdrView*>(lv_event_get_user_data(e));
-    if (!self || !self->m_ddFftBins) return;
+    if (!self) return;
 
-    uint32_t sel = lv_dropdown_get_selected(self->m_ddFftBins);
-    uint16_t bins = 512;
-    if (sel == 0) bins = 256;
-    else if (sel == 1) bins = 512;
-    else if (sel == 2) bins = 1024;
+    self->m_holdEnabled = !self->m_holdEnabled;
+    self->m_sharedMaxHold.clear();
 
-    self->m_config.fftBins = bins;
-    cbdos::sdr::getSdrDspEngine().configure({bins, 0.35f, true, 0.05f});
+    if (self->m_btnHold) {
+        if (self->m_holdEnabled) {
+            lv_obj_set_style_bg_color(self->m_btnHold, lv_color_hex(0xE6B969), 0);
+            lv_obj_t* lbl = lv_obj_get_child(self->m_btnHold, 0);
+            if (lbl) lv_label_set_text(lbl, "Hold ON");
+        } else {
+            lv_obj_set_style_bg_color(self->m_btnHold, lv_color_hex(0x28334A), 0);
+            lv_obj_t* lbl = lv_obj_get_child(self->m_btnHold, 0);
+            if (lbl) lv_label_set_text(lbl, "Hold OFF");
+        }
+    }
 }
 
-void SdrView::onResetMaxHoldClicked(lv_event_t* e) {
-    (void)e;
-    cbdos::sdr::getSdrDspEngine().resetMaxHold();
+void SdrView::onChartTouch(lv_event_t* e) {
+    auto* self = static_cast<SdrView*>(lv_event_get_user_data(e));
+    if (!self) return;
+
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_indev_t* indev = lv_event_get_indev(e);
+    if (!indev) indev = lv_indev_active();
+    if (!indev) return;
+
+    lv_point_t p;
+    lv_indev_get_point(indev, &p);
+
+    uint32_t spanMHz = self->m_config.sampleRate / 1000000;
+    if (spanMHz == 0) spanMHz = 80;
+
+    if (code == LV_EVENT_PRESSED) {
+        self->m_dragStartX = p.x;
+        self->m_dragStartFreq = self->m_config.frequencyMHz;
+        self->m_isDragging = true;
+    } else if (code == LV_EVENT_PRESSING) {
+        if (!self->m_isDragging) return;
+        int32_t dx = p.x - self->m_dragStartX;
+        // Escala: 380 píxeles útiles equivalen a spanMHz
+        int32_t deltaMHz = -(dx * (int32_t)spanMHz) / 380;
+        int32_t newFreq = (int32_t)self->m_dragStartFreq + deltaMHz;
+        if (newFreq < 100) newFreq = 100;
+        if (newFreq > 2750) newFreq = 2750;
+
+        // Actualización reactiva inmediata en pantalla
+        if (self->m_lblFreqValue) {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%ld MHz", (long)newFreq);
+            lv_label_set_text(self->m_lblFreqValue, buf);
+        }
+        uint32_t halfSpan = spanMHz / 2;
+        if (self->m_lblAxisX[0]) {
+            char b[32];
+            snprintf(b, sizeof(b), "%ld", (long)(newFreq - halfSpan));
+            lv_label_set_text(self->m_lblAxisX[0], b);
+        }
+        if (self->m_lblAxisX[2]) {
+            char b[32];
+            snprintf(b, sizeof(b), "▲ %ld", (long)newFreq);
+            lv_label_set_text(self->m_lblAxisX[2], b);
+        }
+        if (self->m_lblAxisX[4]) {
+            char b[32];
+            snprintf(b, sizeof(b), "%ld", (long)(newFreq + halfSpan));
+            lv_label_set_text(self->m_lblAxisX[4], b);
+        }
+    } else if (code == LV_EVENT_RELEASED) {
+        if (self->m_isDragging) {
+            int32_t dx = p.x - self->m_dragStartX;
+            int32_t deltaMHz = -(dx * (int32_t)spanMHz) / 380;
+            int32_t newFreq = (int32_t)self->m_dragStartFreq + deltaMHz;
+            if (newFreq < 100) newFreq = 100;
+            if (newFreq > 2750) newFreq = 2750;
+
+            self->m_isDragging = false;
+            self->tuneToFrequency((uint32_t)newFreq);
+        }
+    }
 }
 
 } // namespace ui

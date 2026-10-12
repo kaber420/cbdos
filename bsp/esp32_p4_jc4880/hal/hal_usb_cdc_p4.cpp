@@ -19,7 +19,7 @@ P4UsbCdcChannel* getP4UsbCdcChannel() {
 P4UsbCdcChannel::P4UsbCdcChannel() {
     m_mutex = xSemaphoreCreateMutex();
     m_flasherStreamBuf = xStreamBufferCreate(16384, 1);
-    m_terminalRingBuf = xRingbufferCreate(2048, RINGBUF_TYPE_BYTEBUF);
+    m_terminalRingBuf = xRingbufferCreate(16384, RINGBUF_TYPE_BYTEBUF);
 }
 
 P4UsbCdcChannel::~P4UsbCdcChannel() {

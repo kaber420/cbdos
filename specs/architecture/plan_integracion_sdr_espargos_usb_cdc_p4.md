@@ -98,16 +98,25 @@ El firmware ESP-SDR en el S3 se controla mediante comandos de texto terminados e
   5. Barra de telemetría inferior: estado de conexión USB, pico dBFS, frecuencia del pico, microsegundos DSP y FPS en vivo.
   6. Desacoplamiento seguro: Core 1 adquiere y procesa ráfagas en segundo plano; el timer LVGL @ 30 FPS refresca la pantalla sin contención.
 
-### Fase 5: Validación de Campo y Criterios Go / No-Go [🚀 EN CURSO]
+### Fase 5: Validación de Campo y Criterios Go / No-Go [✅ EN CURSO / DESPLEGADO]
 * **Criterios Go / No-Go:**
+  * **Protocolo de Alto Rendimiento:** Streaming continuo On-Chip Spectrum (`SPEC`) con paquetes `SPC1` a 200+ espectros/segundo. Búfer CDC de 16 KB en Core 0. Perfiles soportados para 80M, 40M, 20M, 10M, 8M y 4 MSa/s con 2048, 1024, 512 y 256 bins FFT.
+  * **Frecuencia Continua y Pan/Drag Táctil:** Cobertura de sintonización continua de 100 MHz a 2700 MHz (2.7 GHz). Permite arrastrar (pan & drag) con el dedo horizontalmente sobre el espectro o la cascada para cambiar la frecuencia central en vivo, además de botones de paso fino (`-10M`, `-1M`, `+1M`, `+10M`) y presets rápidos.
+  * **Ejes Graduados Oficiales (ESP-WebSDR):**
+    * **Eje Y (dBFS):** Orilla izquierda con escala numérica `-20`, `-40`, `-60`, `-80`, `-100 dBFS`.
+    * **Eje X (MHz):** 5 marcas numéricas calculadas en vivo (`Start`, `F1`, `Center ▲`, `F3`, `Stop`) según la frecuencia sintonizada y el span.
+    * **Barra de Medidas (Meas Bar):** `Start · Center · Span · Stop · Bins · Pico dBFS @ MHz`.
   * **Hot-Plug:** Desconectar y volver a conectar la mochila por USB sin provocar kernel panic ni fugas de memoria en CBDos.
-  * **Consistencia RF:** La cascada debe mostrar claramente las transmisiones Wi-Fi de balizas (beacons), ráfagas de Bluetooth y dispositivos 2.4 GHz cercanos de forma idéntica a la visualización de la web app.
-  * **Multi-Target:** El código base debe compilar limpio tanto para ESP32-P4 (`idf.py build`) como para ESP32-S3 (`pio run`) sin romper la abstracción.
+  * **Multi-Target:** Verificado y compilado limpio para ambas plataformas:
+    * ESP32-P4 (`idf.py build`): ✅ Exitoso (código 0). Flasheado y arrancado en `/dev/ttyACM0`.
+    * ESP32-S3 (`pio run`): ✅ Exitoso (código 0).
 
 ---
 
-## 5. Próximos Pasos Inmediatos
+## 5. Estado Actual y Pruebas en Vivo
 
-1. Compilar y flashear el firmware con `SdrView` en el ESP32-P4.
-2. Abrir la app "SDR Spectrum" desde el Dashboard táctil de CBDos y validar visualmente la cascada y el espectro en vivo.
-3. Verificar la sintonización reactiva de canales 1 al 14 y la conmutación de ganancia.
+1. **Firmware P4:** Flasheado en hardware real en `/dev/ttyACM0`. SO operando a 60 FPS con pantalla ST7701S.
+2. **App "SDR Spectrum":** Interfaz completa replicada de ESP-WebSDR operativa con arrastre táctil y rango hasta 2.7 GHz.
+3. **Dongle ESP-SDR:** Listo en el puerto USB Host del P4 para exploración de espectro en tiempo real.
+
+

@@ -20,19 +20,25 @@ enum class GainMode : uint8_t {
     Manual      = 1
 };
 
+enum class CaptureMode : uint8_t {
+    OnChipSpectrum = 0, // Streaming continuo On-Chip SPEC/SPC1 (200+ spectra/s)
+    RawIQ          = 1  // Ráfagas crudas CAP16/CAP20
+};
+
 enum class FrameType : uint8_t {
     BurstIQ     = 0,
     Spectrum    = 1
 };
 
 struct SdrConfig {
-    uint32_t frequencyMHz = 2412;   // 2412 - 2484 MHz (o extendido)
-    uint32_t sampleRate   = 40000000; // 16M, 40M, 80M
-    uint8_t  sampleBits   = 8;      // 8 o 10 bits por componente
-    uint16_t fftBins      = 512;    // 256, 512, 1024, 2048
-    GainMode gainMode     = GainMode::HardwareAgc;
-    int      gainIndex    = 40;     // 0 - 60 si es Manual
-    bool     maxHold      = false;
+    uint32_t    frequencyMHz = 2412;   // 2412 - 2484 MHz (o extendido)
+    uint32_t    sampleRate   = 40000000; // 16M, 40M, 80M
+    uint8_t     sampleBits   = 8;      // 8 o 10 bits por componente
+    uint16_t    fftBins      = 512;    // 256, 512, 1024, 2048
+    GainMode    gainMode     = GainMode::HardwareAgc;
+    int         gainIndex    = 40;     // 0 - 60 si es Manual
+    bool        maxHold      = false;
+    CaptureMode captureMode  = CaptureMode::OnChipSpectrum;
 };
 
 struct SdrFrame {
