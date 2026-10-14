@@ -7,6 +7,9 @@
 #include "../themes/DefaultTheme.h"
 #include "cbdos/system.hpp"
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -24,17 +27,20 @@ struct FreqPreset {
 };
 
 static const FreqPreset kPresets[] = {
-    {"Ch 1 (2412 MHz)",  2412},
-    {"Center (2420 MHz)",2420},
-    {"Ch 6 (2437 MHz)",  2437},
-    {"Ch 7 (2442 MHz)",  2442},
-    {"Ch 11 (2462 MHz)", 2462},
-    {"Ch 14 (2484 MHz)", 2484},
-    {"2.6 GHz ISM",      2600},
-    {"2.7 GHz Max",      2700}
+    {"1.85 GHz (5/6 LO)", 1850},
+    {"2.00 GHz (5/6 LO)", 2000},
+    {"2.20 GHz (5/6 LO)", 2200},
+    {"Ch 1 (2412 MHz)",   2412},
+    {"Ch 6 (2437 MHz)",   2437},
+    {"Ch 11 (2462 MHz)",  2462},
+    {"Ch 14 (2484 MHz)",  2484},
+    {"2.60 GHz",          2600}
 };
 
 static constexpr size_t kPresetCount = sizeof(kPresets) / sizeof(kPresets[0]);
+
+static const uint32_t kFilterBwValues[] = {0, 13, 20, 30, 40, 50, 60, 69};
+static constexpr size_t kFilterBwCount = sizeof(kFilterBwValues) / sizeof(kFilterBwValues[0]);
 
 } // anonymous namespace
 
@@ -85,13 +91,16 @@ SdrView::SdrView()
     : BaseView("SDR Analyzer") {
     initColormapLut();
 
-    // Configuración por defecto: 2420 MHz, 80 MS/s - 80 MHz, 2048 bins (On-Chip SPEC)
-    m_config.frequencyMHz = 2420;
+    m_frameMutex = (void*)xSemaphoreCreateMutex();
+
+    // Configuración por defecto: 2412 MHz (Ch 1), 80 MS/s - 80 MHz, 2048 bins (On-Chip SPEC)
+    m_config.frequencyMHz = 2412;
     m_config.sampleRate   = 80000000;
     m_config.sampleBits   = 8;
     m_config.fftBins      = 2048;
     m_config.gainMode     = cbdos::sdr::GainMode::HardwareAgc;
     m_config.gainIndex    = 40;
+    m_config.filterBwMHz  = 0; // Auto / abierto
     m_config.maxHold      = false;
     m_config.captureMode  = cbdos::sdr::CaptureMode::OnChipSpectrum;
 
@@ -146,6 +155,11 @@ void SdrView::onDestroy() {
         m_isRunning = false;
     }
 
+    if (m_frameMutex) {
+        vSemaphoreDelete((SemaphoreHandle_t)m_frameMutex);
+        m_frameMutex = nullptr;
+    }
+
     if (m_waterfallBuf) {
         free(m_waterfallBuf);
         m_waterfallBuf = nullptr;
@@ -196,7 +210,7 @@ void SdrView::createControlBar(lv_obj_t* parent) {
 
     // Botón Iniciar / Pausar
     m_btnPlayPause = lv_button_create(row1);
-    lv_obj_set_size(m_btnPlayPause, 90, 36);
+    lv_obj_set_size(m_btnPlayPause, 80, 36);
     DefaultTheme::applyButton(m_btnPlayPause, 8);
     lv_obj_set_style_bg_color(m_btnPlayPause, lv_color_hex(0x37C964), 0);
     lv_obj_add_event_cb(m_btnPlayPause, onPlayPauseClicked, LV_EVENT_CLICKED, this);
@@ -207,7 +221,7 @@ void SdrView::createControlBar(lv_obj_t* parent) {
 
     // Botón Step -10M
     lv_obj_t* btnM10 = lv_button_create(row1);
-    lv_obj_set_size(btnM10, 42, 36);
+    lv_obj_set_size(btnM10, 36, 36);
     DefaultTheme::applyButton(btnM10, 8);
     lv_obj_set_style_bg_color(btnM10, lv_color_hex(0x1F2937), 0);
     lv_obj_set_user_data(btnM10, (void*)(intptr_t)-10);
@@ -218,7 +232,7 @@ void SdrView::createControlBar(lv_obj_t* parent) {
 
     // Botón Step -1M
     lv_obj_t* btnM1 = lv_button_create(row1);
-    lv_obj_set_size(btnM1, 38, 36);
+    lv_obj_set_size(btnM1, 34, 36);
     DefaultTheme::applyButton(btnM1, 8);
     lv_obj_set_style_bg_color(btnM1, lv_color_hex(0x1F2937), 0);
     lv_obj_set_user_data(btnM1, (void*)(intptr_t)-1);
@@ -229,13 +243,13 @@ void SdrView::createControlBar(lv_obj_t* parent) {
 
     // Etiqueta Central Frecuencia
     m_lblFreqValue = lv_label_create(row1);
-    lv_label_set_text(m_lblFreqValue, "2420 MHz");
+    lv_label_set_text(m_lblFreqValue, "2412 MHz");
     lv_obj_set_style_text_color(m_lblFreqValue, lv_color_hex(0x00F5D4), 0);
     lv_obj_set_style_text_font(m_lblFreqValue, &lv_font_montserrat_14, 0);
 
     // Botón Step +1M
     lv_obj_t* btnP1 = lv_button_create(row1);
-    lv_obj_set_size(btnP1, 38, 36);
+    lv_obj_set_size(btnP1, 34, 36);
     DefaultTheme::applyButton(btnP1, 8);
     lv_obj_set_style_bg_color(btnP1, lv_color_hex(0x1F2937), 0);
     lv_obj_set_user_data(btnP1, (void*)(intptr_t)1);
@@ -246,7 +260,7 @@ void SdrView::createControlBar(lv_obj_t* parent) {
 
     // Botón Step +10M
     lv_obj_t* btnP10 = lv_button_create(row1);
-    lv_obj_set_size(btnP10, 42, 36);
+    lv_obj_set_size(btnP10, 36, 36);
     DefaultTheme::applyButton(btnP10, 8);
     lv_obj_set_style_bg_color(btnP10, lv_color_hex(0x1F2937), 0);
     lv_obj_set_user_data(btnP10, (void*)(intptr_t)10);
@@ -258,20 +272,20 @@ void SdrView::createControlBar(lv_obj_t* parent) {
     // Presets Dropdown
     m_ddPresets = lv_dropdown_create(row1);
     lv_dropdown_set_options(m_ddPresets,
+        "1.85 GHz (5/6 LO)\n"
+        "2.00 GHz (5/6 LO)\n"
+        "2.20 GHz (5/6 LO)\n"
         "Ch 1 (2412)\n"
-        "2420 MHz\n"
         "Ch 6 (2437)\n"
-        "Ch 7 (2442)\n"
         "Ch 11 (2462)\n"
         "Ch 14 (2484)\n"
-        "2.60 GHz\n"
-        "2.70 GHz");
-    lv_dropdown_set_selected(m_ddPresets, 1);
-    lv_obj_set_size(m_ddPresets, 105, 36);
+        "2.60 GHz");
+    lv_dropdown_set_selected(m_ddPresets, 3);
+    lv_obj_set_size(m_ddPresets, 120, 36);
     lv_obj_set_style_radius(m_ddPresets, 8, 0);
     lv_obj_add_event_cb(m_ddPresets, onPresetFreqSelected, LV_EVENT_VALUE_CHANGED, this);
 
-    // --- Fila 2: Span (Bandwidth) + FFT Bins + Ganancia + Hold ---
+    // --- Fila 2: Span + Filter BW + FFT Bins + Ganancia + Hold ---
     lv_obj_t* row2 = lv_obj_create(bar);
     lv_obj_set_size(row2, LV_PCT(100), 38);
     lv_obj_set_style_bg_opa(row2, LV_OPA_TRANSP, 0);
@@ -281,25 +295,41 @@ void SdrView::createControlBar(lv_obj_t* parent) {
     lv_obj_set_flex_align(row2, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     DefaultTheme::disableScroll(row2);
 
-    // Dropdown Span / Sample rate
+    // Dropdown Span / Sample rate (Solo tasas nativas del ESP32-S3: 80, 40, 16 MS/s)
     m_ddSpan = lv_dropdown_create(row2);
-    lv_dropdown_set_options(m_ddSpan, "80 MHz\n40 MHz\n20 MHz\n10 MHz\n4 MHz");
+    lv_dropdown_set_options(m_ddSpan, "80 MHz\n40 MHz\n16 MHz");
     lv_dropdown_set_selected(m_ddSpan, 0); // 80 MHz default
-    lv_obj_set_size(m_ddSpan, 105, 36);
+    lv_obj_set_size(m_ddSpan, 86, 36);
     lv_obj_set_style_radius(m_ddSpan, 8, 0);
     lv_obj_add_event_cb(m_ddSpan, onSpanSelected, LV_EVENT_VALUE_CHANGED, this);
+
+    // Dropdown Filter Bandwidth (Analógico S3: Auto 0, 13 a 69 MHz)
+    m_ddFilterBw = lv_dropdown_create(row2);
+    lv_dropdown_set_options(m_ddFilterBw,
+        "BW: Auto\n"
+        "BW: 13M\n"
+        "BW: 20M\n"
+        "BW: 30M\n"
+        "BW: 40M\n"
+        "BW: 50M\n"
+        "BW: 60M\n"
+        "BW: 69M");
+    lv_dropdown_set_selected(m_ddFilterBw, 0); // Auto default
+    lv_obj_set_size(m_ddFilterBw, 90, 36);
+    lv_obj_set_style_radius(m_ddFilterBw, 8, 0);
+    lv_obj_add_event_cb(m_ddFilterBw, onFilterBwSelected, LV_EVENT_VALUE_CHANGED, this);
 
     // Dropdown FFT Bins
     m_ddFftBins = lv_dropdown_create(row2);
     lv_dropdown_set_options(m_ddFftBins, "2048\n1024\n512\n256");
     lv_dropdown_set_selected(m_ddFftBins, 0); // 2048 bins default
-    lv_obj_set_size(m_ddFftBins, 90, 36);
+    lv_obj_set_size(m_ddFftBins, 78, 36);
     lv_obj_set_style_radius(m_ddFftBins, 8, 0);
     lv_obj_add_event_cb(m_ddFftBins, onFftBinsSelected, LV_EVENT_VALUE_CHANGED, this);
 
     // Botón Gain AGC / Manual
     m_btnGainMode = lv_button_create(row2);
-    lv_obj_set_size(m_btnGainMode, 85, 36);
+    lv_obj_set_size(m_btnGainMode, 78, 36);
     DefaultTheme::applyButton(m_btnGainMode, 8);
     lv_obj_add_event_cb(m_btnGainMode, onGainModeClicked, LV_EVENT_CLICKED, this);
 
@@ -309,7 +339,7 @@ void SdrView::createControlBar(lv_obj_t* parent) {
 
     // Botón Max Hold Toggle
     m_btnHold = lv_button_create(row2);
-    lv_obj_set_size(m_btnHold, 80, 36);
+    lv_obj_set_size(m_btnHold, 74, 36);
     DefaultTheme::applyButton(m_btnHold, 8);
     lv_obj_set_style_bg_color(m_btnHold, lv_color_hex(0xE6B969), 0);
     lv_obj_add_event_cb(m_btnHold, onResetMaxHoldClicked, LV_EVENT_CLICKED, this);
@@ -531,39 +561,75 @@ void SdrView::updateAxisLabels() {
         }
     }
 
-    // Actualizar MeasBar
+    // Actualizar MeasBar con badges según banda física y ancho de filtro analógico
     if (m_lblMeasBar) {
-        char meas[128];
-        snprintf(meas, sizeof(meas), "Start %.3f GHz · Center %.3f GHz · Span %lu MHz · Stop %.3f GHz · Bins %u",
+        const char* bandBadge = "Extended LO";
+        if (centerFreq >= 2400 && centerFreq <= 2484) {
+            bandBadge = "ISM 2.4G";
+        } else if (centerFreq >= 1842 && centerFreq <= 2209) {
+            bandBadge = "5/6 LO Exp";
+        }
+
+        const char* bwStr = "Auto";
+        char bwBuf[16];
+        if (m_config.filterBwMHz > 0) {
+            snprintf(bwBuf, sizeof(bwBuf), "%luM", (unsigned long)m_config.filterBwMHz);
+            bwStr = bwBuf;
+        }
+
+        char meas[160];
+        snprintf(meas, sizeof(meas), "[%s] %.3f - %.3f GHz · Span %luM · Filter %s · Bins %u",
+                 bandBadge,
                  (float)startFreq / 1000.0f,
-                 (float)centerFreq / 1000.0f,
-                 (unsigned long)spanMHz,
                  (float)stopFreq / 1000.0f,
+                 (unsigned long)spanMHz,
+                 bwStr,
                  (unsigned)m_config.fftBins);
         lv_label_set_text(m_lblMeasBar, meas);
     }
 }
 
+void SdrView::applyWithStreamPause(std::function<void()> action) {
+    auto& client = cbdos::sdr::getEspSdrClient();
+    bool wasRunning = m_isRunning;
+    if (wasRunning) {
+        client.stopStreaming();
+    }
+
+    action();
+
+    if (wasRunning) {
+        bool ok = client.startStreaming(m_config, [this](const cbdos::sdr::SdrFrame& frame) {
+            if (this->m_frameMutex && xSemaphoreTake((SemaphoreHandle_t)this->m_frameMutex, pdMS_TO_TICKS(15)) == pdTRUE) {
+                this->m_sharedSpectrum = frame.spectrumDbfs;
+                this->m_sharedPeakDbfs = frame.peakDbfs;
+                this->m_sharedPeakFreqMHz = frame.peakFreqMHz;
+                xSemaphoreGive((SemaphoreHandle_t)this->m_frameMutex);
+                this->m_hasNewFrame.store(true, std::memory_order_release);
+            }
+        });
+        if (!ok) {
+            m_isRunning = false;
+            if (m_lblPlayPause) lv_label_set_text(m_lblPlayPause, LV_SYMBOL_PLAY " Start");
+            if (m_btnPlayPause) lv_obj_set_style_bg_color(m_btnPlayPause, lv_color_hex(0x37C964), 0);
+            if (m_lblStatus) {
+                lv_label_set_text(m_lblStatus, "Error USB S3");
+                lv_obj_set_style_text_color(m_lblStatus, lv_color_hex(0xEF4444), 0);
+            }
+        }
+    }
+}
+
 void SdrView::tuneToFrequency(uint32_t freqMHz) {
-    if (freqMHz < 100) freqMHz = 100;
-    if (freqMHz > 2750) freqMHz = 2750;
+    if (freqMHz < cbdos::sdr::kSdrMinFreqMHz) freqMHz = cbdos::sdr::kSdrMinFreqMHz;
+    if (freqMHz > cbdos::sdr::kSdrMaxFreqMHz) freqMHz = cbdos::sdr::kSdrMaxFreqMHz;
 
     m_config.frequencyMHz = freqMHz;
     updateAxisLabels();
 
-    auto& client = cbdos::sdr::getEspSdrClient();
-    if (m_isRunning) {
-        client.stopStreaming();
-        client.tune(freqMHz);
-        client.startStreaming(m_config, [this](const cbdos::sdr::SdrFrame& frame) {
-            this->m_sharedSpectrum = frame.spectrumDbfs;
-            this->m_sharedPeakDbfs = frame.peakDbfs;
-            this->m_sharedPeakFreqMHz = frame.peakFreqMHz;
-            this->m_hasNewFrame.store(true, std::memory_order_release);
-        });
-    } else {
-        client.tune(freqMHz);
-    }
+    applyWithStreamPause([this, freqMHz]() {
+        cbdos::sdr::getEspSdrClient().tune(freqMHz);
+    });
 }
 
 void SdrView::updateWaterfallRow(const std::vector<float>& spectrum) {
@@ -594,18 +660,32 @@ void SdrView::updateUiFromFrame() {
     if (!m_hasNewFrame.load(std::memory_order_acquire)) return;
     m_hasNewFrame.store(false, std::memory_order_release);
 
-    if (m_sharedSpectrum.empty()) return;
+    std::vector<float> localSpectrum;
+    float localPeakDbfs = -100.0f;
+    float localPeakFreq = 2412.0f;
 
-    size_t specSize = m_sharedSpectrum.size();
+    // Copia atómica rápida bajo mutex para no colisionar con la tarea FreeRTOS
+    if (m_frameMutex && xSemaphoreTake((SemaphoreHandle_t)m_frameMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        localSpectrum = m_sharedSpectrum;
+        localPeakDbfs = m_sharedPeakDbfs;
+        localPeakFreq = m_sharedPeakFreqMHz;
+        xSemaphoreGive((SemaphoreHandle_t)m_frameMutex);
+    } else {
+        return;
+    }
+
+    if (localSpectrum.empty()) return;
+
+    size_t specSize = localSpectrum.size();
 
     // Actualizar Max-Hold con decaimiento suave
     if (m_holdEnabled) {
         if (m_sharedMaxHold.size() != specSize) {
-            m_sharedMaxHold = m_sharedSpectrum;
+            m_sharedMaxHold = localSpectrum;
         } else {
             for (size_t k = 0; k < specSize; k++) {
-                if (m_sharedSpectrum[k] > m_sharedMaxHold[k]) {
-                    m_sharedMaxHold[k] = m_sharedSpectrum[k];
+                if (localSpectrum[k] > m_sharedMaxHold[k]) {
+                    m_sharedMaxHold[k] = localSpectrum[k];
                 } else {
                     m_sharedMaxHold[k] -= 0.04f;
                 }
@@ -624,7 +704,7 @@ void SdrView::updateUiFromFrame() {
         float maxValHold = -100.0f;
 
         for (size_t s = 0; s < step && (startIdx + s) < specSize; s++) {
-            float vLive = m_sharedSpectrum[startIdx + s];
+            float vLive = localSpectrum[startIdx + s];
             if (vLive > maxValLive) maxValLive = vLive;
 
             if (m_holdEnabled && (startIdx + s) < m_sharedMaxHold.size()) {
@@ -646,12 +726,12 @@ void SdrView::updateUiFromFrame() {
     lv_chart_refresh(m_chart);
 
     // 2. Actualizar fila de cascada
-    updateWaterfallRow(m_sharedSpectrum);
+    updateWaterfallRow(localSpectrum);
 
     // 3. Telemetría y lectura del pico
     if (m_lblCursor) {
         char cur[64];
-        snprintf(cur, sizeof(cur), "%.1f MHz · %.1f dBFS", m_sharedPeakFreqMHz, m_sharedPeakDbfs);
+        snprintf(cur, sizeof(cur), "%.1f MHz · %.1f dBFS", localPeakFreq, localPeakDbfs);
         lv_label_set_text(m_lblCursor, cur);
     }
 
@@ -678,10 +758,13 @@ void SdrView::onPlayPauseClicked(lv_event_t* e) {
 
     if (!self->m_isRunning) {
         bool ok = client.startStreaming(self->m_config, [self](const cbdos::sdr::SdrFrame& frame) {
-            self->m_sharedSpectrum = frame.spectrumDbfs;
-            self->m_sharedPeakDbfs = frame.peakDbfs;
-            self->m_sharedPeakFreqMHz = frame.peakFreqMHz;
-            self->m_hasNewFrame.store(true, std::memory_order_release);
+            if (self->m_frameMutex && xSemaphoreTake((SemaphoreHandle_t)self->m_frameMutex, pdMS_TO_TICKS(15)) == pdTRUE) {
+                self->m_sharedSpectrum = frame.spectrumDbfs;
+                self->m_sharedPeakDbfs = frame.peakDbfs;
+                self->m_sharedPeakFreqMHz = frame.peakFreqMHz;
+                xSemaphoreGive((SemaphoreHandle_t)self->m_frameMutex);
+                self->m_hasNewFrame.store(true, std::memory_order_release);
+            }
         });
 
         if (ok) {
@@ -738,10 +821,29 @@ void SdrView::onSpanSelected(lv_event_t* e) {
     if (!self || !self->m_ddSpan) return;
 
     uint32_t sel = lv_dropdown_get_selected(self->m_ddSpan);
-    uint32_t rates[] = {80000000, 40000000, 20000000, 10000000, 4000000};
+    // Tasas oficiales ESP32-S3: 80 MS/s, 40 MS/s, 16 MS/s
+    uint32_t rates[] = {80000000, 40000000, 16000000};
     if (sel < sizeof(rates) / sizeof(rates[0])) {
-        self->m_config.sampleRate = rates[sel];
-        self->tuneToFrequency(self->m_config.frequencyMHz);
+        uint32_t targetRate = rates[sel];
+        self->applyWithStreamPause([self, targetRate]() {
+            self->m_config.sampleRate = targetRate;
+        });
+        self->updateAxisLabels();
+    }
+}
+
+void SdrView::onFilterBwSelected(lv_event_t* e) {
+    auto* self = static_cast<SdrView*>(lv_event_get_user_data(e));
+    if (!self || !self->m_ddFilterBw) return;
+
+    uint32_t sel = lv_dropdown_get_selected(self->m_ddFilterBw);
+    if (sel < kFilterBwCount) {
+        uint32_t bw = kFilterBwValues[sel];
+        self->applyWithStreamPause([self, bw]() {
+            self->m_config.filterBwMHz = bw;
+            cbdos::sdr::getEspSdrClient().setFilterBandwidth(bw);
+        });
+        self->updateAxisLabels();
     }
 }
 
@@ -752,8 +854,11 @@ void SdrView::onFftBinsSelected(lv_event_t* e) {
     uint32_t sel = lv_dropdown_get_selected(self->m_ddFftBins);
     uint16_t bins[] = {2048, 1024, 512, 256};
     if (sel < sizeof(bins) / sizeof(bins[0])) {
-        self->m_config.fftBins = bins[sel];
-        self->tuneToFrequency(self->m_config.frequencyMHz);
+        uint16_t targetBins = bins[sel];
+        self->applyWithStreamPause([self, targetBins]() {
+            self->m_config.fftBins = targetBins;
+        });
+        self->updateAxisLabels();
     }
 }
 
@@ -762,15 +867,19 @@ void SdrView::onGainModeClicked(lv_event_t* e) {
     if (!self) return;
 
     if (self->m_config.gainMode == cbdos::sdr::GainMode::HardwareAgc) {
-        self->m_config.gainMode = cbdos::sdr::GainMode::Manual;
-        self->m_config.gainIndex = 40;
-        cbdos::sdr::getEspSdrClient().setGain(cbdos::sdr::GainMode::Manual, 40);
+        self->applyWithStreamPause([self]() {
+            self->m_config.gainMode = cbdos::sdr::GainMode::Manual;
+            self->m_config.gainIndex = 40;
+            cbdos::sdr::getEspSdrClient().setGain(cbdos::sdr::GainMode::Manual, 40);
+        });
         if (self->m_lblGainMode) {
             lv_label_set_text(self->m_lblGainMode, "MAN: 40");
         }
     } else {
-        self->m_config.gainMode = cbdos::sdr::GainMode::HardwareAgc;
-        cbdos::sdr::getEspSdrClient().setGain(cbdos::sdr::GainMode::HardwareAgc);
+        self->applyWithStreamPause([self]() {
+            self->m_config.gainMode = cbdos::sdr::GainMode::HardwareAgc;
+            cbdos::sdr::getEspSdrClient().setGain(cbdos::sdr::GainMode::HardwareAgc);
+        });
         if (self->m_lblGainMode) {
             lv_label_set_text(self->m_lblGainMode, "AGC ON");
         }
@@ -822,8 +931,8 @@ void SdrView::onChartTouch(lv_event_t* e) {
         // Escala: 380 píxeles útiles equivalen a spanMHz
         int32_t deltaMHz = -(dx * (int32_t)spanMHz) / 380;
         int32_t newFreq = (int32_t)self->m_dragStartFreq + deltaMHz;
-        if (newFreq < 100) newFreq = 100;
-        if (newFreq > 2750) newFreq = 2750;
+        if (newFreq < (int32_t)cbdos::sdr::kSdrMinFreqMHz) newFreq = cbdos::sdr::kSdrMinFreqMHz;
+        if (newFreq > (int32_t)cbdos::sdr::kSdrMaxFreqMHz) newFreq = cbdos::sdr::kSdrMaxFreqMHz;
 
         // Actualización reactiva inmediata en pantalla
         if (self->m_lblFreqValue) {
@@ -852,8 +961,8 @@ void SdrView::onChartTouch(lv_event_t* e) {
             int32_t dx = p.x - self->m_dragStartX;
             int32_t deltaMHz = -(dx * (int32_t)spanMHz) / 380;
             int32_t newFreq = (int32_t)self->m_dragStartFreq + deltaMHz;
-            if (newFreq < 100) newFreq = 100;
-            if (newFreq > 2750) newFreq = 2750;
+            if (newFreq < (int32_t)cbdos::sdr::kSdrMinFreqMHz) newFreq = cbdos::sdr::kSdrMinFreqMHz;
+            if (newFreq > (int32_t)cbdos::sdr::kSdrMaxFreqMHz) newFreq = cbdos::sdr::kSdrMaxFreqMHz;
 
             self->m_isDragging = false;
             self->tuneToFrequency((uint32_t)newFreq);
@@ -865,3 +974,4 @@ void SdrView::onChartTouch(lv_event_t* e) {
 } // namespace cbdos
 
 #endif // CBDOS_FEATURE_SDR
+

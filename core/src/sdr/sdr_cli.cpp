@@ -178,7 +178,7 @@ static void cmdSdrFreq(const std::string& args, const cbdos::cli::CommandContext
 
 static void cmdSdrGain(const std::string& args, const cbdos::cli::CommandContext& ctx) {
     if (args.empty()) {
-        if (ctx.write) ctx.write("Uso: sdr gain <auto|manual 0-60> (ej: sdr gain auto, sdr gain manual 40)\n");
+        if (ctx.write) ctx.write("Uso: sdr gain <auto|manual 0-82> (ej: sdr gain auto, sdr gain manual 40)\n");
         return;
     }
 
@@ -202,15 +202,51 @@ static void cmdSdrGain(const std::string& args, const cbdos::cli::CommandContext
         } else {
             gainIdx = (int)std::strtol(args.c_str(), nullptr, 10);
         }
-        if (gainIdx < 0 || gainIdx > 60) gainIdx = 40;
+        if (gainIdx < 0) gainIdx = 0;
+        if (gainIdx > kSdrMaxGainIndex) gainIdx = kSdrMaxGainIndex;
 
         if (client.setGain(GainMode::Manual, gainIdx)) {
             char outBuf[96];
-            snprintf(outBuf, sizeof(outBuf), "[SDR] ✅ Ganancia manual aplicada: índice %d / 60.\n", gainIdx);
+            snprintf(outBuf, sizeof(outBuf), "[SDR] ✅ Ganancia manual aplicada: índice %d / %d.\n", gainIdx, kSdrMaxGainIndex);
             if (ctx.write) ctx.write(outBuf);
         } else {
             if (ctx.write) ctx.write("[SDR] ❌ Fallo al aplicar ganancia manual.\n");
         }
+    }
+    client.disconnect();
+}
+
+static void cmdSdrBw(const std::string& args, const cbdos::cli::CommandContext& ctx) {
+    if (args.empty()) {
+        if (ctx.write) ctx.write("Uso: sdr bw <0|13-69> (ej: sdr bw 0 [Auto], sdr bw 40 [40 MHz])\n");
+        return;
+    }
+
+    long bw = std::strtol(args.c_str(), nullptr, 10);
+    if (bw != 0 && (bw < (long)kSdrMinFilterBwMHz || bw > (long)kSdrMaxFilterBwMHz)) {
+        char errBuf[128];
+        snprintf(errBuf, sizeof(errBuf), "[SDR] ❌ Ancho de filtro fuera de rango (0=Auto, %lu..%lu MHz).\n",
+                 (unsigned long)kSdrMinFilterBwMHz, (unsigned long)kSdrMaxFilterBwMHz);
+        if (ctx.write) ctx.write(errBuf);
+        return;
+    }
+
+    auto& client = getEspSdrClient();
+    if (!client.connect()) {
+        if (ctx.write) ctx.write("[SDR] ❌ No se pudo conectar con el dispositivo SDR.\n");
+        return;
+    }
+
+    if (client.setFilterBandwidth((uint32_t)bw)) {
+        char outBuf[128];
+        if (bw == 0) {
+            snprintf(outBuf, sizeof(outBuf), "[SDR] ✅ Filtro analógico configurado: Auto / abierto (0 MHz).\n");
+        } else {
+            snprintf(outBuf, sizeof(outBuf), "[SDR] ✅ Filtro analógico configurado: %ld MHz.\n", bw);
+        }
+        if (ctx.write) ctx.write(outBuf);
+    } else {
+        if (ctx.write) ctx.write("[SDR] ❌ Fallo al aplicar ancho de filtro analógico.\n");
     }
     client.disconnect();
 }
@@ -421,8 +457,9 @@ static void cmdSdrHelp(const std::string& args, const cbdos::cli::CommandContext
     const char* help =
         "--- Comandos SDR (ESP-SDR Companion over USB CDC) ---\n"
         "  sdr probe                 Verifica conexión y realiza handshake SYNC con la mochila S3\n"
-        "  sdr freq <MHz>            Sintoniza la frecuencia central de la radio (ej: sdr freq 2412)\n"
-        "  sdr gain <auto|0-60>      Ajusta la ganancia en modo AGC o manual\n"
+        "  sdr freq <MHz>            Sintoniza la frecuencia central de la radio (100 - 6000 MHz)\n"
+        "  sdr gain <auto|0-82>      Ajusta la ganancia en modo AGC o manual (0 - 82)\n"
+        "  sdr bw <0|13-69>          Ajusta ancho de filtro analógico (0=Auto, 13 - 69 MHz)\n"
         "  sdr capture (o sdr test)  Captura 5 ráfagas I/Q y valida CRC32 y throughput\n"
         "  sdr dsp [bench]           Ejecuta pipeline FFT/dBFS en vivo o benchmark de latencia\n"
         "  sdr help                  Muestra esta ayuda\n";
@@ -438,6 +475,9 @@ static void cmdSdrDispatch(const std::string& args, const cbdos::cli::CommandCon
     } else if (args.rfind("gain", 0) == 0) {
         std::string sub = args.size() > 4 ? args.substr(5) : "";
         cmdSdrGain(sub, ctx);
+    } else if (args.rfind("bw", 0) == 0 || args.rfind("filter", 0) == 0) {
+        std::string sub = args.size() > 2 ? args.substr(3) : "";
+        cmdSdrBw(sub, ctx);
     } else if (args == "capture" || args == "test" || args.rfind("cap", 0) == 0) {
         cmdSdrCapture(args, ctx);
     } else if (args.rfind("dsp", 0) == 0 || args.rfind("fft", 0) == 0) {
@@ -457,6 +497,7 @@ void registerSdrCliCommands() {
     cbdos::cli::registerCommand("sdr: probe", cmdSdrProbe);
     cbdos::cli::registerCommand("sdr: freq", cmdSdrFreq);
     cbdos::cli::registerCommand("sdr: gain", cmdSdrGain);
+    cbdos::cli::registerCommand("sdr: bw", cmdSdrBw);
     cbdos::cli::registerCommand("sdr: capture", cmdSdrCapture);
     cbdos::cli::registerCommand("sdr: test", cmdSdrCapture);
     cbdos::cli::registerCommand("sdr: dsp", cmdSdrDsp);

@@ -7,6 +7,7 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <freertos/semphr.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -43,32 +44,15 @@ struct SpecProfile {
     int upf;
 };
 
+// Perfiles SPEC del ESP32-S3 verificados en hardware con `SPECINFO?`
+// (firmware ESP-SDR rev e74f2a4, 2026-10-08). Formato: {rate, divider, bins, param3, upf}.
+// El S3 sólo soporta 16 / 40 / 80 MS/s en streaming continuo con FFT en chip.
 static const SpecProfile kSpecProfiles[] = {
-    // 4 MSa/s (divider 5)
-    {4000000, 5, 256, 1, 1},
-    {4000000, 5, 512, 1, 1},
-    {4000000, 5, 1024, 1, 2},
-    {4000000, 5, 2048, 1, 4},
-    // 8 MSa/s (divider 4)
-    {8000000, 4, 256, 1, 1},
-    {8000000, 4, 512, 1, 1},
-    {8000000, 4, 1024, 2, 2},
-    {8000000, 4, 2048, 2, 4},
-    // 10 MSa/s (divider 3)
-    {10000000, 3, 256, 2, 1},
-    {10000000, 3, 512, 2, 2},
-    {10000000, 3, 1024, 2, 3},
-    {10000000, 3, 2048, 2, 5},
     // 16 MSa/s (divider 6)
     {16000000, 6, 256, 2, 1},
     {16000000, 6, 512, 2, 2},
     {16000000, 6, 1024, 2, 4},
     {16000000, 6, 2048, 3, 7},
-    // 20 MSa/s (divider 2)
-    {20000000, 2, 256, 3, 2},
-    {20000000, 2, 512, 3, 3},
-    {20000000, 2, 1024, 3, 5},
-    {20000000, 2, 2048, 4, 9},
     // 40 MSa/s (divider 1)
     {40000000, 1, 256, 5, 3},
     {40000000, 1, 512, 5, 5},
@@ -76,25 +60,29 @@ static const SpecProfile kSpecProfiles[] = {
     {40000000, 1, 2048, 7, 17},
     // 80 MSa/s (divider 0)
     {80000000, 0, 256, 10, 6},
-    {80000000, 0, 512, 10, 10},
-    {80000000, 0, 1024, 10, 18},
-    {80000000, 0, 2048, 15, 35}
+    {80000000, 0, 512, 12, 10},
+    {80000000, 0, 1024, 14, 16},
+    {80000000, 0, 2048, 14, 30}
 };
 
+static constexpr size_t kSpecProfileCount = sizeof(kSpecProfiles) / sizeof(kSpecProfiles[0]);
+
+// Devuelve siempre un perfil válido del S3. El llamante debe usar prof->sampleRate y
+// prof->fftBins como valores efectivos (pueden diferir de los solicitados).
 static const SpecProfile* findSpecProfile(uint32_t rate, uint16_t bins) {
-    for (size_t i = 0; i < sizeof(kSpecProfiles) / sizeof(kSpecProfiles[0]); i++) {
+    for (size_t i = 0; i < kSpecProfileCount; i++) {
         if (kSpecProfiles[i].sampleRate == rate && kSpecProfiles[i].fftBins == bins) {
             return &kSpecProfiles[i];
         }
     }
-    // Búsqueda por coincidencia de tasa
-    for (size_t i = 0; i < sizeof(kSpecProfiles) / sizeof(kSpecProfiles[0]); i++) {
-        if (kSpecProfiles[i].sampleRate == rate) {
+    // Tasa no soportada por el S3: fallback a 40 MSa/s conservando los bins solicitados
+    for (size_t i = 0; i < kSpecProfileCount; i++) {
+        if (kSpecProfiles[i].sampleRate == 40000000 && kSpecProfiles[i].fftBins == bins) {
             return &kSpecProfiles[i];
         }
     }
-    // Default oficial: 80 MSa/s, 2048 bins
-    return &kSpecProfiles[sizeof(kSpecProfiles) / sizeof(kSpecProfiles[0]) - 1];
+    // Bins no soportados: 40 MSa/s, 512 bins
+    return &kSpecProfiles[5];
 }
 
 // Helper para leer una línea terminada en '\n' desde IUsbCdcChannel
@@ -156,10 +144,102 @@ uint32_t EspSdrClient::calculateCrc32(const uint8_t* data, size_t length) {
 
 EspSdrClient::EspSdrClient() {
     initCrc32Table();
+    m_taskDoneSem = (void*)xSemaphoreCreateBinary();
 }
 
 EspSdrClient::~EspSdrClient() {
     disconnect();
+    if (m_taskDoneSem && !isTaskAlive()) {
+        vSemaphoreDelete((SemaphoreHandle_t)m_taskDoneSem);
+        m_taskDoneSem = nullptr;
+    }
+}
+
+bool EspSdrClient::waitForTaskExit(uint32_t timeoutMs) {
+    if (!isTaskAlive()) return true;
+    if (!m_taskDoneSem) return false;
+    if (xSemaphoreTake((SemaphoreHandle_t)m_taskDoneSem, pdMS_TO_TICKS(timeoutMs)) == pdTRUE) {
+        m_streamTaskHandle = nullptr;
+        return true;
+    }
+    return !isTaskAlive();
+}
+
+// Precondición: el llamante es el único propietario del CDC (la tarea de stream o,
+// si no existe tarea, el hilo que la iba a lanzar).
+void EspSdrClient::drainSpecEndAndPurge() {
+    auto* host = cbdos::usb::getUsbHostBackend();
+    if (!host) return;
+    auto* cdc = host->getCdcChannel();
+    if (!cdc) return;
+
+    // Protocolo ESP-SDR: '\n' finaliza la trama activa y el firmware responde "SPECEND ...\n"
+    // (medido en hardware: ~50 ms, 0 bytes residuales tras SPECEND).
+    cdc->writeString("\n");
+
+    static constexpr uint32_t kDrainTimeoutMs = 300;
+    static constexpr size_t   kTailKeep = 16;
+    std::string acc;
+    acc.reserve(4096);
+    uint8_t chunk[1024];
+    bool gotSpecEnd = false;
+    uint32_t startMs = cbdos::system::getTimeMs();
+
+    while (cbdos::system::getTimeMs() - startMs < kDrainTimeoutMs) {
+        size_t n = 0;
+        cbdos::usb::UsbIoResult res = cdc->read(chunk, sizeof(chunk), n, 20);
+        if (res == cbdos::usb::UsbIoResult::Disconnected || res == cbdos::usb::UsbIoResult::HardwareError) {
+            break;
+        }
+        if (res == cbdos::usb::UsbIoResult::Ok && n > 0) {
+            acc.append(reinterpret_cast<const char*>(chunk), n);
+            size_t pos = acc.find("SPECEND");
+            if (pos != std::string::npos && acc.find('\n', pos) != std::string::npos) {
+                gotSpecEnd = true;
+                break;
+            }
+            // Acotar memoria: sólo interesa la cola por si "SPECEND" queda partido entre chunks
+            if (pos == std::string::npos && acc.size() > 4096) {
+                acc.erase(0, acc.size() - kTailKeep);
+            }
+        }
+    }
+
+    cdc->purge();
+    if (!gotSpecEnd) {
+        // Estado del enlace incierto: forzar re-SYNC antes del próximo comando
+        m_needsResync = true;
+    }
+}
+
+bool EspSdrClient::sendCommandExpectOk(const char* cmd, uint32_t timeoutMs) {
+    if (!m_connected || !cmd) return false;
+    if (isTaskAlive()) return false; // La tarea de stream es la propietaria del CDC
+
+    auto* host = cbdos::usb::getUsbHostBackend();
+    if (!host) return false;
+    auto* cdc = host->getCdcChannel();
+    if (!cdc) return false;
+
+    if (m_needsResync) {
+        if (!performSync()) return false;
+        cdc->purge();
+        m_needsResync = false;
+    }
+
+    cdc->writeString(cmd);
+
+    // Protocolo verificado: éxito = línea "OK"; fallo = línea "ERR <motivo>".
+    // Cualquier otra línea (eco tardío, texto residual) se ignora hasta el deadline.
+    uint32_t startMs = cbdos::system::getTimeMs();
+    while (true) {
+        uint32_t elapsed = cbdos::system::getTimeMs() - startMs;
+        if (elapsed >= timeoutMs) break;
+        std::string line = readLineFromCdc(cdc, timeoutMs - elapsed);
+        if (line == "OK") return true;
+        if (line.rfind("ERR", 0) == 0) return false;
+    }
+    return false;
 }
 
 bool EspSdrClient::performSync() {
@@ -211,8 +291,10 @@ bool EspSdrClient::connect() {
     }
 
     m_connected = true;
+    m_needsResync = false;
+    m_filterBwApplied = false; // El dispositivo puede haberse reiniciado
 
-    // Configuración por defecto: sintonizar 2412 MHz y ganancia automática
+    // Configuración por defecto: sintonizar y aplicar ganancia guardadas
     tune(m_currentFreqMHz);
     setGain(m_gainMode, m_gainIndex);
 
@@ -222,9 +304,7 @@ bool EspSdrClient::connect() {
 void EspSdrClient::disconnect() {
     if (!m_connected) return;
 
-    if (m_streaming) {
-        stopStreaming();
-    }
+    stopStreaming();
 
     auto* host = cbdos::usb::getUsbHostBackend();
     if (host) {
@@ -238,27 +318,19 @@ void EspSdrClient::disconnect() {
 }
 
 bool EspSdrClient::tune(uint32_t freqMHz) {
-    if (!m_connected) return false;
-    auto* host = cbdos::usb::getUsbHostBackend();
-    if (!host) return false;
-    auto* cdc = host->getCdcChannel();
-    if (!cdc) return false;
+    if (freqMHz < kSdrMinFreqMHz || freqMHz > kSdrMaxFreqMHz) return false;
 
     char cmd[32];
     snprintf(cmd, sizeof(cmd), "FREQ %lu\n", (unsigned long)freqMHz);
-    cdc->writeString(cmd);
+    if (!sendCommandExpectOk(cmd)) return false;
 
-    std::string resp = readLineFromCdc(cdc, 500);
     m_currentFreqMHz = freqMHz;
-    return (resp.find("OK") != std::string::npos || !resp.empty());
+    return true;
 }
 
 bool EspSdrClient::setGain(GainMode mode, int gainIndex) {
-    if (!m_connected) return false;
-    auto* host = cbdos::usb::getUsbHostBackend();
-    if (!host) return false;
-    auto* cdc = host->getCdcChannel();
-    if (!cdc) return false;
+    if (gainIndex < 0) gainIndex = 0;
+    if (gainIndex > kSdrMaxGainIndex) gainIndex = kSdrMaxGainIndex;
 
     char cmd[48];
     if (mode == GainMode::HardwareAgc) {
@@ -266,12 +338,27 @@ bool EspSdrClient::setGain(GainMode mode, int gainIndex) {
     } else {
         snprintf(cmd, sizeof(cmd), "GAIN MANUAL %d\n", gainIndex);
     }
-    cdc->writeString(cmd);
+    if (!sendCommandExpectOk(cmd)) return false;
 
-    std::string resp = readLineFromCdc(cdc, 500);
     m_gainMode = mode;
     m_gainIndex = gainIndex;
-    return (resp.find("OK") != std::string::npos || !resp.empty());
+    return true;
+}
+
+bool EspSdrClient::setFilterBandwidth(uint32_t bwMHz) {
+    // 0 = ajuste más ancho (filtro abierto). Rango analógico S3 verificado: 13 - 69 MHz.
+    if (bwMHz != 0) {
+        if (bwMHz < kSdrMinFilterBwMHz) bwMHz = kSdrMinFilterBwMHz;
+        if (bwMHz > kSdrMaxFilterBwMHz) bwMHz = kSdrMaxFilterBwMHz;
+    }
+
+    char cmd[32];
+    snprintf(cmd, sizeof(cmd), "BANDWIDTH %lu\n", (unsigned long)bwMHz);
+    if (!sendCommandExpectOk(cmd)) return false;
+
+    m_filterBwMHz = bwMHz;
+    m_filterBwApplied = true;
+    return true;
 }
 
 int EspSdrClient::getRateDivider(uint32_t rate) const {
@@ -292,6 +379,8 @@ int EspSdrClient::getRateDivider(uint32_t rate) const {
 
 bool EspSdrClient::captureBurst(const SdrConfig& cfg, SdrFrame& outFrame, uint32_t timeoutMs) {
     if (!m_connected) return false;
+    // Sólo la propia tarea de stream (modo RawIQ) puede capturar mientras está viva
+    if (isTaskAlive() && (TaskHandle_t)m_streamTaskHandle != xTaskGetCurrentTaskHandle()) return false;
     auto* host = cbdos::usb::getUsbHostBackend();
     if (!host) return false;
     auto* cdc = host->getCdcChannel();
@@ -414,6 +503,12 @@ void EspSdrClient::streamTaskTrampoline(void* arg) {
     auto* self = static_cast<EspSdrClient*>(arg);
     if (self) {
         self->streamTaskLoop();
+        // Fin ordenado: soltar la propiedad del CDC y despertar a stopStreaming()
+        self->m_streaming.store(false, std::memory_order_release);
+        self->m_taskAlive.store(false, std::memory_order_release);
+        if (self->m_taskDoneSem) {
+            xSemaphoreGive((SemaphoreHandle_t)self->m_taskDoneSem);
+        }
     }
     vTaskDelete(nullptr);
 }
@@ -430,7 +525,7 @@ void EspSdrClient::streamTaskLoop() {
         frame.iqData.reserve(4096);
         SdrFrame dspFrame;
 
-        while (m_streaming && m_connected) {
+        while (m_streaming.load(std::memory_order_acquire) && m_connected) {
             if (captureBurst(m_streamConfig, frame, 1500)) {
                 if (getSdrDspEngine().process(frame, dspFrame)) {
                     if (m_streamCallback) {
@@ -444,30 +539,15 @@ void EspSdrClient::streamTaskLoop() {
             }
             cbdos::system::yieldTask();
         }
+        cdc->purge();
         return;
     }
 
-    // Modo On-Chip Spectrum (SPEC / SPC1 de ESPARGOS): 200+ espectros/segundo
-    tune(m_streamConfig.frequencyMHz);
-    setGain(m_streamConfig.gainMode, m_streamConfig.gainIndex);
-
-    cdc->purge();
-
-    const auto* prof = findSpecProfile(m_streamConfig.sampleRate, m_streamConfig.fftBins);
-    uint16_t n = prof->fftBins;
-    size_t frameLen = 32 + n; // 4 (SPC1) + 24 (hdr) + n (bins) + 4 (crc)
-
-    int maxHold = m_streamConfig.maxHold ? 1 : 0;
-    char specCmd[64];
-    snprintf(specCmd, sizeof(specCmd), "SPEC 0 %d %d %d %d %u 1\n",
-             prof->param3, prof->upf, maxHold, prof->divider, (unsigned)n);
-    cdc->writeString(specCmd);
-
-    std::string ack = readLineFromCdc(cdc, 1500);
-    if (ack.rfind("SPEC", 0) != 0) {
-        m_streaming = false;
-        return;
-    }
+    // Modo On-Chip Spectrum (SPEC / SPC1 de ESPARGOS): 200+ espectros/segundo.
+    // FREQ/GAIN/BANDWIDTH, el comando SPEC y su ACK ya fueron procesados de forma
+    // síncrona en startStreaming(); aquí sólo se consume el flujo binario.
+    const uint16_t n = m_streamConfig.fftBins;
+    const size_t frameLen = 32 + n; // 4 (SPC1) + 24 (hdr) + n (bins) + 4 (crc)
 
     std::vector<uint8_t> rxBuf;
     rxBuf.reserve(8192);
@@ -476,7 +556,7 @@ void EspSdrClient::streamTaskLoop() {
     uint32_t lastFpsCheckMs = cbdos::system::getTimeMs();
     uint32_t framesThisPeriod = 0;
 
-    while (m_streaming && m_connected) {
+    while (m_streaming.load(std::memory_order_acquire) && m_connected) {
         size_t bytesRead = 0;
         cbdos::usb::UsbIoResult res = cdc->read(chunk, sizeof(chunk), bytesRead, 20);
 
@@ -601,19 +681,74 @@ void EspSdrClient::streamTaskLoop() {
         cbdos::system::yieldTask();
     }
 
-    // Parar streaming en S3: enviar '\n'
-    cdc->writeString("\n");
-    cbdos::system::sleepMs(30);
-    cdc->purge();
+    // Parada sincronizada: '\n' -> drenar hasta SPECEND -> purge (único punto que lo hace)
+    drainSpecEndAndPurge();
 }
 
 bool EspSdrClient::startStreaming(const SdrConfig& cfg, SdrFrameCallback callback) {
-    if (m_streaming) return true;
+    if (isTaskAlive()) {
+        if (m_streaming.load(std::memory_order_acquire)) return true; // Ya en curso
+        // Una parada anterior aún no terminó: esperar a que suelte el CDC
+        if (!waitForTaskExit(1000)) return false;
+    }
     if (!connect()) return false;
 
+    auto* host = cbdos::usb::getUsbHostBackend();
+    if (!host) return false;
+    auto* cdc = host->getCdcChannel();
+    if (!cdc) return false;
+
+    // 1. Aplicar estado de radio sólo si difiere del ya confirmado por el firmware
+    if (cfg.frequencyMHz != m_currentFreqMHz) {
+        if (!tune(cfg.frequencyMHz)) return false;
+    }
+    if (cfg.gainMode != m_gainMode ||
+        (cfg.gainMode == GainMode::Manual && cfg.gainIndex != m_gainIndex)) {
+        if (!setGain(cfg.gainMode, cfg.gainIndex)) return false;
+    }
+    if (!m_filterBwApplied || cfg.filterBwMHz != m_filterBwMHz) {
+        if (!setFilterBandwidth(cfg.filterBwMHz)) return false;
+    }
+
     m_streamConfig = cfg;
+    m_streamConfig.frequencyMHz = m_currentFreqMHz;
+
+    // 2. Modo SPEC: enviar comando y validar ACK de forma síncrona (aún sin tarea)
+    if (cfg.captureMode == CaptureMode::OnChipSpectrum) {
+        const auto* prof = findSpecProfile(cfg.sampleRate, cfg.fftBins);
+        // Reflejar la configuración efectiva (C9): ejes y FFT coherentes con el chip
+        m_streamConfig.sampleRate = prof->sampleRate;
+        m_streamConfig.fftBins    = prof->fftBins;
+
+        cdc->purge();
+        int maxHold = cfg.maxHold ? 1 : 0;
+        char specCmd[64];
+        snprintf(specCmd, sizeof(specCmd), "SPEC 0 %d %d %d %d %u 1\n",
+                 prof->param3, prof->upf, maxHold, prof->divider, (unsigned)prof->fftBins);
+        cdc->writeString(specCmd);
+
+        // ACK verificado: "SPEC <bins> <rate> <x> <freqMHz>"; luego llegan tramas binarias.
+        // readLineFromCdc lee byte a byte, por lo que el binario posterior queda en la FIFO.
+        bool ackOk = false;
+        uint32_t startMs = cbdos::system::getTimeMs();
+        while (cbdos::system::getTimeMs() - startMs < 1500) {
+            std::string ack = readLineFromCdc(cdc, 1500 - (cbdos::system::getTimeMs() - startMs));
+            if (ack.rfind("SPEC ", 0) == 0) { ackOk = true; break; }
+            if (ack.rfind("ERR", 0) == 0) break;
+        }
+        if (!ackOk) {
+            drainSpecEndAndPurge(); // Por si el chip llegó a iniciar el stream
+            return false;
+        }
+    }
+
+    // 3. Lanzar la tarea: a partir de aquí es la única propietaria del CDC
+    if (m_taskDoneSem) {
+        xSemaphoreTake((SemaphoreHandle_t)m_taskDoneSem, 0); // Limpiar señal previa
+    }
     m_streamCallback = callback;
-    m_streaming = true;
+    m_taskAlive.store(true, std::memory_order_release);
+    m_streaming.store(true, std::memory_order_release);
 
     BaseType_t ret = xTaskCreatePinnedToCore(
         streamTaskTrampoline,
@@ -626,8 +761,12 @@ bool EspSdrClient::startStreaming(const SdrConfig& cfg, SdrFrameCallback callbac
     );
 
     if (ret != pdPASS) {
-        m_streaming = false;
+        m_streaming.store(false, std::memory_order_release);
+        m_taskAlive.store(false, std::memory_order_release);
         m_streamTaskHandle = nullptr;
+        if (cfg.captureMode == CaptureMode::OnChipSpectrum) {
+            drainSpecEndAndPurge();
+        }
         return false;
     }
 
@@ -635,25 +774,14 @@ bool EspSdrClient::startStreaming(const SdrConfig& cfg, SdrFrameCallback callbac
 }
 
 void EspSdrClient::stopStreaming() {
-    if (!m_streaming) return;
-    m_streaming = false;
+    m_streaming.store(false, std::memory_order_release);
+    if (!isTaskAlive()) return;
 
-    auto* host = cbdos::usb::getUsbHostBackend();
-    if (host) {
-        auto* cdc = host->getCdcChannel();
-        if (cdc) {
-            cdc->writeString("\n");
-        }
-    }
-
-    if (m_streamTaskHandle) {
-        for (int i = 0; i < 20; i++) {
-            if (eTaskGetState((TaskHandle_t)m_streamTaskHandle) == eDeleted) {
-                break;
-            }
-            cbdos::system::sleepMs(10);
-        }
-        m_streamTaskHandle = nullptr;
+    // La tarea detecta la orden en ≤ ~20 ms, drena SPECEND (≤ 300 ms) y libera el semáforo
+    if (!waitForTaskExit(1000)) {
+        // No debería ocurrir; la tarea sigue siendo propietaria del CDC. Los comandos
+        // seguirán rechazándose hasta que termine, y se forzará re-SYNC.
+        m_needsResync = true;
     }
 }
 

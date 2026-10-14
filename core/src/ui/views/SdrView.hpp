@@ -34,6 +34,7 @@ private:
     static void onFreqStepClicked(lv_event_t* e);
     static void onPresetFreqSelected(lv_event_t* e);
     static void onSpanSelected(lv_event_t* e);
+    static void onFilterBwSelected(lv_event_t* e);
     static void onFftBinsSelected(lv_event_t* e);
     static void onGainModeClicked(lv_event_t* e);
     static void onResetMaxHoldClicked(lv_event_t* e);
@@ -47,6 +48,7 @@ private:
     void createBottomBar(lv_obj_t* parent);
 
     // Control y reactividad
+    void applyWithStreamPause(std::function<void()> action);
     void tuneToFrequency(uint32_t freqMHz);
     void updateAxisLabels();
     void updateUiFromFrame();
@@ -59,6 +61,7 @@ private:
     lv_obj_t* m_lblFreqValue     = nullptr;
     lv_obj_t* m_ddPresets        = nullptr;
     lv_obj_t* m_ddSpan           = nullptr;
+    lv_obj_t* m_ddFilterBw       = nullptr;
     lv_obj_t* m_ddFftBins        = nullptr;
     lv_obj_t* m_btnGainMode      = nullptr;
     lv_obj_t* m_lblGainMode      = nullptr;
@@ -95,6 +98,7 @@ private:
 
     // Datos compartidos entre streaming (Core 0/1) y render LVGL
     std::atomic<bool>  m_hasNewFrame{false};
+    void*              m_frameMutex = nullptr; // SemaphoreHandle_t para proteger el vector compartido
     std::vector<float> m_sharedSpectrum;
     std::vector<float> m_sharedMaxHold;
     float              m_sharedPeakDbfs = -100.0f;
