@@ -2,7 +2,6 @@
 
 #include "BaseView.hpp"
 #include "cbdos/http.hpp"
-#include "../../network/RestProberService.hpp"
 
 #include <lvgl.h>
 #include <string>
@@ -30,25 +29,7 @@ private:
         lv_obj_t* taVal = nullptr;
     };
 
-    // Callbacks LVGL
-    static void sendBtnCb(lv_event_t* e);
-    static void methodDropdownCb(lv_event_t* e);
-    static void addHeaderBtnCb(lv_event_t* e);
-    static void clearHeadersBtnCb(lv_event_t* e);
-    static void saveRequestBtnCb(lv_event_t* e);
-    static void loadPresetCb(lv_event_t* e);
-    static void deleteSavedReqCb(lv_event_t* e);
-    static void textareaFocusCb(lv_event_t* e);
-    static void keyboardEventCb(lv_event_t* e);
-    static void tabChangeCb(lv_event_t* e);
-
-    void sendRequest();
-    void renderResponse(const http::HttpResponse& response);
-    void addHeaderRow(const std::string& key = "", const std::string& val = "");
-    void clearHeaders();
-    void rebuildCollectionsList();
-    void openSaveModal();
-
+    // Submódulos UI (distribuidos en restprober/)
     void createControlBar(lv_obj_t* parent);
     void createTabs(lv_obj_t* parent);
     void setupHeadersTab(lv_obj_t* tab);
@@ -56,9 +37,25 @@ private:
     void setupResponseTab(lv_obj_t* tab);
     void setupCollectionsTab(lv_obj_t* tab);
 
+    // Callbacks de Eventos LVGL
+    static void sendBtnCb(lv_event_t* e);
+    static void methodDropdownCb(lv_event_t* e);
+    static void addHeaderBtnCb(lv_event_t* e);
+    static void clearHeadersBtnCb(lv_event_t* e);
+    static void loadPresetCb(lv_event_t* e);
+    static void tabChangeCb(lv_event_t* e);
+
+    // Lógica interna modular
+    void sendRequest();
+    void renderResponse(const http::HttpResponse& response);
+    void addHeaderRow(const std::string& key = "", const std::string& val = "");
+    void clearHeaders();
+    void rebuildCollectionsList();
+    void openSaveModal();
+
     std::string m_initialUrl;
 
-    // Widgets principales
+    // Widgets ControlBar
     lv_obj_t* m_dropdownMethod = nullptr;
     lv_obj_t* m_taUrl = nullptr;
     lv_obj_t* m_btnSend = nullptr;
@@ -81,9 +78,6 @@ private:
 
     // Pestaña Colecciones
     lv_obj_t* m_listCollections = nullptr;
-
-    // Teclado virtual
-    lv_obj_t* m_keyboard = nullptr;
 };
 
 } // namespace ui

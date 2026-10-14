@@ -234,4 +234,20 @@ Reutiliza el mismo servicio de backend (`RestProberService`), garantizando coher
 | **Fase 3** | **Servicio Asíncrono `RestProberService`:** Crear el despachador thread-safe en Core 0 con `cbdos::rtos`, validación de `cbdos::network::isConnected()` y gestión de colecciones/presets con `cbdos::storage`. | `core/src/network/RestProberService.hpp`<br>`core/src/network/RestProberService.cpp` | ✅ **Completado** |
 | **Fase 4** | **Construcción de Vista UI `RestProberView` (Estilo Hoppscotch):** Interfaz táctil LVGL 9.5 con selector de verbo a color, barra URL, 4 pestañas (Headers, Body, Response, Colecciones) y teclado integrado vía `UIManager::attachKeyboard`. | `core/src/ui/views/RestProberView.hpp`<br>`core/src/ui/views/RestProberView.cpp` | ✅ **Completado** |
 | **Fase 5** | **Registro en el Sistema e Integración:** Añadir `RestProber` a `AppRegistry.cpp`, flag `CBDOS_FEATURE_REST_PROBER` en `cbdos_build_profile.h` y botón directo `[ REST 🚀 ]` desde `LanReconView.cpp`. Validación multi-target limpia. | `core/src/ui/AppRegistry.cpp`<br>`core/src/ui/views/LanReconView.cpp`<br>`core/include/cbdos_build_profile.h` | ✅ **Completado** |
+| **Fase 6** | **Modularización y Desacoplamiento de Vista UI:** Descomposición del archivo monolítico de 716 líneas en submódulos especializados dentro de `core/src/ui/views/restprober/` (`ControlBar`, `Headers`, `Body`, `Response`, `Collections`, `Common`). El orquestador `RestProberView.cpp` se redujo a ~170 líneas. | `core/src/ui/views/RestProberView.hpp`<br>`core/src/ui/views/RestProberView.cpp`<br>`core/src/ui/views/restprober/*` | ✅ **Completado** |
+
+---
+
+## 8. Estructura Modular de Presentación (`core/src/ui/views/restprober/`)
+
+Para evitar ediciones destructivas y mantener archivos concisos y mantenibles (< 180 líneas c/u):
+
+* **[`RestProberView.hpp`](file:///home/kaber420/Documentos/proyectos/cbdos/core/src/ui/views/RestProberView.hpp) & [`RestProberView.cpp`](file:///home/kaber420/Documentos/proyectos/cbdos/core/src/ui/views/RestProberView.cpp) (~170 líneas):** Orquestador del ciclo de vida (`onCreate`, `onDestroy`, `onShow`, `onHide`), integración con `HeaderBar`, creación del `lv_tabview` y despacho asíncrono hacia `RestProberService`.
+* **[`RestProberCommon.hpp`](file:///home/kaber420/Documentos/proyectos/cbdos/core/src/ui/views/restprober/RestProberCommon.hpp) (~35 líneas):** Paleta de colores y resolución cromática según el método HTTP.
+* **[`RestProberView_ControlBar.cpp`](file:///home/kaber420/Documentos/proyectos/cbdos/core/src/ui/views/restprober/RestProberView_ControlBar.cpp) (~80 líneas):** Selector desplegable de verbos HTTP con color reactivo, barra de URL y botón de envío (SEND 🚀).
+* **[`RestProberView_Headers.cpp`](file:///home/kaber420/Documentos/proyectos/cbdos/core/src/ui/views/restprober/RestProberView_Headers.cpp) (~145 líneas):** Pestaña de cabeceras HTTP, creación dinámica de pares clave-valor y eliminación reactiva.
+* **[`RestProberView_Body.cpp`](file:///home/kaber420/Documentos/proyectos/cbdos/core/src/ui/views/restprober/RestProberView_Body.cpp) (~70 líneas):** Editor multilínea del cuerpo de la petición con accesos rápidos a plantillas JSON y limpieza.
+* **[`RestProberView_Response.cpp`](file:///home/kaber420/Documentos/proyectos/cbdos/core/src/ui/views/restprober/RestProberView_Response.cpp) (~120 líneas):** Pestaña de respuesta con badge de estado HTTP coloreado, métricas RTT/tamaño y visor de payload solo-lectura.
+* **[`RestProberView_Collections.cpp`](file:///home/kaber420/Documentos/proyectos/cbdos/core/src/ui/views/restprober/RestProberView_Collections.cpp) (~140 líneas):** Pestaña de colecciones y presets domóticos, guardado automático en almacenamiento e hidratación de peticiones.
+
 
