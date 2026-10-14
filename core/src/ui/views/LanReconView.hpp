@@ -32,6 +32,7 @@ private:
     static void exportBtnCb(lv_event_t* e);
     static void pollTimerCb(lv_timer_t* timer);
     static void sshBtnCb(lv_event_t* e);
+    static void restBtnCb(lv_event_t* e);
     static void pingBtnCb(lv_event_t* e);
     static void pingHostBtnCb(lv_event_t* e);
 

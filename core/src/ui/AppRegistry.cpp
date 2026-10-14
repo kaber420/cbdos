@@ -35,6 +35,9 @@
 #if CBDOS_FEATURE_LAN_RECON
 #include "views/LanReconView.hpp"
 #endif
+#if CBDOS_FEATURE_REST_PROBER
+#include "views/RestProberView.hpp"
+#endif
 #if CBDOS_FEATURE_SDR
 #include "views/SdrView.hpp"
 #endif
@@ -204,6 +207,19 @@ void AppRegistry::initSystemApps() {
         0x00F5D4,
         true,
         []() { UIManager::getInstance().pushView(std::make_shared<LanReconView>()); }
+    });
+#endif
+
+#if CBDOS_FEATURE_REST_PROBER
+    // 13c. RestProber (Cliente HTTP / REST API)
+    registerApp({
+        "restprober",
+        "RestProber",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_PLAY },
+        0x00F5D4,
+        true,
+        []() { UIManager::getInstance().pushView(std::make_shared<RestProberView>()); }
     });
 #endif
 

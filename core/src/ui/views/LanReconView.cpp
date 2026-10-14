@@ -5,6 +5,7 @@
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "TerminalView.hpp"
+#include "RestProberView.hpp"
 #include "../../network/LanScannerService.hpp"
 #include "cbdos/lan_recon.hpp"
 
@@ -367,6 +368,22 @@ void LanReconView::sshBtnCb(lv_event_t* e) {
     UIManager::getInstance().pushView(std::make_shared<TerminalView>());
 }
 
+void LanReconView::restBtnCb(lv_event_t* e) {
+    auto* url = static_cast<std::string*>(lv_event_get_user_data(e));
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_DELETE) {
+        delete url;
+        return;
+    }
+    if (code != LV_EVENT_CLICKED || !url) return;
+    char msg[80];
+    snprintf(msg, sizeof(msg), "REST -> %s", url->c_str());
+    UIManager::showToast(msg);
+#if CBDOS_FEATURE_REST_PROBER
+    UIManager::getInstance().pushView(std::make_shared<RestProberView>(*url));
+#endif
+}
+
 void LanReconView::pingHostBtnCb(lv_event_t* e) {
     auto* ip = static_cast<std::string*>(lv_event_get_user_data(e));
     lv_event_code_t code = lv_event_get_code(e);
@@ -630,9 +647,30 @@ void LanReconView::rebuildHostList(const std::vector<cbdos::network::LanHostInfo
                 lv_obj_add_event_cb(sshBtn, sshBtnCb, LV_EVENT_CLICKED, ipCopy);
                 lv_obj_add_event_cb(sshBtn, sshBtnCb, LV_EVENT_DELETE, ipCopy);
                 lv_obj_t* sshLbl = lv_label_create(sshBtn);
-                lv_label_set_text(sshLbl, ">_ Conectar SSH");
+                lv_label_set_text(sshLbl, ">_ SSH");
                 lv_obj_set_style_text_color(sshLbl, lv_color_hex(kAccent), 0);
                 lv_obj_center(sshLbl);
+            }
+
+            bool wantRest = host.hasPort(80) || host.hasPort(443) || host.hasPort(8080) || host.hasPort(8060);
+            if (wantRest) {
+                lv_obj_t* restBtn = lv_button_create(actRow);
+                lv_obj_set_flex_grow(restBtn, 1);
+                lv_obj_set_height(restBtn, 38);
+                lv_obj_set_style_bg_color(restBtn, lv_color_hex(0x1F293D), 0);
+                lv_obj_set_style_border_color(restBtn, lv_color_hex(0x10B981), 0);
+                lv_obj_set_style_border_width(restBtn, 1, 0);
+                lv_obj_set_style_radius(restBtn, 8, 0);
+
+                uint16_t rPort = host.hasPort(80) ? 80 : (host.hasPort(443) ? 443 : (host.hasPort(8080) ? 8080 : 8060));
+                std::string scheme = (rPort == 443) ? "https://" : "http://";
+                auto* urlCopy = new std::string(scheme + host.ip + ":" + std::to_string(rPort) + "/");
+                lv_obj_add_event_cb(restBtn, restBtnCb, LV_EVENT_CLICKED, urlCopy);
+                lv_obj_add_event_cb(restBtn, restBtnCb, LV_EVENT_DELETE, urlCopy);
+                lv_obj_t* restLbl = lv_label_create(restBtn);
+                lv_label_set_text(restLbl, "REST 🚀");
+                lv_obj_set_style_text_color(restLbl, lv_color_hex(0x10B981), 0);
+                lv_obj_center(restLbl);
             }
         }
     }

@@ -104,6 +104,7 @@ set(CORE_SRCS
     "src/network/lan_recon.cpp"
     "src/network/OuiDatabase.cpp"
     "src/network/LanScannerService.cpp"
+    "src/network/RestProberService.cpp"
     "src/time/TimeManager.cpp"
     "src/hid/HidManager.cpp"
     "src/hid/DuckyInterpreter.cpp"
@@ -146,6 +147,7 @@ if(NOT CONFIG_CBDOS_PRODUCT_TABLEHUB)
     list(APPEND CORE_SRCS
         "src/ui/views/FlasherView.cpp"
         "src/ui/views/LanReconView.cpp"
+        "src/ui/views/RestProberView.cpp"
         "src/ui/views/TerminalView.cpp"
         "src/ui/views/CartridgeView.cpp"
         "src/cartridge/CartridgeManager.cpp"

@@ -33,6 +33,7 @@
     #define CBDOS_FEATURE_LUA           1
     #define CBDOS_FEATURE_TABLEHUB_MQTT 1
     #define CBDOS_FEATURE_SDR           0
+    #define CBDOS_FEATURE_REST_PROBER   0
 
     #if defined(CONFIG_TABLEHUB_MODE_KDS)
         #define CBDOS_PROFILE_NAME      "TableHub KDS"
@@ -68,6 +69,7 @@
         #define CBDOS_FEATURE_HELIX_CODECS 0
         #define CBDOS_FEATURE_LUA       0
         #define CBDOS_FEATURE_SDR       0
+        #define CBDOS_FEATURE_REST_PROBER 0
     #else
         #ifndef CONFIG_CBDOS_PROFILE_FULL
             #define CONFIG_CBDOS_PROFILE_FULL 1
@@ -76,6 +78,7 @@
         #define CBDOS_FEATURE_TERMINAL  1
         #define CBDOS_FEATURE_FLASHER   1
         #define CBDOS_FEATURE_LAN_RECON 1
+        #define CBDOS_FEATURE_REST_PROBER 1
         #define CBDOS_FEATURE_CARTRIDGE 1
         #define CBDOS_FEATURE_PICOTTS   1
         #define CBDOS_FEATURE_HELIX_CODECS 1

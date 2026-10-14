@@ -2,7 +2,7 @@
 
 **Documento:** `specs/network/especificacion_herramienta_pruebas_api_restprober.md`  
 **Módulo:** `cbdos::network::restprober` & `cbdos::ui::RestProberView`  
-**Estado:** Propuesta de Arquitectura Formal  
+**Estado:** ✅ Implementado y Validado Multi-Target (ESP32-P4 y ESP32-S3)  
 **Fecha:** 14 de Octubre de 2026  
 **Autor:** Antigravity Senior Embedded Systems Developer & kaber420  
 **Ámbito:** `core/include/cbdos/http.hpp`, `core/src/network/`, `core/src/ui/views/`, BSPs ESP32-S3 y ESP32-P4  
@@ -226,11 +226,12 @@ Reutiliza el mismo servicio de backend (`RestProberService`), garantizando coher
 ---
 
 ## 7. Plan de Implementación Paso a Paso
+ 
+| Fase | Tarea | Archivos Clave | Estado |
+| :---: | :--- | :--- | :---: |
+| **Fase 1** | **Contrato Core HTTP y Soporte de Verbos:** Extender `IHttpClient`, `HttpRequest` y `HttpResponse` para soportar `HttpMethod`, cabeceras, buffer capping y métricas RTT. | `core/include/cbdos/http.hpp`<br>`core/src/network/http_client.cpp` | ✅ **Completado** |
+| **Fase 2** | **Actualización de HALs en BSPs:** Implementar `execute(HttpRequest)` en `hal_http_p4.cpp` (usando `esp_http_client_set_method`, `esp_http_client_set_header`, `esp_timer`) y en `hal_http_s3.cpp` (usando `HTTPClient::sendRequest`). | `bsp/esp32_p4_jc4880/hal/hal_http_p4.cpp`<br>`bsp/esp32_s3_jc3248/hal/hal_http_s3.cpp` | ✅ **Completado** |
+| **Fase 3** | **Servicio Asíncrono `RestProberService`:** Crear el despachador thread-safe en Core 0 con `cbdos::rtos`, validación de `cbdos::network::isConnected()` y gestión de colecciones/presets con `cbdos::storage`. | `core/src/network/RestProberService.hpp`<br>`core/src/network/RestProberService.cpp` | ✅ **Completado** |
+| **Fase 4** | **Construcción de Vista UI `RestProberView` (Estilo Hoppscotch):** Interfaz táctil LVGL 9.5 con selector de verbo a color, barra URL, 4 pestañas (Headers, Body, Response, Colecciones) y teclado integrado vía `UIManager::attachKeyboard`. | `core/src/ui/views/RestProberView.hpp`<br>`core/src/ui/views/RestProberView.cpp` | ✅ **Completado** |
+| **Fase 5** | **Registro en el Sistema e Integración:** Añadir `RestProber` a `AppRegistry.cpp`, flag `CBDOS_FEATURE_REST_PROBER` en `cbdos_build_profile.h` y botón directo `[ REST 🚀 ]` desde `LanReconView.cpp`. Validación multi-target limpia. | `core/src/ui/AppRegistry.cpp`<br>`core/src/ui/views/LanReconView.cpp`<br>`core/include/cbdos_build_profile.h` | ✅ **Completado** |
 
-| Fase | Tarea | Archivos Clave |
-| :---: | :--- | :--- |
-| **Fase 1** | **Contrato Core HTTP y Soporte de Verbos:** Extender `IHttpClient`, `HttpRequest` y `HttpResponse` para soportar `HttpMethod`, cabeceras y métricas RTT. | `core/include/cbdos/http.hpp` |
-| **Fase 2** | **Actualización de HALs en BSPs:** Implementar `execute(HttpRequest)` en `hal_http_p4.cpp` (usando `esp_http_client_set_method`, `esp_http_client_set_header`) y en el HAL de S3. | `bsp/esp32_p4_jc4880/hal/hal_http_p4.cpp`<br>`bsp/esp32_s3_jc3248/hal/` |
-| **Fase 3** | **Servicio Asíncrono `RestProberService`:** Crear el despachador thread-safe con cola de peticiones en segundo plano y gestión de historial. | `core/src/network/RestProberService.hpp`<br>`core/src/network/RestProberService.cpp` |
-| **Fase 4** | **Construcción de Vista UI `RestProberView`:** Crear la interfaz táctil LVGL 9.5 con barra de URL, selector de verbo, TabView y teclado integrado. | `core/src/ui/views/RestProberView.hpp`<br>`core/src/ui/views/RestProberView.cpp` |
-| **Fase 5** | **Registro en el Sistema e Integración:** Añadir `RestProber` a `AppRegistry.cpp` y conectar el botón de acceso directo desde `LanReconView.cpp`. | `core/src/ui/AppRegistry.cpp`<br>`core/src/ui/views/LanReconView.cpp` |
