@@ -404,7 +404,7 @@ void AudioPlayer::runStreamPlayback() {
         return;
     }
 
-    const size_t IN_BUF_SIZE = 32768; // 32 KB de buffer en memoria
+    const size_t IN_BUF_SIZE = 65536; // 64 KB de buffer en memoria (prueba doble)
     uint8_t* inBuf = (uint8_t*)cbdos::mem::alloc_psram(IN_BUF_SIZE);
     int16_t* pcmBuf = (int16_t*)cbdos::mem::alloc_psram(MAX_NCHAN * MAX_NGRAN * MAX_NSAMP * sizeof(int16_t) * 2);
 
@@ -424,6 +424,19 @@ void AudioPlayer::runStreamPlayback() {
     uint64_t totalSamplesDecoded = 0;
 
     m_totalTimeSec = 0; // En streaming de radio la duración es infinita
+
+    // Pre-buffering: precargar ~32 KB (~250-300 ms de Wi-Fi) para evitar distorsión de arranque
+    const size_t PREBUFFER_TARGET = 32768; // 32 KB
+    while (!m_stopRequested && bytesLeft < (int)PREBUFFER_TARGET) {
+        size_t toRead = PREBUFFER_TARGET - bytesLeft;
+        int nRead = client->recv(inBuf + bytesLeft, toRead, 500);
+        if (nRead <= 0) {
+            if (m_stopRequested || !client->isConnected()) break;
+            cbdos::rtos::sleepMs(10);
+            continue;
+        }
+        bytesLeft += nRead;
+    }
 
     while (!m_stopRequested) {
         if (m_isPaused) {
