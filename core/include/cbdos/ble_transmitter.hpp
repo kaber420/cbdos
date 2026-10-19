@@ -37,10 +37,11 @@ enum class BleTxPower : uint8_t {
 /** Configuración completa de una sesión de emisión. */
 struct BleTxConfig {
     BlePayloadCategory category = BlePayloadCategory::ApplePairing;
-    int variantIndex = 0;                          // -1 = Random / All
+    int variantIndex = 0;                          // 0 = Random / All
     uint16_t intervalMs = 100;
     BleTxPower txPower = BleTxPower::Max;
     BleMacRotationMode macRotation = BleMacRotationMode::EveryPacket;
+    std::string customName;                        // Nombre opcional anunciado (GhostESP -name)
 };
 
 /** Snapshot inmutable del estado de la sesión. */

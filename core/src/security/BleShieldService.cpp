@@ -488,6 +488,11 @@ void BleShieldService::processRawPacket(const radio::BleRawPacket& pkt) {
         it->rssi = pkt.rssi;
         it->lastSeenMs = now;
         it->hitCount++;
+        if (pkt.payloadLen > 0) {
+            size_t copyLen = (pkt.payloadLen > sizeof(it->rawPayload)) ? sizeof(it->rawPayload) : pkt.payloadLen;
+            memcpy(it->rawPayload, pkt.payload, copyLen);
+            it->rawPayloadLen = copyLen;
+        }
         if (!deviceName.empty()) it->name = deviceName;
         if (!details.empty()) it->details = details;
         if (category != radio::BleDeviceCategory::Unknown) it->category = category;
@@ -522,6 +527,11 @@ void BleShieldService::processRawPacket(const radio::BleRawPacket& pkt) {
         record.batteryL = batL;
         record.batteryR = batR;
         record.batteryCase = batCase;
+        if (pkt.payloadLen > 0) {
+            size_t copyLen = (pkt.payloadLen > sizeof(record.rawPayload)) ? sizeof(record.rawPayload) : pkt.payloadLen;
+            memcpy(record.rawPayload, pkt.payload, copyLen);
+            record.rawPayloadLen = copyLen;
+        }
 
         m_devices.push_back(record);
         if (m_deviceCallback) {

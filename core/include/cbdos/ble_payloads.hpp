@@ -27,6 +27,12 @@ static constexpr size_t BLE_ADV_PAYLOAD_MAX = 31;
 struct BleAdvPayload {
     uint8_t data[BLE_ADV_PAYLOAD_MAX] = {0};
     size_t len = 0;
+    uint8_t scanRsp[BLE_ADV_PAYLOAD_MAX] = {0};
+    size_t scanRspLen = 0;
+    bool isApple = false;
+    bool scannable = false;
+    bool hasCustomMac = false;
+    uint8_t customMac[6] = {0};
     bool valid = false;
 };
 
@@ -50,13 +56,22 @@ struct HidPreset {
 /** Generador de payloads BLE. */
 class BlePayloadRegistry {
 public:
+    /** Siembra el PRNG interno con entropía del sistema/hardware. */
+    static void seed(uint64_t entropy);
+
     /** Construye un payload nuevo. `variantIndex` selecciona el modelo concreto
      *  dentro de la categoría; cualquier índice fuera de rango se trata como
      *  "Random / All" y se elige un modelo al azar. */
-    static BleAdvPayload build(BlePayloadCategory category, int variantIndex);
+    static BleAdvPayload build(BlePayloadCategory category, int variantIndex,
+                               const char* customName = nullptr);
 
     /** Construye el payload y aplica un nombre propio (solo Swift Pair). */
     static BleAdvPayload buildSwiftPair(const char* customName);
+
+    /** Construye un paquete de spoofing de AirTag / Tracker a partir del payload
+     *  crudo capturado (mismo formato que airtag_scan.c de GhostESP). */
+    static BleAdvPayload buildAirTagSpoof(const uint8_t* rawPayload, size_t rawLen,
+                                          const uint8_t mac[6]);
 
     /** Variantes disponibles para una categoría, en el orden que usa la UI. */
     static std::vector<std::string> getVariantNames(BlePayloadCategory category);

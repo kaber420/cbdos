@@ -38,12 +38,14 @@ enum class BlePayloadCategory : uint8_t {
     ApplePairing = 0,      // Continuity ProximityPair, popup "nuevo dispositivo"
     AppleAction,           // Continuity NearbyAction, modales de acción
     AppleNotYourDevice,    // ProximityPair variante "Not Your Device"
+    AppleCrash,            // Continuity CustomCrash (iOS 17 lockup NearbyAction + NearbyInfo)
     AndroidFastPair,       // Google Fast Pair GFPS (0xFE2C)
     WindowsSwiftPair,      // Microsoft Swift Pair (CID 0x0006)
     SamsungBuds,           // Galaxy Buds (CID 0x0075)
     SamsungWatch,          // Galaxy Watch (CID 0x0075)
     GenericBeacon,         // Baliza genérica configurable
     HidPeripherals,        // Periféricos HID estándar (0x1812: Teclados, Ratones, Gamepads)
+    SpoofAirTag,           // Clonación de AirTag / Tracker detectado en Air Recon (GhostESP)
     SpamAll                // Multi-protocolo activo (Kitchen Sink: rota entre todos los protocolos)
 };
 
@@ -65,11 +67,17 @@ enum class BleMacRotationMode : uint8_t {
  * @brief Configuración de una sesión de emisión publicitaria
  */
 struct BleAdvParams {
-    const uint8_t* data = nullptr;   // Payload crudo (AD structures sin procesar)
-    size_t len = 0;                  // Longitud del payload (máx. 31 legacy)
-    uint16_t intervalMs = 100;       // Intervalo de advertising (20..10240)
-    int8_t txPowerDbm = 0;           // Potencia TX; 127 = potencia por defecto
+    const uint8_t* data = nullptr;       // Payload crudo (AD structures sin procesar)
+    size_t len = 0;                      // Longitud del payload (máx. 31 legacy)
+    const uint8_t* scanRspData = nullptr;// Payload opcional de Scan Response (máx. 31)
+    size_t scanRspLen = 0;               // Longitud de Scan Response
+    uint16_t intervalMs = 100;           // Ventana de rotación de anuncio (20..10240 ms)
+    int8_t txPowerDbm = 0;               // Potencia TX; 127 = potencia por defecto
     BleMacRotationMode macRotation = BleMacRotationMode::EveryPacket;
+    bool isApple = false;                // Regla GhostESP: Apple usa intervalos HCI 0x30..0x40 y DISC_MODE_GEN
+    bool scannable = false;              // Si true, usa BLE_GAP_DISC_MODE_GEN para responder SCAN_REQ
+    bool hasCustomMac = false;           // Si true, clona customMac (ej. AirTag Spoof)
+    uint8_t customMac[6] = {0};
 };
 
 /**

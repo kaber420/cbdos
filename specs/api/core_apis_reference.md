@@ -17,6 +17,8 @@ Este documento es la **guía oficial de referencia para desarrolladores**. Aquí
 10. [cbdos::hid - Emulación USB HID (Teclado, Ratón y LEDs)](#10-cbdoshid---emulación-usb-hid-teclado-ratón-y-leds)
 11. [cbdos::ducky - Intérprete DuckyScript para BadUSB](#11-cbdosducky---intérprete-duckyscript-para-badusb)
 12. [Disparadores Tácticos Fuera de Banda (Radio + HID + Lua)](#12-disparadores-tácticos-fuera-de-banda-radio--hid--lua)
+13. [cbdos::tts - Text-to-Speech (TTS) Offline en Español](#13-cbdostts---text-to-speech-tts-offline-en-español)
+14. [cbdos.ble / ble.* - Bindings de Lua para Bluetooth Low Energy (BLE)](#14-cbdosble--ble---bindings-de-lua-para-bluetooth-low-energy-ble)
 
 ---
 
@@ -441,5 +443,64 @@ tts Hola mundo, saludos desde CBDos
 Síntesis en memoria completada: 34560 muestras mono (16 kHz)
 Iniciando reproduccion DMA continua: 381024 bytes estéreo (44.1 kHz)
 ```
+
+---
+
+## 14. `cbdos.ble` / `ble.*` - Bindings de Lua para Bluetooth Low Energy (BLE)
+
+Provee acceso completo y reactivo al periférico Bluetooth Low Energy y a la telemetría pasiva de `BleShieldService` para scripts de automatización y Luapps tácticas.
+
+### Control y Estado del Adaptador
+* `ble.available() -> boolean`: Consulta si el hardware target tiene radio BLE activa (devuelve `false` honestamente en ESP32-P4 sin coprocesador).
+* `ble.init([name]) -> boolean, string?`: Inicializa bajo demanda el stack NimBLE de host con el nombre publicitario opcional (por defecto `"CBDos"`).
+* `ble.shutdown()`: Libera y detiene la actividad del stack BLE.
+* `ble.state() -> string`: Devuelve el estado actual (`"unavailable"`, `"idle"`, `"scanning"`, `"advertising"`).
+* `ble.set_tx_power(dbm) -> boolean`: Ajusta la potencia de transmisión (-12 a +9 dBm).
+* `ble.last_error() -> string`: Retorna el último mensaje de error del adaptador.
+
+### Emisión de Balizas y Tramas Publicitarias (`adv_start` / `adv_stop`)
+* `ble.adv_start(config_or_hex, [scan_rsp_hex], [interval_ms]) -> boolean, string?`: Inicia la transmisión de balizas o tramas AD construidas.
+  - Modo tabla configurable:
+    ```lua
+    local ok, err = ble.adv_start({
+        name = "Sensor-Beacon",       -- Construye AD estándar automáticamente si 'data' no está presente
+        data = "02010606094342446F73", -- Hex string crudo (máx 31 bytes)
+        scan_rsp = "051220004000",     -- Opcional: Scan Response (máx 31 bytes)
+        interval = 100,                -- Ventana en ms (20..10240)
+        tx_power = 9,                  -- dBm (-12..9)
+        scannable = true,              -- Responder a SCAN_REQ
+        random_mac = true,             -- Rotar MAC pseudo-aleatoria
+        mac = "C2:11:22:33:44:55"      -- Opcional: MAC fija específica
+    })
+    ```
+  - Modo rápido: `ble.adv_start("020106...", nil, 100)`
+* `ble.adv_stop() -> boolean`: Detiene la emisión publicitaria activa.
+
+### Reconocimiento y Telemetría Pasiva (Air Recon)
+* `ble.scan_start() -> boolean`: Inicia el escáner continuo en segundo plano.
+* `ble.scan_stop()`: Detiene el escáner GAP.
+* `ble.scanning() -> boolean`: Retorna si el escáner está activo.
+* `ble.scan_clear()`: Limpia el búfer de dispositivos detectados.
+* `ble.scan_count() -> integer`: Número de dispositivos únicos en memoria.
+* `ble.results() -> table`: Retorna el array de registros enriquecidos:
+  ```lua
+  local devs = ble.results()
+  for _, d in ipairs(devs) do
+      print(string.format("[%s] %s (%s) RSSI:%d dBm Hits:%d Raw:%s",
+            d.tag, d.mac, d.name ~= "" and d.name or d.category, d.rssi, d.hits, d.raw_hex))
+      if d.battery_l then
+          print(string.format("  Batería: L:%d%% R:%d%% Case:%d%%", d.battery_l, d.battery_r, d.battery_case))
+      end
+  end
+  ```
+
+### Herramientas Tácticas: Localizador Geiger y Spam IDS
+* `ble.geiger_start(mac_str, [audio]) -> boolean, string?`: Fija un objetivo MAC para calcular proximidad y emitir clics audibles proporcionales a la distancia RSSI.
+* `ble.geiger_stop()`: Detiene el seguimiento del objetivo.
+* `ble.geiger_status() -> table`: Retorna `{ active, rssi, proximity, distance_m, tick_ms, audio }`.
+* `ble.ids_status() -> table`: Retorna el estado del detector de ataques de spam: `{ enabled, alert_active, type, pps, total_packets, description }`.
+* `ble.ids_enable(enabled)`: Activa o desactiva la supervisión de paquetes de spam.
+* `ble.ids_clear()`: Limpia la alerta activa de inundación.
+
 
 

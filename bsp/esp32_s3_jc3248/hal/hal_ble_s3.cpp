@@ -154,14 +154,29 @@ public:
             return false;
         }
 
-        // 1. Detener cualquier transmisión activa previa (patrón GhostESP)
+        // 1. Detener cualquier transmisión activa previa + pausa de 20 ms (patrón GhostESP ble_spam.c:778)
         if (ble_gap_adv_active()) {
             ble_gap_adv_stop();
+            vTaskDelay(pdMS_TO_TICKS(20));
         }
 
-        // 2. Rotación de dirección MAC nativa directa en el Host de NimBLE
+        // 2. Rotación o suplantación de dirección MAC en el Host de NimBLE
         uint8_t own_addr_type = BLE_OWN_ADDR_PUBLIC;
-        if (params.macRotation != BleMacRotationMode::Off) {
+        if (params.hasCustomMac) {
+            uint8_t rnd_addr[6];
+            memcpy(rnd_addr, params.customMac, 6);
+            rnd_addr[5] |= 0xC0;
+            if ((rnd_addr[0] | rnd_addr[1] | rnd_addr[2] | rnd_addr[3] | rnd_addr[4] | (rnd_addr[5] & 0x3F)) == 0) {
+                rnd_addr[0] = 0x01;
+            }
+            int rc = ble_hs_id_set_rnd(rnd_addr);
+            if (rc == 0) {
+                own_addr_type = BLE_OWN_ADDR_RANDOM;
+            } else {
+                cbdos::system::log(cbdos::system::LogLevel::Warn, TAG_BLE,
+                                   "ble_hs_id_set_rnd (custom) fallo: %d", rc);
+            }
+        } else if (params.macRotation != BleMacRotationMode::Off) {
             uint8_t rnd_addr[6];
             esp_fill_random(rnd_addr, 6);
             rnd_addr[5] |= 0xC0; // Static random address (top two bits = 11)
@@ -174,9 +189,17 @@ public:
                                    "ble_hs_id_set_rnd fallo: %d", rc);
             }
             own_addr_type = BLE_OWN_ADDR_RANDOM;
+        } else if ( m_hasRandomAddr && !params.isApple ) {
+            own_addr_type = BLE_OWN_ADDR_RANDOM;
+        }
+        if (own_addr_type == BLE_OWN_ADDR_RANDOM) {
+            m_hasRandomAddr = true;
         }
 
-        // 3. Cargar el payload crudo directamente al controlador GAP sin manipulaciones
+        // Pausa de estabilización de 10 ms tras configurar la dirección en el controlador HCI (GhostESP ble_spam.c:794)
+        vTaskDelay(pdMS_TO_TICKS(10));
+
+        // 3. Cargar el payload crudo directamente al controlador GAP
         int rc = ble_gap_adv_set_data(params.data, params.len);
         if (rc != 0) {
             m_lastError = "set_data fallo (" + std::to_string(rc) + ")";
@@ -185,27 +208,38 @@ public:
             return false;
         }
 
-        // 4. Parámetros de emisión nativos (GhostESP / Bruce: no-conectible, descubrible)
+        // 4. Cargar Scan Response (lleva el Complete Local Name para clientes que envían SCAN_REQ, GhostESP ble_spam.c:883)
+        if (params.scanRspData != nullptr && params.scanRspLen > 0 && params.scanRspLen <= 31) {
+            int rspRc = ble_gap_adv_rsp_set_data(params.scanRspData, static_cast<int>(params.scanRspLen));
+            (void)rspRc;
+        } else {
+            (void)ble_gap_adv_rsp_set_data(NULL, 0);
+        }
+
+        // 5. Parámetros de emisión nativos (GhostESP ble_spam.c:886-907)
         struct ble_gap_adv_params adv_params;
         memset(&adv_params, 0, sizeof(adv_params));
         adv_params.conn_mode = BLE_GAP_CONN_MODE_NON;
-        adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+        adv_params.disc_mode = (params.isApple || params.scannable)
+                                   ? BLE_GAP_DISC_MODE_GEN
+                                   : BLE_GAP_DISC_MODE_NON;
         adv_params.channel_map = 0x07; // Canales 37, 38, 39
 
-        uint32_t intervalMs = (params.intervalMs < 20) ? 20 : params.intervalMs;
-        if (intervalMs > 10240) intervalMs = 10240;
-        uint16_t slots = static_cast<uint16_t>((intervalMs * 8) / 5);
-        if (slots < 0x0020) slots = 0x0020;
-        if (slots > 0x4000) slots = 0x4000;
-
-        adv_params.itvl_min = slots;
-        adv_params.itvl_max = slots;
+        // Intervalo HCI rápido dentro de cada ventana de emisión para garantizar que
+        // múltiples ráfagas salgan al aire antes de que BleTransmitter rote al siguiente paquete:
+        if (params.isApple) {
+            adv_params.itvl_min = 0x30; // ~30 ms (GhostESP Apple interval)
+            adv_params.itvl_max = 0x40; // ~40 ms
+        } else {
+            adv_params.itvl_min = 0x20; // ~20 ms (GhostESP non-Apple interval)
+            adv_params.itvl_max = 0x28; // ~25 ms
+        }
 
         if (params.txPowerDbm != 127) {
             NimBLEDevice::setPower(params.txPowerDbm, NimBLETxPowerType::Advertise);
         }
 
-        // 5. Iniciar la emisión permanente controlada por CBDos
+        // 6. Iniciar la emisión en el controlador GAP
         rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, NULL, NULL);
         if (rc != 0) {
             m_lastError = "start fallo (" + std::to_string(rc) + ")";
@@ -264,6 +298,7 @@ private:
     BleAdapterState m_state = BleAdapterState::Idle;
     std::string m_lastError;
     bool m_initialized = false;
+    bool m_hasRandomAddr = false;
 };
 
 S3BleScanCallbacks S3BleAdapter::s_scanCallbacks;

@@ -108,7 +108,9 @@ bool BleTransmitter::emitOnce() {
         cfg = m_config;
     }
 
-    BleAdvPayload payload = BlePayloadRegistry::build(cfg.category, cfg.variantIndex);
+    BleAdvPayload payload = BlePayloadRegistry::build(
+        cfg.category, cfg.variantIndex,
+        cfg.customName.empty() ? nullptr : cfg.customName.c_str());
     if (!payload.valid) {
         std::lock_guard<std::mutex> lk(m_mutex);
         m_lastError = "Payload vacio o truncado";
@@ -118,9 +120,17 @@ bool BleTransmitter::emitOnce() {
     BleAdvParams params;
     params.data = payload.data;
     params.len = payload.len;
+    params.scanRspData = payload.scanRspLen > 0 ? payload.scanRsp : nullptr;
+    params.scanRspLen = payload.scanRspLen;
     params.intervalMs = cfg.intervalMs;
     params.txPowerDbm = powerToDbm(cfg.txPower);
     params.macRotation = shouldRotateMac(m_packetsSent.load()) ? cfg.macRotation : BleMacRotationMode::Off;
+    params.isApple = payload.isApple;
+    params.scannable = payload.scannable;
+    params.hasCustomMac = payload.hasCustomMac;
+    if (payload.hasCustomMac) {
+        for (int i = 0; i < 6; ++i) params.customMac[i] = payload.customMac[i];
+    }
 
     if (!adapter->startAdvertising(params)) {
         std::lock_guard<std::mutex> lk(m_mutex);
@@ -151,7 +161,10 @@ void BleTransmitter::txTask(void* param) {
         if (now >= nextEmitMs) {
             if (emitOnce()) {
                 windowPackets++;
-                nextEmitMs = now + m_config.intervalMs;
+                // Usar timeMs fresco tras emitOnce() porque el HAL aplica las pausas de
+                // estabilización de GhostESP (stop + 20ms + set_rnd + 10ms)
+                uint32_t afterEmit = system::getTimeMs();
+                nextEmitMs = afterEmit + m_config.intervalMs;
             } else {
                 // Error de construcción o de stack: no martillear el stack.
                 system::log(system::LogLevel::Warn, TAG_BLE_TX, "Fallo al emitir: %s",
@@ -173,7 +186,7 @@ void BleTransmitter::txTask(void* param) {
                 windowPackets = 0;
             }
         }
-        system::sleepMs(1);
+        system::sleepMs(2);
     }
 
     if (adapter) adapter->stopAdvertising();
@@ -239,6 +252,7 @@ bool BleTransmitter::start() {
         m_lastError.clear();
     }
 
+    BlePayloadRegistry::seed(static_cast<uint64_t>(system::getTimeMs()) * 0x9E3779B97F4A7C15ULL);
     m_packetsSent.store(0);
     m_elapsedMs.store(0);
     m_transmitting.store(true);

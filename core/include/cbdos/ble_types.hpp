@@ -56,6 +56,10 @@ struct BleDeviceRecord {
     uint32_t firstSeenMs = 0;
     uint32_t lastSeenMs = 0;
     uint32_t hitCount = 0;
+
+    // Payload publicitario crudo recibido (para clonación / spoofing real)
+    uint8_t rawPayload[62] = {0};
+    size_t rawPayloadLen = 0;
 };
 
 /**

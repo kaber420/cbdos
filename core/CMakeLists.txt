@@ -169,6 +169,8 @@ if(NOT CONFIG_CBDOS_PRODUCT_TABLEHUB)
         "src/security/wifi/MgmtEmitter.cpp"
         "src/ui/views/WifiStrikeView.cpp"
         "src/ui/views/BleStrikeView.cpp"
+        "src/ui/views/ble_strike/BleStrikeView_BeaconTab.cpp"
+        "src/ui/views/ble_strike/BleStrikeView_DeauthTab.cpp"
         "src/cartridge/CartridgeManager.cpp"
         "src/terminal/SerialStreamAdapter.cpp"
         "src/terminal/SshStreamAdapter.cpp"
