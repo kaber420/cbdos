@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <atomic>
 #include "esp_wifi.h"
 #include "security/WifiShieldService.hpp"
 #include "cbdos/system.hpp"
@@ -10,7 +11,8 @@ namespace bsp {
 static const char* TAG_WIFI = "HAL_WIFI_S3";
 
 static TaskHandle_t s_scanTask = nullptr;
-static volatile bool s_scanRunning = false;
+static std::atomic<bool> s_scanRunning{false};
+static std::atomic<uint32_t> s_scanDurationMs{0};
 static volatile bool s_promiscuous = false;
 static bool s_wifiStarted = false;
 
@@ -90,9 +92,13 @@ static bool wifiSnifferControl(bool enable) {
 
 static void wifiScanWorker(void* param) {
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG_WIFI, "Task de recon Wi-Fi iniciada");
-    while (s_scanRunning) {
+    const uint32_t startMs = millis();
+    const uint32_t limitMs = s_scanDurationMs.load();
+
+    while (s_scanRunning.load()) {
         if (!s_promiscuous) {
-            int n = WiFi.scanNetworks(false, true, false, 120);
+            // Escaneo por canales con dwell time de 100ms
+            int n = WiFi.scanNetworks(false, true, false, 100);
             for (int i = 0; i < n; ++i) {
                 radio::WifiApRecord ap;
                 uint8_t* bssid = WiFi.BSSID(i);
@@ -107,27 +113,40 @@ static void wifiScanWorker(void* param) {
             }
             WiFi.scanDelete();
         }
-        vTaskDelay(pdMS_TO_TICKS(3000));
+
+        // Si se fijó una duración máxima y ya transcurrió, terminar escaneo
+        if (limitMs > 0 && (millis() - startMs >= limitMs)) {
+            break;
+        }
+
+        if (!s_scanRunning.load()) break;
+        const uint32_t pauseMs = (limitMs > 0) ? 100 : 2500;
+        vTaskDelay(pdMS_TO_TICKS(pauseMs));
     }
+
+    s_scanRunning.store(false);
     s_scanTask = nullptr;
+    security::WifiShieldService::getInstance().notifyScanStopped();
     cbdos::system::log(cbdos::system::LogLevel::Info, TAG_WIFI, "Task de recon Wi-Fi detenida");
     vTaskDelete(NULL);
 }
 
-static bool wifiScanControl(bool start) {
+static bool wifiScanControl(bool start, uint32_t durationSeconds = 0) {
     if (start) {
         wifiEnsureStarted();
-        if (!s_scanRunning) {
-            s_scanRunning = true;
+        if (!s_scanRunning.load()) {
+            s_scanDurationMs.store(durationSeconds * 1000);
+            s_scanRunning.store(true);
             if (!s_scanTask) {
                 xTaskCreatePinnedToCore(wifiScanWorker, "wifi_scan_task", 6144, NULL, 1, &s_scanTask, 0);
             }
-            cbdos::system::log(cbdos::system::LogLevel::Info, TAG_WIFI, "Recon Wi-Fi iniciado");
+            cbdos::system::log(cbdos::system::LogLevel::Info, TAG_WIFI,
+                               "Recon Wi-Fi iniciado (duracion=%u s)", static_cast<unsigned>(durationSeconds));
             return true;
         }
     } else {
-        if (s_scanRunning) {
-            s_scanRunning = false;
+        if (s_scanRunning.load()) {
+            s_scanRunning.store(false);
             cbdos::system::log(cbdos::system::LogLevel::Info, TAG_WIFI, "Recon Wi-Fi detenido");
             return true;
         }

@@ -80,3 +80,44 @@ Siguiendo la Regla 6 (Prohibición Absoluta de Simulaciones), toda la suite Wi-F
 - Compilación PlatformIO `esp32s3_red`.
 - Flasheo manos libres.
 - Verificación con analizador de espectro / Wireshark en Linux.
+
+---
+
+## 4. Registro de Avance
+
+### 2026-10-19 — Sección: Tramas de Gestión 802.11 (MgmtEmitter + pestaña Deauth)
+
+**Fase 1 (parcial, completada en lo que corresponde a esta sección)**
+
+| Fichero | Rol |
+|---|---|
+| `core/src/security/wifi/MgmtEmitter.hpp/.cpp` | Frame builder de gestión: Deauthentication `0x0C` y Disassociation `0x0A`, 26 bytes, agnóstico de plataforma |
+| `core/include/cbdos/wifi_strike.hpp` | Contratos `MgmtSubtype`, `MgmtDirection`, `MgmtTarget`, `MgmtReason`, `MgmtStrikeConfig`, `StrikeKind` y log acotado de sesión |
+| `core/src/security/WifiStrikeService.cpp` | `startMgmt()`, log de sesión y tarea de emisión generalizado por familia de sesión |
+
+Decisiones técnicas que quedan fijadas:
+
+1. **Dos emisores, una sola máquina de estados.** `WifiStrikeService` mantiene una única tarea (`wifi_strike_tx` / `wifi_strike_mgmt`) que resuelve el ciclo según `StrikeKind`. El arbitraje de radio es el mismo para beacons y para gestión: la Claim `WifiStrike` es única en el dispositivo.
+2. **Sentido de la suplantación explícito.** En `AP -> STA` la trama aparenta salir de la propia AP (Addr2 = BSSID) y va a broadcast, porque las MAC de los clientes reales son desconocidas para el Air Recon; en `STA -> AP` (Addr2 = MAC localmente administrada rotativa, Addr1 = BSSID) es la dirección inversa. Ninguna de las dos inventa clientes que no se han visto.
+3. **Sin rate-limiting artificial**, tal y como pide la sección 1.2: la cadencia la fija el usuario (`burstSize` por salto de canal, `intervalMs` entre iteraciones), con 10 ms de suelo porque por debajo `esp_wifi_80211_tx()` devuelve `NoMemory` en lugar de emitir más.
+4. **Razón por defecto `0x0007`** (*Class 3 frame received from nonassociated STA*), la misma de GhostESP y Bruce, con el resto del subconjunto de la Tabla 10-18 del 802.11 seleccionable desde la UI.
+5. **Bit Protected Frame implementado** (`0x04` en el byte 1 del Frame Control). Es el campo que permite distinguir WPA2 sin 802.11w de WPA3 con Management Frame Protection sin inventar resultados.
+6. **Objetivos desde Air Recon, congelados al arrancar.** La emisión pausa el escaneo, así que la lista de BSSID se toma en el instante del `startMgmt()`; en modo `AccessPoints` sin lista, `validateMgmt()` rechaza la sesión en lugar de emitir contra un objetivo inventado.
+7. **Log de sesión acotado a 8 líneas** (`StrikeStatus::log`, deduplicado) para que la UI muestre decisiones y errores reales sin que el servicio acumule memoria.
+
+**Fase 3 (pestaña Deauth completada)**
+
+- Selectores de subtipo (`0x0C` / `0x0A` / alternos), sentido (AP→STA / STA→AP / ambos) y código de razón.
+- Selector de objetivo: `Broadcast (todo el espectro)` o una AP concreta del Air Recon, ordenada por RSSI. La selección se conserva **por BSSID**, no por índice, porque el Air Recon reordena la lista en cuanto cambia el RSSI.
+- Métricas reactivas (tramas, dirigidas al objetivo, canal, fallos), LED de estado y log de sesión.
+- La radio es un recurso único: ambas pestañas se bloquean entre sí mientras haya una sesión viva.
+
+**Corrección de compilación dual-target**
+
+`WifiStrikeView.cpp` usaba `lv_obj_set_hidden()` / `lv_obj_is_hidden()`, que solo existen en LVGL ≥ 9.6. La P4 fija el componente `lvgl__lvgl` 9.5.0 mientras que la S3 resuelve `lvgl/lvgl@^9.5.0` contra la 9.6.x, de modo que la vista **no compilaba en ESP32-P4**. Se han encapsulado ambos estados en los helpers `setHidden()` / `isHidden()`, que eligen el setter dedicado en 9.6+ y el flag `LV_OBJ_FLAG_HIDDEN` en 9.5, evitando además los avisos de obsolescencia en el build de S3.
+
+**Pendiente**
+
+- Slider de intervalo/ráfaga en la pestaña Beacon (previsto en la Fase 3, no implementado).
+- Pestañas Evil Portal y PMKID: siguen en estado placeholder.
+- Fase 4: flasheo y verificación en aire con analizador, pendiente de ejecutar sobre hardware.

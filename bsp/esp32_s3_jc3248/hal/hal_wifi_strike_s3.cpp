@@ -8,6 +8,17 @@
 #include "cbdos/system.hpp"
 #include "cbdos/wifi_radio.hpp"
 
+// Override de enlazado sobre libnet80211.a: el blob original bloquea subtipos
+// de gestion 0xC0 (Deauth) y 0xA0 (Disassoc) asi como MACs de origen
+// suplantadas devolviendo ESP_ERR_INVALID_ARG (0x102). Devolver 0 autoriza a
+// esp_wifi_80211_tx() a inyectar cualquier trama construida por el servicio.
+extern "C" int ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
+    (void)arg;
+    (void)arg2;
+    (void)arg3;
+    return 0;
+}
+
 namespace cbdos {
 namespace bsp {
 
@@ -58,9 +69,13 @@ public:
         }
         m_initialized = true;
 
-        err = esp_wifi_set_mode(WIFI_MODE_STA);
+        err = esp_wifi_set_mode(WIFI_MODE_APSTA);
         if (err != ESP_OK) {
-            return setError(RadioResult::HardwareError, "esp_wifi_set_mode(STA) fallo");
+            // Fallback a modo STA si APSTA falla por estado previo
+            err = esp_wifi_set_mode(WIFI_MODE_STA);
+            if (err != ESP_OK) {
+                return setError(RadioResult::HardwareError, "esp_wifi_set_mode fallo");
+            }
         }
 
         err = esp_wifi_start();
@@ -82,7 +97,7 @@ public:
 
         setState(StrikeRadioState::Idle);
         cbdos::system::log(cbdos::system::LogLevel::Info, TAG_STRIKE_S3,
-                           "Radio Wi-Fi Strike lista (STA + promiscuo, TX en RAM)");
+                           "Radio Wi-Fi Strike lista (APSTA + promiscuo, TX en RAM)");
         return RadioResult::Ok;
     }
 
@@ -98,17 +113,30 @@ public:
             return setError(RadioResult::InvalidArg, "trama mayor que el tope del controlador");
         }
 
-        const wifi_interface_t iface =
+        const wifi_interface_t primaryIface =
             (params.iface == 1) ? WIFI_IF_AP : WIFI_IF_STA;
+        const wifi_interface_t fallbackIface =
+            (primaryIface == WIFI_IF_STA) ? WIFI_IF_AP : WIFI_IF_STA;
         setState(StrikeRadioState::Emitting);
 
-        const esp_err_t err = esp_wifi_80211_tx(iface, data, static_cast<int>(len), params.enSys);
+        esp_err_t err = esp_wifi_80211_tx(primaryIface, data, static_cast<int>(len), params.enSys);
         if (err == ESP_OK) return RadioResult::Ok;
+
+        // Si la interfaz primaria fue rechazada por el controlador (ej. rol MAC), reintentar por la interfaz secundaria
+        if (err != ESP_ERR_NO_MEM) {
+            err = esp_wifi_80211_tx(fallbackIface, data, static_cast<int>(len), params.enSys);
+            if (err == ESP_OK) return RadioResult::Ok;
+        }
+
         if (err == ESP_ERR_NO_MEM) {
             // Sin buffers de TX: el emisor reintenta tras su pausa.
             return setError(RadioResult::NoMemory, "sin buffers de TX");
         }
-        return setError(RadioResult::HardwareError, "esp_wifi_80211_tx fallo");
+
+        char errBuf[96];
+        snprintf(errBuf, sizeof(errBuf), "esp_wifi_80211_tx fallo: %s (0x%x)",
+                 esp_err_to_name(err), err);
+        return setError(RadioResult::HardwareError, errBuf);
     }
 
     RadioResult setChannel(uint8_t channel) override {
@@ -120,8 +148,12 @@ public:
         }
         // WIFI_SECOND_CHAN_NONE: sin HT40. El beacon spam necesita el canal
         // primario exacto que anuncia el DS Parameter Set de cada baliza.
-        if (esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE) != ESP_OK) {
-            return setError(RadioResult::HardwareError, "esp_wifi_set_channel fallo");
+        const esp_err_t chErr = esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+        if (chErr != ESP_OK) {
+            char chBuf[96];
+            snprintf(chBuf, sizeof(chBuf), "esp_wifi_set_channel(%u) fallo: %s (0x%x)",
+                     channel, esp_err_to_name(chErr), chErr);
+            return setError(RadioResult::HardwareError, chBuf);
         }
         m_channel = channel;
         return RadioResult::Ok;

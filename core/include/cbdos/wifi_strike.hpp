@@ -5,11 +5,13 @@
 // Este header es puramente declarativo: enums, estructuras y funciones inline
 // sin ninguna dependencia de plataforma. Ni esp_wifi.h ni FreeRTOS aparecen
 // aquí; el core solo describe "que" se va a emitir y "como se mide", mientras
+// este header, el core solo describe "que" se va a emitir y "como se mide", mientras
 // el acceso a la radio se inyecta via cbdos::wifi::IWifiStrikeRadio
-// (ver wifi_radio.hpp) y la construccion de bytes vive en BeaconEmitter.
+// (ver wifi_radio.hpp) y la construccion de bytes vive en BeaconEmitter (balizas)
+// y MgmtEmitter (desautenticacion y desasociacion).
 //
-// La semántica de cada modo y cada campo está tomada de la suite GhostESP
-// (references/ghostesp/main/attacks/wifi/beacon_spam.c).
+// La semantica de cada modo y cada campo esta tomada de la suite GhostESP
+// (references/ghostesp/main/attacks/wifi/beacon_spam.c y deauth.c).
 
 #include "cbdos/wifi_types.hpp"
 
@@ -49,6 +51,28 @@ static constexpr uint8_t STRIKE_DEFAULT_BURST = 4;
 /** Intervalo por defecto entre iteraciones del bucle de emision, en ms. */
 static constexpr uint16_t STRIKE_DEFAULT_INTERVAL_MS = 100;
 
+/**
+ * @brief Intervalo por defecto del bucle de tramas de gestion, en ms
+ *
+ * Una trama de gestion son 26 bytes frente a los ~104 de un beacon, asi que el
+ * ciclo de deauth puede ser mucho mas agresivo. Aun asi se conserva un minimo
+ * de 10 ms: por debajo esp_wifi_80211_tx() empieza a devolver NoMemory en vez de
+ * emitir mas, y la sesion solo acumularia fallos.
+ */
+static constexpr uint16_t STRIKE_DEFAULT_MGMT_INTERVAL_MS = 50;
+
+/** Rafaga de tramas de gestion por salto de canal. */
+static constexpr uint8_t STRIKE_DEFAULT_MGMT_BURST = 8;
+
+/**
+ * @brief Lineas de log de sesion que la UI puede retener
+ *
+ * El log no es un historico infinito: son las ultimas decisiones y errores de la
+ * sesion en curso, suficiente para que el operador entienda que esta pasando sin
+ * que el core acumule memoria ni copie cadenas en cada trama.
+ */
+static constexpr size_t STRIKE_LOG_LINES = 8;
+
 // ---------------------------------------------------------------------------
 // Modos de emision de beacons
 // ---------------------------------------------------------------------------
@@ -78,6 +102,125 @@ inline const char* getBeaconModeName(BeaconMode mode) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Modos de emision de tramas de gestion (deauth / disassoc)
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Subtipo de trama de gestion que se inyecta
+ *
+ * Deauthentication (0x0C) y Disassociation (0x0A) se construyen igual salvo
+ * en los dos bits de subtipo del Frame Control, pero no son lo mismo para un
+ * cliente: la deauth invalida la asociacion y obliga a reautenticar, mientras
+ * que la disasociacion solo cierra el enlace y la reasociacion es inmediata.
+ */
+enum class MgmtSubtype : uint8_t {
+    Deauth = 0,      // Desautenticacion (0x0C)
+    Disassoc,        // Desasociacion (0x0A)
+    Mixed            // Alterna una y otra trama a trama
+};
+
+/**
+ * @brief Etiqueta legible del subtipo de gestion
+ */
+inline const char* getMgmtSubtypeName(MgmtSubtype subtype) {
+    switch (subtype) {
+        case MgmtSubtype::Deauth:      return "DESAUTENTICACION 0x0C";
+        case MgmtSubtype::Disassoc:    return "DESASOCIACION 0x0A";
+        case MgmtSubtype::Mixed:       return "ALTERNAR 0x0C/0x0A";
+        default:                       return "?";
+    }
+}
+
+/**
+ * @brief Sentido en el que se falsifica la identidad de la trama
+ *
+ *  - ApToSta: la trama aparenta salir de la AP (Addr2 = BSSID) hacia sus
+ *    clientes. Es el caso clasico de deauth flood.
+ *  - StaToAp: la trama aparenta salir de una STA suplantada (Addr2 = MAC local
+ *    administrada) y acusa a la AP, que es lo que comprueba si el cliente valida
+ *    el origen antes de desconectarse.
+ *  - Both: alterna ambos sentidos trama a trama.
+ */
+enum class MgmtDirection : uint8_t {
+    ApToSta = 0,
+    StaToAp,
+    Both
+};
+
+/**
+ * @brief Etiqueta legible del sentido de la inyeccion
+ */
+inline const char* getMgmtDirectionName(MgmtDirection direction) {
+    switch (direction) {
+        case MgmtDirection::ApToSta: return "AP -> STA";
+        case MgmtDirection::StaToAp: return "STA -> AP";
+        case MgmtDirection::Both:    return "AMBOS SENTIDOS";
+        default:                     return "?";
+    }
+}
+
+/**
+ * @brief Seleccion de objetivos de la inyeccion
+ *
+ * Broadcast inunda todos los BSSID del canal con identidades rotativas;
+ * AccessPoints va contra los BSSID concretos descubiertos en Air Recon, uno por
+ * uno y en el canal real de cada uno. Nunca se inventan clientes: sin lista de
+ * APs el modo AccessPoints no es valido, y la razon aparece en describeInvalid.
+ */
+enum class MgmtTarget : uint8_t {
+    Broadcast = 0,
+    AccessPoints
+};
+
+/**
+ * @brief Etiqueta legible del modo de objetivo
+ */
+inline const char* getMgmtTargetName(MgmtTarget target) {
+    switch (target) {
+        case MgmtTarget::Broadcast:    return "BROADCAST";
+        case MgmtTarget::AccessPoints: return "APs ESCANEADOS";
+        default:                      return "?";
+    }
+}
+
+/**
+ * @brief Codigos de razon estandar de desautenticacion y desasociacion
+ *
+ * Subconjunto de la Tabla 10-18 del 802.11 con los valores que un cliente
+ * real acepta y que un auditor puede distinguir en un captura. El 0x0007 es el
+ * que usan GhostESP y Bruce por defecto.
+ */
+enum class MgmtReason : uint16_t {
+    Unspecified = 1,             // Razon no especificada
+    PreviousAuthNotValid = 2,    // Autenticacion previa ya no valida
+    LeavingOrDisabling = 3,      // Abandona la BSS o la desactiva
+    Inactivity = 4,              // Inactividad
+    ApOverload = 5,              // AP sin recursos
+    SasFailure = 6,              // Fallo de autenticacion con la SA
+    NotAuthed = 7,               // Trama clase 3 de una STA no asociada
+    BadAuthState = 8,            // Trama recibida en estado de auth invalido
+    AuthTimeout = 9,             // Timeout del temporizador de autenticacion
+};
+
+/**
+ * @brief Etiqueta corta del codigo de razon, con su valor en hexadecimal
+ */
+inline const char* getMgmtReasonName(MgmtReason reason) {
+    switch (reason) {
+        case MgmtReason::Unspecified:          return "0x01 sin especificar";
+        case MgmtReason::PreviousAuthNotValid: return "0x02 auth previa invalida";
+        case MgmtReason::LeavingOrDisabling:   return "0x03 abandona la BSS";
+        case MgmtReason::Inactivity:           return "0x04 inactividad";
+        case MgmtReason::ApOverload:           return "0x05 AP sin recursos";
+        case MgmtReason::SasFailure:           return "0x06 fallo de secuencia";
+        case MgmtReason::NotAuthed:            return "0x07 STA no asociada";
+        case MgmtReason::BadAuthState:         return "0x08 estado de auth invalido";
+        case MgmtReason::AuthTimeout:          return "0x09 timeout de auth";
+        default:                               return "?";
+    }
+}
+
 /**
  * @brief Estado de la maquina de emision
  */
@@ -98,6 +241,30 @@ inline const char* getStrikeStateName(StrikeState state) {
         case StrikeState::Stopping: return "PARANDO";
         case StrikeState::Faulted:  return "ERROR";
         default:                    return "?";
+    }
+}
+
+/**
+ * @brief Familia de la sesion en curso
+ *
+ * El servicio expone una unica maquina de estados y una unica tarea de emision:
+ * el tipo de trama que sale al aire lo decide la familia con la que arranco la
+ * sesion. La UI lo necesita para no leer un contador de balizas como si fueran
+ * tramas de desautenticacion.
+ */
+enum class StrikeKind : uint8_t {
+    Beacon = 0,     // Balizas 802.11 (subtipo 0x08)
+    Mgmt             // Gestion: deauth (0x0C) y disassoc (0x0A)
+};
+
+/**
+ * @brief Etiqueta legible de la familia de sesion
+ */
+inline const char* getStrikeKindName(StrikeKind kind) {
+    switch (kind) {
+        case StrikeKind::Beacon: return "BEACON SPAM";
+        case StrikeKind::Mgmt:   return "DEAUTH/DISASSOC";
+        default:                 return "?";
     }
 }
 
@@ -209,6 +376,85 @@ inline const char* describeInvalid(const StrikeConfig& cfg) {
     return "Modo desconocido";
 }
 
+/**
+ * @brief Configuracion de una sesion de tramas de gestion
+ *
+ * Contraparte de StrikeConfig para deauth y disassoc. Igual que alli, solo se
+ * materializa lo que el modo seleccionado necesita y es una copia en memoria:
+ * la UI la edita sin tocar la sesion en curso.
+ */
+struct MgmtStrikeConfig {
+    MgmtSubtype subtype = MgmtSubtype::Deauth;
+
+    /** Sentido en el que se falsifica la identidad de la trama. */
+    MgmtDirection direction = MgmtDirection::Both;
+
+    /** Codigo de razon anunciado en el cuerpo de la trama. */
+    MgmtReason reason = MgmtReason::NotAuthed;   // 0x0007
+
+    /** Como se eligen los BSSID afectados. */
+    MgmtTarget target = MgmtTarget::Broadcast;
+
+    /** BSSID a atacar en modo AccessPoints, alimentada desde el Air Recon de
+     *  WifiShieldService. En modo Broadcast se usa solo como lista de referencia
+     *  para ordenar por potencia, no como objetivo. */
+    std::vector<radio::WifiApRecord> apList;
+
+    /** Canales de salto. Vacio = 1..13, o el canal de la STA si esta asociada. */
+    std::vector<uint8_t> channels;
+
+    /** Espera entre iteraciones del bucle de emision, en ms. */
+    uint16_t intervalMs = STRIKE_DEFAULT_MGMT_INTERVAL_MS;
+
+    /** Tramas por iteracion y salto de canal. */
+    uint8_t burstSize = STRIKE_DEFAULT_MGMT_BURST;
+
+    /** Marcar la trama como cifrada (bit Protected Frame, 802.11w) para
+     *  comprobar si la AP de destino aplica Management Frame Protection. */
+    bool protectedFrame = false;
+
+    /** Semilla del PRNG de secuencias y MACs suplantadas. 0 = el servicio la
+     *  siembra con entropia real de la radio al arrancar. */
+    uint32_t seed = 0;
+
+    /** Vacia las listas manteniendo el resto de ajustes. */
+    void clear() {
+        apList.clear();
+        channels.clear();
+    }
+};
+
+/**
+ * @brief Numero de BSSID a los que la sesion va a lanzar tramas
+ *
+ * En modo Broadcast no hay objetivos concretos: el unico valor honesto es 1
+ * (todo el espectro), porque inventar un numero de "victimas" seria falso.
+ */
+inline size_t mgmtTargetCount(const MgmtStrikeConfig& cfg) {
+    return (cfg.target == MgmtTarget::AccessPoints) ? cfg.apList.size() : 1u;
+}
+
+/**
+ * @brief Comprueba que la sesion de gestion tiene material suficiente
+ *
+ * Mismas reglas que validate() pero para el otro frame builder: no valida la
+ * radio ni el canal, solo las invariantes que MgmtEmitter no puede resolver.
+ */
+inline bool validateMgmt(const MgmtStrikeConfig& cfg) {
+    if (cfg.target == MgmtTarget::AccessPoints && cfg.apList.empty()) return false;
+    return true;
+}
+
+/**
+ * @brief Motivo por el que validateMgmt() devuelve false, para la UI
+ */
+inline const char* describeInvalidMgmt(const MgmtStrikeConfig& cfg) {
+    if (cfg.target == MgmtTarget::AccessPoints && cfg.apList.empty()) {
+        return "Sin APs en Air Recon";
+    }
+    return nullptr;
+}
+
 // ---------------------------------------------------------------------------
 // Metricas
 // ---------------------------------------------------------------------------
@@ -229,6 +475,11 @@ struct StrikeStats {
     float framesPerSec = 0.0f;    // framesSent / elapsedMs
     uint8_t lastChannel = 0;      // Ultimo canal usado
     uint8_t lastBurstSize = 0;    // Ultima rafaga completa
+    /** Tramas dirigidas a un BSSID concreto. Siempre 0 en beacon spam, cuyo
+     *  destino es el broadcast por definicion. */
+    uint32_t framesTargeted = 0;
+    /** Numero de BSSID objetivo de la sesion (ver mgmtTargetCount). */
+    uint32_t targetsTracked = 0;
     std::string lastError;        // Vacio si la sesion va bien
 };
 
@@ -238,9 +489,16 @@ struct StrikeStats {
 struct StrikeStatus {
     bool active = false;
     StrikeState state = StrikeState::Idle;
+    StrikeKind kind = StrikeKind::Beacon;
+    /** Modos de beacon activos. Meaningful solo si kind == Beacon. */
     BeaconMode mode = BeaconMode::SingleSsid;
+    /** Modos de gestion activos. Meaningful solo si kind == Mgmt. */
+    MgmtSubtype mgmtSubtype = MgmtSubtype::Deauth;
+    MgmtDirection mgmtDirection = MgmtDirection::Both;
     StrikeStats stats;
     std::string lastError;
+    /** Ultimas decisiones y errores de la sesion, como mucho STRIKE_LOG_LINES. */
+    std::vector<std::string> log;
 };
 
 // ---------------------------------------------------------------------------

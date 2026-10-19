@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cbdos/wifi_types.hpp"
+#include <atomic>
 #include <vector>
 #include <string>
 #include <functional>
@@ -32,9 +33,11 @@ public:
     bool init();
 
     // Control de escaneo (Recon)
-    bool startScan();
+    bool startScan(uint32_t durationSeconds = 0);
     void stopScan();
     bool isScanning() const;
+    uint32_t getScanRevision() const;
+    void notifyScanStopped();
 
     // Ingesta de datos desde el HAL de radio
     void processApRecord(const radio::WifiApRecord& ap);
@@ -69,7 +72,7 @@ public:
     void resetSnifferCounters();
 
     // Controladores de hardware inyectados por el BSP
-    using ScanControlHandler = std::function<bool(bool start)>;
+    using ScanControlHandler = std::function<bool(bool start, uint32_t durationSeconds)>;
     using SnifferControlHandler = std::function<bool(bool enable)>;
     void registerScanControl(ScanControlHandler handler);
     void registerSnifferControl(SnifferControlHandler handler);
@@ -87,7 +90,8 @@ private:
 
     mutable std::mutex m_mutex;
     bool m_initialized = false;
-    bool m_scanning = false;
+    std::atomic<bool> m_scanning{false};
+    std::atomic<uint32_t> m_scanRevision{0};
     bool m_snifferEnabled = false;
     ScanControlHandler m_scanControl = nullptr;
     SnifferControlHandler m_snifferControl = nullptr;
