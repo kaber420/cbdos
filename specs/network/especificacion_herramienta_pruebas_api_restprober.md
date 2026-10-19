@@ -234,7 +234,150 @@ Reutiliza el mismo servicio de backend (`RestProberService`), garantizando coher
 | **Fase 3** | **Servicio Asíncrono `RestProberService`:** Crear el despachador thread-safe en Core 0 con `cbdos::rtos`, validación de `cbdos::network::isConnected()` y gestión de colecciones/presets con `cbdos::storage`. | `core/src/network/RestProberService.hpp`<br>`core/src/network/RestProberService.cpp` | ✅ **Completado** |
 | **Fase 4** | **Construcción de Vista UI `RestProberView` (Estilo Hoppscotch):** Interfaz táctil LVGL 9.5 con selector de verbo a color, barra URL, 4 pestañas (Headers, Body, Response, Colecciones) y teclado integrado vía `UIManager::attachKeyboard`. | `core/src/ui/views/RestProberView.hpp`<br>`core/src/ui/views/RestProberView.cpp` | ✅ **Completado** |
 | **Fase 5** | **Registro en el Sistema e Integración:** Añadir `RestProber` a `AppRegistry.cpp`, flag `CBDOS_FEATURE_REST_PROBER` en `cbdos_build_profile.h` y botón directo `[ REST 🚀 ]` desde `LanReconView.cpp`. Validación multi-target limpia. | `core/src/ui/AppRegistry.cpp`<br>`core/src/ui/views/LanReconView.cpp`<br>`core/include/cbdos_build_profile.h` | ✅ **Completado** |
-| **Fase 6** | **Modularización y Desacoplamiento de Vista UI:** Descomposición del archivo monolítico de 716 líneas en submódulos especializados dentro de `core/src/ui/views/restprober/` (`ControlBar`, `Headers`, `Body`, `Response`, `Collections`, `Common`). El orquestador `RestProberView.cpp` se redujo a ~170 líneas. | `core/src/ui/views/RestProberView.hpp`<br>`core/src/ui/views/RestProberView.cpp`<br>`core/src/ui/views/restprober/*` | ✅ **Completado** |
+| **Fase 7** | **Importador de Colecciones Externas (Postman v2.1 / OpenAPI 3):** Ver sección 9. Parser JSON de una sola pasada que hidrata colecciones desde microSD o URL y las convierte al formato nativo `/requests`. | `core/src/network/CollectionImporter.hpp/.cpp`<br>`core/src/ui/views/restprober/RestProberView_Collections.cpp` | ⬜ Planificado |
+
+---
+
+## 9. Extensión: Importador de Colecciones Externas (Postman v2.1 / OpenAPI 3)
+
+Respuesta a la necesidad de cargar definiciones de APIs (formatos abiertos
+**Postman Collection v2.1** y **OpenAPI/Swagger 3.x**) directamente en el
+device desde **microSD** o desde **una URL remota**, sin PC intermedia.
+
+### 9.1. Formatos Soportados
+
+| Formato | Magic Key | Detalle | Estado |
+| :--- | :--- | :--- | :---: |
+| **Postman Collection v2.x** | `"item": [` + `"request": {` | JSON plano, recursivo con `item[]` anidados (carpetas). Cada petición: `method`, `url` (string u objeto `{raw}`), `header[]`, `body.raw`. | ⬜ Fase 7 |
+| **OpenAPI / Swagger** | `"openapi": "3..."` o `"swagger": "2.0"` | Solo versión **JSON** (no YAML). Usa `servers[0].url` como base + cruza `paths` × verbos → requests. Query params desde `parameters[].in=query`. | ⬜ Fase 7 (limitado) |
+| YAML (`.yaml` / `.yml`) | — | Rechazado con mensaje: `YAML no soportado; exporta la spec como JSON`. | ✅ Detección |
+| HAR / Insomnia v4 | — | Fuera de alcance (Insomnia permite re-exportar como Postman v2.1). | ❌ No planeado |
+
+**Cómo exportar desde el PC:** Postman → `Collections → ⋯ → Export → Collection v2.1`
+(o `File → Export`). Insomnia → `Export → Postman`. Hoppscotch → compartir colección en formato JSON. El único paso previo es copiar el `.json` a la microSD o servirla por HTTP.
+
+### 9.2. Pipeline de Importación
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ FUENTES                                                              │
+│  a) MicroSD: /sdcard/rest/collection.json (botón "Cargar Colección") │
+│  b) URL:     GET http://.../openapi.json (reusa IHttpClient + HAL)   │
+└──────────────────────────┬───────────────────────────────────────────┘
+                           ▼
+  ┌────────────────────────────────────────────────────────────────┐
+  │ CollectionImporter (core/src/network/CollectionImporter.hpp)   │
+  │  1. Sniff de formato (openapi/swagger vs. item/request)        │
+  │  2. Parser JSON streaming de UNA pasada (límite de buffer)     │
+  │  3. Conversión a http::HttpRequest[]                           │
+  │  4. Persistencia reusando RestProberService::saveRequest()     │
+  │     en /requests, con prefijo = nombre de la colección         │
+  └──────────────────────────┬─────────────────────────────────────┘
+                             ▼
+  ┌────────────────────────────────────────────────────────────────┐
+  │ Hidratación UI: rebuildCollectionsList() funciona sin cambios;│
+  │ cada endpoint queda como fila [METHOD] nombre en Colecciones. │
+  └────────────────────────────────────────────────────────────────┘
+```
+
+### 9.3. Reglas de Mapeo Postman v2.1 → HttpRequest
+
+```json
+{ "info": { "name": "Mi API" },
+  "item": [
+    { "name": "Carpeta", "item": [ { "name": "Endpoint X",
+      "request": { "method": "POST",
+                   "url": "http://..."  ó { "raw": "http://..." },
+                   "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                   "body": { "raw": "{ ... }" } } } ] } ] }
+```
+
+* `item[]` se recorre recursivamente; el nombre de la carpeta se antepone al nombre del request (`"Carpeta/Endpoint X"`), profundidad máxima 3.
+* `request.url` puede ser string u objeto; se prefiere `url.raw` si existe.
+* `request.header[]` → `req.headers` (máximo 16 cabeceras).
+* `request.body.raw` → `req.body`; `mode: urlencoded` se reconstruye como `a=b&c=d` y se sugiere en headers `x-www-form-urlencoded`.
+* Variables `{{var}}` de Postman **no se resuelven**: quedan literales y un toast informa `N variables sin resolver`.
+* Se ignoran: `scripts`, `tests`, `events`, `response` examples.
+
+### 9.4. Reglas de Mapeo OpenAPI 3 → HttpRequest
+
+* Base: `servers[0].url`; si no existe, `http://localhost`.
+* Cada combinación `(path, method)` con `method ∈ {get, post, put, delete, patch, head}` genera un `HttpRequest`.
+* Nombre del request: primero `summary`, luego `operationId`, luego fallback `"METHOD /path"`.
+* Parámetros `in: query` se concatenan a la URL (`?a=&b=`) como placeholders editables.
+* Parámetros `in: path` se dejan literales `{param}` dentro de la URL para completar en UI.
+* `requestBody.schema` → se coloca un JSON placeholder `{}` con header `Content-Type: application/json`; el toast avisa si el body es `required: true`.
+* **No** se resuelven `components.schemas`, `$ref`, `allOf` ni `oneOf` (refinamiento opcional futuro).
+
+### 9.5. Límites de Memoria (MCU)
+
+| Concepto | Valor | Origen |
+| :--- | :---: | :--- |
+| Tamaño máx. de archivo de colección | 256 KB | Estricto; evita OOM en heap fragmentado |
+| Máx. peticiones por importación | 128 | Cuota de FS, garantiza lista navegable con scroll fluido |
+| Máx. headers por request | 16 | Coherente con `RestProberView_Headers` |
+| Máx. URL | 512 B | Coherente con `HttpRequest::url` |
+| Máx. body capturado por request guardado | 8 KB | Previene saturar LittleFS/SD con 100 bodies grandes |
+| Descarga de la spec por URL | `maxBodyCaptureBytes = 256 KB` | Respeta el buffer capping existente |
+
+### 9.6. Interfaz de Usuario (Pestaña Colecciones)
+
+```
+┌────────────────────────────────────────┐
+│ ── IMPORTAR ────────────────────────── │
+│ [📥 Desde MicroSD]  [🌐 Desde URL]     │   ← 2 botones nuevos
+│ ┌─────────────────────────────────────┐│
+│ │ 🗂 PLANTILLAS IOT (PRESETS)         ││
+│ │ ... (lista existente)               ││
+│ │ 🗂 PETICIONES GUARDADAS (/requests) ││
+│ │ ... (lista existente)               ││
+│ └─────────────────────────────────────┘│
+└────────────────────────────────────────┘
+```
+
+* **[📥 Desde MicroSD]:** Modal que lista el directorio `/sdcard/rest` (así como inspecciona también `/littlefs/rest` como fallback, coherente con `getStorageDirectory()`), acepta `.json`.
+* **[🌐 Desde URL]:** Modal con `lv_textarea` para URL absoluta; la descarga usa `RestProberService::sendRequestAsync` existente con el mismo buffer cap, y el parse corre en el mismo hilo asíncrono de Core 0. Badge de progreso "Descargando...".
+* **Feedback:** Toast de éxito `Importados N endpoints de "<collection>"` o errores descriptivos (`JSON invalido`, `Formato no reconocido`, `Demasiados endpoints`, `Límite 256 KB`).
+
+### 9.7. CLI (extensión de la sección 5.2)
+
+```bash
+restimport postman /sd/rest/prod.json            # importa archivo local
+restimport openapi http://10.0.0.5/openapi.json  # importa por URL
+restimport info                                  # muestra formato detectado sin importar
+```
+
+**Borrador de contrato Core:**
+
+```cpp
+namespace cbdos::network {
+
+enum class CollectionFormat { Unknown, PostmanV2, OpenApi3 };
+
+struct CollectionImportResult {
+    bool ok = false;
+    CollectionFormat format = CollectionFormat::Unknown;
+    int imported = 0;
+    int skipped = 0;
+    int unresolvedVars = 0;
+    std::string errorMessage;
+};
+
+class CollectionImporter {
+public:
+    // Detecta formato sin importar
+    static CollectionFormat sniffFormat(const std::string& content);
+    // Importa desde contenido ya leído (SD o URL)
+    static CollectionImportResult import(const std::string& content,
+                                         const std::string& collectionName);
+};
+
+} // namespace cbdos::network
+```
+
+La implementación **no duplica persistencia**: reutiliza `RestProberService::saveRequest()`.
+La pestaña Colecciones solo agrega los dos botones y delega el 100% del trabajo en
+`CollectionImporter`, manteniendo la pureza de capas (UI → Service → Storage/HTTP HAL).
 
 ---
 

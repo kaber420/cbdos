@@ -1,5 +1,6 @@
 #include "ThemeEngine.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos_build_profile.h"
 
 namespace cbdos {
 
@@ -77,11 +78,19 @@ ThemeEngine& ThemeEngine::getInstance() {
 }
 
 ThemeEngine::ThemeEngine()
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+    : m_currentTheme(cbdos::theme::ThemeType::Matrix) {
+#else
     : m_currentTheme(cbdos::theme::ThemeType::Cyberpunk) {
+#endif
 }
 
 void ThemeEngine::init() {
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+    m_currentTheme = cbdos::theme::ThemeType::Matrix;
+#else
     m_currentTheme = cbdos::theme::ThemeType::Cyberpunk;
+#endif
 }
 
 void ThemeEngine::setTheme(cbdos::theme::ThemeType theme) {

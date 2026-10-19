@@ -3,6 +3,7 @@
 #include "cbdos/memory.hpp"
 #include "cbdos/log.hpp"
 #include "cbdos/persistence.hpp"
+#include "cbdos_build_profile.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -22,7 +23,11 @@ static const size_t WALLPAPER_HEIGHT = 480;
 static const size_t WALLPAPER_BUFFER_SIZE = WALLPAPER_WIDTH * WALLPAPER_HEIGHT * 2; // 307200 bytes
 
 WallpaperManager::WallpaperManager() 
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+    : currentPath("animated_matrix"), hasCustomWallpaper(false), customBuffer(nullptr) {
+#else
     : currentPath("animated_constellation"), hasCustomWallpaper(false), customBuffer(nullptr) {
+#endif
     memset(&customDsc, 0, sizeof(customDsc));
 }
 
@@ -87,26 +92,29 @@ bool WallpaperManager::loadFromFlash() {
 void WallpaperManager::init() {
     auto* backend = cbdos::persistence::getBackend();
     bool isCustom = false;
-    // Sin RGB embebido en firmware: el fondo por defecto es animado.
-    // El RGB solo vive en /wallpaper.bin (SPIFFS) copiado desde MicroSD.
-    currentPath = "animated_constellation";
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+    const char* defaultWallpaper = "animated_matrix";
+#else
+    const char* defaultWallpaper = "animated_constellation";
+#endif
+    currentPath = defaultWallpaper;
     hasCustomWallpaper = false;
 
     if (backend && backend->begin("wallpaper", true)) {
         isCustom = backend->getBool("custom", false);
-        currentPath = backend->getString("path", "animated_constellation");
+        currentPath = backend->getString("path", defaultWallpaper);
         backend->end();
     }
 
     // Migracion: instalaciones antiguas guardaban "default" (RGB embebido ya eliminado)
     if (currentPath == "default" || currentPath.empty()) {
-        currentPath = "animated_constellation";
+        currentPath = defaultWallpaper;
     }
 
     if (isCustom) {
         if (!loadFromFlash()) {
             hasCustomWallpaper = false;
-            currentPath = "animated_constellation";
+            currentPath = defaultWallpaper;
         }
     }
 }
@@ -140,8 +148,12 @@ void WallpaperManager::applyWallpaper(lv_obj_t* parent) {
         lv_obj_set_style_bg_image_src(parent, &customDsc, 0);
         lv_obj_set_style_bg_image_opa(parent, LV_OPA_COVER, 0);
     } else {
-        // Fallback sin RGB embebido: animado Constellation (cero bytes en particion app)
+        // Fallback animado: MatrixRain en perfil RED, Constellation en estándar
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+        cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::MatrixRain);
+#else
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::Constellation);
+#endif
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     }
 }

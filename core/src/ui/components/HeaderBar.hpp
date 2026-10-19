@@ -6,6 +6,8 @@
 namespace cbdos {
 namespace ui {
 
+enum class ViewMode;
+
 class HeaderBar {
 public:
     using ClickCallback = std::function<void()>;
@@ -22,6 +24,7 @@ public:
     void showWifi(bool show);
     void setRightAction(const char* label, ClickCallback onAction);
     void clearRightAction();
+    void setMode(ViewMode mode);
 
     void setOnStaffPinRequestCallback(ClickCallback cb);
 

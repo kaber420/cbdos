@@ -77,7 +77,9 @@ El sistema utiliza una arquitectura **Dual-Target desacoplada**:
 ### 🟣 Fase 4: Optimización Avanzada y Hardware
 - [ ] Aceleración 2D PPA (Pixel Processing Accelerator) en ESP32-P4 para renderizado LVGL a 60 FPS.
 - [ ] Soporte de teclado físico dedicado (I2C CardKB / USB HID host passthrough).
-- [ ] Gestión avanzada de energía y modos de suspensión profunda (Deep Sleep).
+- [ ] **Gestión de Energía Reactiva (Reposo Activo 80 MHz + LVGL Inactivity):** [Ver Propuesta Técnica](proposals/proposal_power_manager_active_idle_and_global_inactivity.md).
+- [ ] **Suite Modular IEEE 802.15.4 (Zigbee, Thread, Matter, P2P):** [Ver Especificación Técnica](architecture/especificacion_tecnica_suite_802154_zigbee_thread_matter.md).
+- [ ] **Enlace Táctico de Larga Distancia BLE Coded PHY (1 MHz @ 125 kbps):** [Ver Propuesta Técnica](proposals/proposal_ble_coded_phy_long_range_1mhz.md).
 
 ---
 

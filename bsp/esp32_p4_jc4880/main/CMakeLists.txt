@@ -20,6 +20,7 @@ idf_component_register(
         "../hal/hal_gpio_p4.cpp"
         "../hal/hal_mesh_p4.cpp"
         "../hal/hal_radio_p4.cpp"
+        "../hal/hal_wifi_strike_p4.cpp"
         "../hal/hal_http_p4.cpp"
         "../hal/hal_socket_p4.cpp"
         "../hal/hal_ssh_p4.cpp"

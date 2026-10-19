@@ -19,6 +19,9 @@ if CBDOS_PRODUCT_CYBERDECK
     config CBDOS_PROFILE_FULL
         bool "Full Cyberdeck Suite (All Apps, Tools, Flasher, TTS)"
 
+    config CBDOS_PROFILE_RED
+        bool "Red Team Tactical Edition (Security, RF Sentinel, Terminal, SDR)"
+
     config CBDOS_PROFILE_LITE
         bool "Lite Profile (Slim Footprint)"
     endchoice

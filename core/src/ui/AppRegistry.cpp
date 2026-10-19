@@ -7,10 +7,6 @@
 
 // Vistas del sistema
 #include "views/ConfigView.hpp"
-#include "views/music/MusicPlayerView.hpp"
-#include "views/AudioRecorderView.hpp"
-#include "views/GalleryListView.hpp"
-#include "views/RadioView.hpp"
 #include "views/LuaRunnerView.hpp"
 #include "views/editor/TextEditorView.hpp"
 #include "views/files/FileManagerView.hpp"
@@ -18,10 +14,17 @@
 #include "views/UtilitiesView.hpp"
 #include "views/TlvBrowserView.hpp"
 #include "views/LuappView.hpp"
-#include "views/LottieTestView.hpp"
 #include "views/MeshCoreView.hpp"
 #include "../apps/kerberos/KerberosView.hpp"
 #include "../lua/LuappManager.hpp"
+
+#if CBDOS_FEATURE_MULTIMEDIA
+#include "views/music/MusicPlayerView.hpp"
+#include "views/AudioRecorderView.hpp"
+#include "views/GalleryListView.hpp"
+#include "views/RadioView.hpp"
+#include "views/LottieTestView.hpp"
+#endif
 
 #if CBDOS_FEATURE_FLASHER
 #include "views/FlasherView.hpp"
@@ -40,6 +43,19 @@
 #endif
 #if CBDOS_FEATURE_SDR
 #include "views/SdrView.hpp"
+#endif
+
+#if CBDOS_FEATURE_WIFI_SHIELD
+#include "views/WifiShieldView.hpp"
+#endif
+#if CBDOS_FEATURE_BLE_SHIELD
+#include "views/BleShieldView.hpp"
+#endif
+#if CBDOS_FEATURE_WIFI_STRIKE
+#include "views/WifiStrikeView.hpp"
+#endif
+#if CBDOS_FEATURE_BLE_STRIKE
+#include "views/BleStrikeView.hpp"
 #endif
 
 #include <algorithm>
@@ -70,6 +86,7 @@ void AppRegistry::initSystemApps() {
         []() { UIManager::getInstance().pushView(std::make_shared<TlvBrowserView>()); }
     });
 
+#if CBDOS_FEATURE_MULTIMEDIA
     // 2. Galería
     registerApp({
         "gallery",
@@ -80,6 +97,7 @@ void AppRegistry::initSystemApps() {
         true,
         []() { UIManager::getInstance().pushView(std::make_shared<GalleryListView>()); }
     });
+#endif
 
     // 3. Administrador de Archivos
     registerApp({
@@ -138,6 +156,7 @@ void AppRegistry::initSystemApps() {
         []() { UIManager::getInstance().pushView(std::make_shared<TextEditorView>()); }
     });
 
+#if CBDOS_FEATURE_MULTIMEDIA
     // 8. Radio Web
     registerApp({
         "radio",
@@ -148,6 +167,7 @@ void AppRegistry::initSystemApps() {
         true,
         []() { UIManager::getInstance().pushView(std::make_shared<RadioView>()); }
     });
+#endif
 
 #if CBDOS_FEATURE_FLASHER
     // 9. Flasheador USB
@@ -236,6 +256,7 @@ void AppRegistry::initSystemApps() {
     });
 #endif
 
+#if CBDOS_FEATURE_MULTIMEDIA
     // 14. Grabadora de Audio
     registerApp({
         "recorder",
@@ -257,6 +278,7 @@ void AppRegistry::initSystemApps() {
         true,
         []() { UIManager::getInstance().pushView(std::make_shared<MusicPlayerView>()); }
     });
+#endif
 
     // 16. Kerberos Vault
     registerApp({
@@ -269,6 +291,7 @@ void AppRegistry::initSystemApps() {
         []() { UIManager::getInstance().pushView(std::make_shared<KerberosView>()); }
     });
 
+#if CBDOS_FEATURE_MULTIMEDIA
     // 17. Animaciones Lottie
     registerApp({
         "lottie",
@@ -279,6 +302,59 @@ void AppRegistry::initSystemApps() {
         true,
         []() { UIManager::getInstance().pushView(std::make_shared<LottieTestView>()); }
     });
+#endif
+
+#if CBDOS_FEATURE_WIFI_SHIELD
+    // 18. Wi-Fi Shield
+    registerApp({
+        "wifi_shield",
+        "Wi-Fi Shield",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_WIFI },
+        0x00B4D8,
+        true,
+        []() { UIManager::getInstance().pushView(std::make_shared<WifiShieldView>()); }
+    });
+#endif
+
+#if CBDOS_FEATURE_BLE_SHIELD
+    // 19. BLE Shield
+    registerApp({
+        "ble_shield",
+        "BLE Shield",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_BLUETOOTH },
+        0x0077B6,
+        true,
+        []() { UIManager::getInstance().pushView(std::make_shared<BleShieldView>()); }
+    });
+#endif
+
+#if CBDOS_FEATURE_WIFI_STRIKE
+    // 20. Wi-Fi Strike
+    registerApp({
+        "wifi_strike",
+        "Wi-Fi Strike",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_WARNING },
+        0xE63946,
+        true,
+        []() { UIManager::getInstance().pushView(std::make_shared<WifiStrikeView>()); }
+    });
+#endif
+
+#if CBDOS_FEATURE_BLE_STRIKE
+    // 21. BLE Lab (emisor)
+    registerApp({
+        "ble_strike",
+        "BLE Lab",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_BLUETOOTH },
+        0xD90429,
+        true,
+        []() { UIManager::getInstance().pushView(std::make_shared<BleStrikeView>()); }
+    });
+#endif
 
     // 18. Configuración del Sistema
     registerApp({

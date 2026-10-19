@@ -24,10 +24,13 @@
   - **Vistas Refactorizadas:** `MusicPlayerView.cpp`, `TextEditorView.cpp`, `FileManagerView.cpp`, `TableHubKdsView.cpp` y `TableHubTabletopView.cpp` adaptadas a sus propios `tr()` locales, con cero textos quemados.
   - **Lua Runtime:** Expuesta función `cbdos.system.getLanguage()` y `cbdos.system.get_language()` en `LuaBindings_System.cpp` para micro-apps `.luapp`.
 
-### 3. 🎛️ Perfiles de Compilación (`BuildProfiles`)
-- **Estado:** Definidos en `core/include/cbdos_build_profile.h` y probados. Dual-target compila limpio en S3 (PlatformIO) y P4 (ESP-IDF 5.5).
-- **Pendientes:**
-  - Validar flujo de arranque y alternancia de perfiles en hardware real (`CYBERDECK`, `TABLEHUB_KDS`, `TABLEHUB_TABLETOP`).
+### 3. 🎛️ Perfiles de Compilación y Perfil Cyberdeck RED (`CONFIG_CBDOS_PROFILE_RED`)
+- **Estado Actual:** ✅ **Completado, Compilado y Flasheado en Hardware Real (JC3248W535 / ESP32-S3).**
+  - **Gestor de Modos de Vista (`ViewMode`):** Implementado en `BaseView.hpp` (`Translucent`, `Solid`, `Immersive`). Orquestación dinámica en `UIManager` con pausado de `AnimatedWallpaper` en vistas sólidas para ahorro de ciclos de CPU y batería.
+  - **HeaderBar Plana Táctica:** Implementada en `HeaderBar.cpp` (ancho 100%, Y=0, radio 0 px, botón volver compacto 36x28 px).
+  - **Purga Multimedia:** Gating con `CBDOS_FEATURE_MULTIMEDIA` (0 en RED, 1 en FULL). Galería, Radio, Grabadora, Música y Lottie purgados en RED, ahorrando más de 80 KB de Flash.
+  - **Suites Tácticas RF (LVGL 9.5 & ViewMode::Solid):** Creadas e integradas en `AppRegistry`: `WifiShieldView` (Recon, IDS Sentinel, Sniffer PCAP), `BleShieldView` (Air Recon, Geiger, Spam IDS), `WifiStrikeView` (Deauth, Beacon Spam, Evil Portal, PMKID) y `BleStrikeView` (AppleJuice, FastPair, SwiftPair, Spoofer).
+  - **Validación Física:** Flasheado y funcionando en la placa JC3248W535.
 
 ### 4. 🍽️ Módulo TableHub
 - **Estado:** Vistas iniciales creadas con i18n desacoplada y PIN supervisor unificado con `LockPinModal`.
@@ -40,6 +43,11 @@
 - **Pendientes:**
   - Implementar en `SystemIcons` y `AppRegistry` el soporte para cargar archivos de icono desde almacenamiento externo (MicroSD).
 
+### 6. 🔌 Deuda Técnica Hardware: Desacoplamiento de Bus I2C en BSP (Prioritario)
+- **Estado:** Identificado y documentado formalmente.
+- **Problema:** En el ESP32-P4, `TouchHAL` asume la creación del bus I2C maestro y `AudioHAL` depende de él para configurar el códec ES8311.
+- **Acción Pendiente:** Extirpar la inicialización de I2C de `TouchHAL` y delegarla a un `I2cMasterBus` central en el BSP ([Ver Plan Arquitectónico](../architecture/plan_desacoplamiento_bus_i2c_centralizado.md)).
+
 ---
 
 ## 📋 Lista de Tareas Prioritarias
@@ -47,3 +55,7 @@
 1. **Construir Funcionalidad TableHub:** Desarrollar la lógica operativa de comandas en KDS y comunicación en Tabletop.
 2. **Iconos Externos en SD:** Añadir soporte de carga de imágenes para apps externas en `AppRegistry`.
 3. **Validación de Perfiles de Compilación en Hardware:** Probar arranque en hardware físico bajo perfiles `CYBERDECK` y `TABLEHUB`.
+4. **Revisión de Propuesta PowerManager (Warm Sleep 80 MHz + LVGL Inactivity):** [Ver Propuesta Técnica](../proposals/proposal_power_manager_active_idle_and_global_inactivity.md).
+5. ⚠️ **Desacoplamiento de Bus I2C en BSP (Refactor Prioritario):** Extirpar bus de `TouchHAL` y centralizar en `I2cMasterBus` ([Ver Plan](../architecture/plan_desacoplamiento_bus_i2c_centralizado.md)).
+6. **Suite IEEE 802.15.4 (Zigbee / Matter / Thread / P2P):** Desbloquear radio cruda en coprocesador C6 vía SDIO ([Ver Especificación](../architecture/especificacion_tecnica_suite_802154_zigbee_thread_matter.md)).
+7. **Enlace Táctico BLE Coded PHY (1 MHz @ 125 kbps):** Pruebas de largo alcance en canales estrechos ([Ver Propuesta](../proposals/proposal_ble_coded_phy_long_range_1mhz.md)).

@@ -50,9 +50,13 @@ namespace bsp {
     void initNetworkAdapterS3();
     void init_lan_recon_s3();
     void initRadioBackendS3();
+    void initBleDriverS3();
+    void initWifiShieldS3();
+    void initWifiStrikeS3();
     cbdos::time::ITimeProvider* getArduinoTimeProvider();
 }
 }
+
 
 static const char* TAG = "CBDos_Main";
 static lv_display_t* s_lv_display = nullptr;
@@ -114,6 +118,9 @@ void setup() {
     cbdos::bsp::initSocketBackendS3();
     cbdos::bsp::initSshBackendS3();
     cbdos::bsp::initRadioBackendS3();
+    cbdos::bsp::initBleDriverS3();
+    cbdos::bsp::initWifiShieldS3();
+    cbdos::bsp::initWifiStrikeS3();
     cbdos::bsp::initMeshTransportS3();
     cbdos::bsp::initHttpClientS3();
     

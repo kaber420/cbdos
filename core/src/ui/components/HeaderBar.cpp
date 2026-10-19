@@ -5,6 +5,7 @@
 #include "cbdos/network.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos_build_profile.h"
+#include "../views/BaseView.hpp"
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -49,13 +50,26 @@ bool HeaderBar::init(lv_obj_t* parent) {
 
     const auto& palette = ThemeEngine::getInstance().getPalette();
 
-    // 1. Contenedor Isla Flotante (44px de altura, redondeada y translúcida)
+    // 1. Contenedor HeaderBar
     m_container = lv_obj_create(parent);
-    lv_obj_set_size(m_container, LV_PCT(94), 44);
-    lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, 8);
     lv_obj_remove_flag(m_container, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Estilo Glassmorphism translúcido original
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+    // Barra Plana Táctica en Perfil RED (100% ancho, 38px, Y=0, radio 0)
+    lv_obj_set_size(m_container, LV_PCT(100), 38);
+    lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_bg_color(m_container, lv_color_hex(0x0A0A0A), 0);
+    lv_obj_set_style_bg_opa(m_container, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(m_container, lv_color_hex(0x330005), 0);
+    lv_obj_set_style_border_width(m_container, 1, 0);
+    lv_obj_set_style_border_side(m_container, LV_BORDER_SIDE_BOTTOM, 0);
+    lv_obj_set_style_radius(m_container, 0, 0);
+    lv_obj_set_style_pad_hor(m_container, 12, 0);
+    lv_obj_set_style_pad_ver(m_container, 0, 0);
+#else
+    // Estilo Glassmorphism translúcido original (Isla Flotante)
+    lv_obj_set_size(m_container, LV_PCT(94), 44);
+    lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, 8);
     lv_obj_set_style_bg_color(m_container, lv_color_hex(0x1B1E29), 0);
     lv_obj_set_style_bg_opa(m_container, LV_OPA_70, 0);
     lv_obj_set_style_border_color(m_container, lv_color_hex(0x3B4252), 0);
@@ -63,6 +77,7 @@ bool HeaderBar::init(lv_obj_t* parent) {
     lv_obj_set_style_radius(m_container, 14, 0);
     lv_obj_set_style_pad_hor(m_container, 14, 0);
     lv_obj_set_style_pad_ver(m_container, 0, 0);
+#endif
 
     // Layout Flex horizontal
     lv_obj_set_flex_flow(m_container, LV_FLEX_FLOW_ROW);
@@ -79,10 +94,17 @@ bool HeaderBar::init(lv_obj_t* parent) {
     lv_obj_set_flex_align(leftBox, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
     m_btnBack = lv_button_create(leftBox);
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+    lv_obj_set_size(m_btnBack, 36, 28);
+    DefaultTheme::applyButton(m_btnBack, 6);
+    lv_obj_t* lblBack = lv_label_create(m_btnBack);
+    lv_label_set_text(lblBack, LV_SYMBOL_LEFT);
+#else
     lv_obj_set_size(m_btnBack, 84, 30);
     DefaultTheme::applyButton(m_btnBack, 10);
     lv_obj_t* lblBack = lv_label_create(m_btnBack);
     lv_label_set_text(lblBack, LV_SYMBOL_LEFT " Volver");
+#endif
     lv_obj_set_style_text_color(lblBack, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_set_style_text_font(lblBack, &lv_font_montserrat_14, 0);
     lv_obj_center(lblBack);
@@ -305,6 +327,29 @@ void HeaderBar::onThemeChanged(cbdos::theme::ThemeType theme, const cbdos::theme
     if (m_labelClock && lv_obj_is_valid(m_labelClock)) {
         lv_obj_set_style_text_color(m_labelClock, lv_color_hex(palette.textPrimary), 0);
     }
+}
+
+void HeaderBar::setMode(ViewMode mode) {
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+    // En perfil RED la HeaderBar permanece fija táctica (100% plana)
+    return;
+#else
+    if (!m_container || !lv_obj_is_valid(m_container)) return;
+
+    if (mode == ViewMode::Solid) {
+        lv_obj_set_size(m_container, LV_PCT(100), 44);
+        lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, 0);
+        lv_obj_set_style_radius(m_container, 0, 0);
+        lv_obj_set_style_bg_opa(m_container, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_side(m_container, LV_BORDER_SIDE_BOTTOM, 0);
+    } else {
+        lv_obj_set_size(m_container, LV_PCT(94), 44);
+        lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, 8);
+        lv_obj_set_style_radius(m_container, 14, 0);
+        lv_obj_set_style_bg_opa(m_container, LV_OPA_70, 0);
+        lv_obj_set_style_border_side(m_container, LV_BORDER_SIDE_FULL, 0);
+    }
+#endif
 }
 
 } // namespace ui

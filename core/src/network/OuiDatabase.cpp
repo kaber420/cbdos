@@ -6,9 +6,7 @@ namespace cbdos {
 namespace network {
 
 // Tabla estatica en Flash (.rodata): sin RAM dinamica.
-// ORDENADA ascendentemente por OUI para std::lower_bound O(log N).
-// Para regenerar/verificar el orden, ordenar por el valor de 24 bits
-// de "AA:BB:CC" como entero big-endian.
+// ORDENADA estrictamente por OUI ascendente para std::lower_bound O(log N).
 static const OuiEntry kOuiTable[] = {
     {0x00000C, "Cisco"}, // 00:00:0C
     {0x00015C, "Arris"}, // 00:01:5C
@@ -28,6 +26,7 @@ static const OuiEntry kOuiTable[] = {
     {0x00095B, "Netgear"}, // 00:09:5B
     {0x000B57, "Silicon Labs"}, // 00:0B:57
     {0x000B60, "Cisco"}, // 00:0B:60
+    {0x000B86, "Aruba Networks"}, // 00:0B:86
     {0x000C41, "Linksys"}, // 00:0C:41
     {0x000C6E, "Asus"}, // 00:0C:6E
     {0x000D3A, "Microsoft"}, // 00:0D:3A
@@ -38,6 +37,7 @@ static const OuiEntry kOuiTable[] = {
     {0x001095, "Technicolor"}, // 00:10:95
     {0x00110A, "HP"}, // 00:11:0A
     {0x001150, "Belkin"}, // 00:11:50
+    {0x00121C, "Parrot"}, // 00:12:1C
     {0x001237, "Texas Instruments"}, // 00:12:37
     {0x00125A, "Microsoft"}, // 00:12:5A
     {0x0012FB, "Samsung"}, // 00:12:FB
@@ -49,8 +49,10 @@ static const OuiEntry kOuiTable[] = {
     {0x001596, "Arris"}, // 00:15:96
     {0x001599, "Samsung"}, // 00:15:99
     {0x0017E9, "Texas Instruments"}, // 00:17:E9
+    {0x00180A, "Cisco Meraki"}, // 00:18:0A
     {0x001882, "Huawei"}, // 00:18:82
     {0x001A11, "Google"}, // 00:1A:11
+    {0x001A1E, "Aruba Networks"}, // 00:1A:1E
     {0x001AA1, "Cisco"}, // 00:1A:A1
     {0x001B2F, "Netgear"}, // 00:1B:2F
     {0x001C62, "LG"}, // 00:1C:62
@@ -58,11 +60,13 @@ static const OuiEntry kOuiTable[] = {
     {0x0022A1, "Huawei"}, // 00:22:A1
     {0x002536, "Hon Hai"}, // 00:25:36
     {0x002644, "Technicolor"}, // 00:26:44
+    {0x00267E, "Parrot"}, // 00:26:7E
     {0x002719, "TP-Link"}, // 00:27:19
     {0x00408C, "Axis"}, // 00:40:8C
     {0x00E04C, "Realtek"}, // 00:E0:4C
     {0x0418D6, "Ubiquiti"}, // 04:18:D6
     {0x085531, "MikroTik"}, // 08:55:31
+    {0x08F22A, "DJI"}, // 08:F2:2A
     {0x0C37DC, "Huawei"}, // 0C:37:DC
     {0x14CC20, "TP-Link"}, // 14:CC:20
     {0x1C5F2B, "D-Link"}, // 1C:5F:2B
@@ -71,15 +75,22 @@ static const OuiEntry kOuiTable[] = {
     {0x240AC4, "Espressif"}, // 24:0A:C4
     {0x245A4C, "Ubiquiti"}, // 24:5A:4C
     {0x246F28, "Espressif"}, // 24:6F:28
+    {0x24DEC6, "Aruba Networks"}, // 24:DE:C6
     {0x28107B, "D-Link"}, // 28:10:7B
     {0x281878, "Microsoft"}, // 28:18:78
     {0x286B7C, "Cisco"}, // 28:6B:7C
     {0x286C07, "Xiaomi"}, // 28:6C:07
+    {0x289C8E, "Autel Robotics"}, // 28:9C:8E
+    {0x28CD1C, "Espressif"}, // 28:CD:1C
+    {0x28CDC1, "Raspberry Pi"}, // 28:CD:C1
     {0x2C56DC, "Asus"}, // 2C:56:DC
+    {0x2CAA8E, "Wyze Labs"}, // 2C:AA:8E
     {0x2CC81B, "MikroTik"}, // 2C:C8:1B
     {0x30AEA4, "Espressif"}, // 30:AE:A4
+    {0x3456FE, "Cisco Meraki"}, // 34:56:FE
     {0x3480B3, "Xiaomi"}, // 34:80:B3
     {0x34B1F7, "Texas Instruments"}, // 34:B1:F7
+    {0x34D262, "DJI"}, // 34:D2:62
     {0x34D270, "Amazon"}, // 34:D2:70
     {0x3C0630, "Apple"}, // 3C:06:30
     {0x3C1710, "Sagemcom"}, // 3C:17:10
@@ -90,17 +101,22 @@ static const OuiEntry kOuiTable[] = {
     {0x3CE524, "Dahua"}, // 3C:E5:24
     {0x40CBC0, "Apple"}, // 40:CB:C0
     {0x4419B6, "Hikvision"}, // 44:19:B6
+    {0x446869, "DJI"}, // 44:68:69
+    {0x4810E1, "DJI"}, // 48:10:E1
     {0x4846FB, "Huawei"}, // 48:46:FB
     {0x4C11BF, "Dahua"}, // 4C:11:BF
     {0x50C7BF, "TP-Link"}, // 50:C7:BF
     {0x543204, "Espressif"}, // 54:32:04
     {0x546009, "Google"}, // 54:60:09
+    {0x54C415, "Hikvision"}, // 54:C4:15
     {0x58238C, "Linksys"}, // 58:23:8C
     {0x5855CA, "Apple"}, // 58:55:CA
     {0x588D09, "Cisco"}, // 58:8D:09
     {0x5C6A80, "ZyXEL"}, // 5C:6A:80
     {0x5C8D4E, "Samsung"}, // 5C:8D:4E
     {0x605718, "Murata"}, // 60:57:18
+    {0x60601F, "DJI"}, // 60:60:1F
+    {0x606405, "DJI"}, // 60:64:05
     {0x640980, "Xiaomi"}, // 64:09:80
     {0x6837E9, "Amazon"}, // 68:37:E9
     {0x687251, "Ubiquiti"}, // 68:72:51
@@ -108,6 +124,7 @@ static const OuiEntry kOuiTable[] = {
     {0x6C3B6B, "MikroTik"}, // 6C:3B:6B
     {0x70105C, "Cisco"}, // 70:10:5C
     {0x7014A6, "Hon Hai"}, // 70:14:A6
+    {0x70529A, "Skydio"}, // 70:52:9A
     {0x707BE8, "Huawei"}, // 70:7B:E8
     {0x74C246, "Amazon"}, // 74:C2:46
     {0x7811DC, "Xiaomi"}, // 78:11:DC
@@ -117,6 +134,9 @@ static const OuiEntry kOuiTable[] = {
     {0x788A20, "Ubiquiti"}, // 78:8A:20
     {0x7C034E, "Sagemcom"}, // 7C:03:4E
     {0x7C70DB, "Intel"}, // 7C:70:DB
+    {0x7C78B2, "Wyze Labs"}, // 7C:78:B2
+    {0x8048DE, "Autel Robotics"}, // 80:48:DE
+    {0x8080C0, "Flipper Devices"}, // 80:80:C0
     {0x84CCA8, "Espressif"}, // 84:CC:A8
     {0x84D81B, "TP-Link"}, // 84:D8:1B
     {0x84FD27, "Silicon Labs"}, // 84:FD:27
@@ -124,13 +144,16 @@ static const OuiEntry kOuiTable[] = {
     {0x8CAAB5, "Espressif"}, // 8C:AA:B5
     {0x8CF5A3, "Samsung"}, // 8C:F5:A3
     {0x9002A9, "Dahua"}, // 90:02:A9
+    {0x9003B7, "Parrot"}, // 90:03:B7
     {0x90A2DA, "Arduino"}, // 90:A2:DA
+    {0x94B40F, "Aruba Networks"}, // 94:B4:0F
     {0xA0510B, "Intel"}, // A0:51:0B
     {0xA42B8C, "TP-Link"}, // A4:2B:8C
     {0xA4B805, "Apple"}, // A4:B8:05
     {0xA4CF12, "Espressif"}, // A4:CF:12
     {0xA8610A, "Arduino"}, // A8:61:0A
     {0xAC220B, "Asus"}, // AC:22:0B
+    {0xAC6BAC, "DJI"}, // AC:6B:AC
     {0xACBC32, "Apple"}, // AC:BC:32
     {0xACCC8E, "Axis"}, // AC:CC:8E
     {0xB0AA77, "Cisco"}, // B0:AA:77
@@ -144,6 +167,7 @@ static const OuiEntry kOuiTable[] = {
     {0xC03F0E, "Netgear"}, // C0:3F:0E
     {0xC056E3, "Hikvision"}, // C0:56:E3
     {0xC0A0BB, "D-Link"}, // C0:A0:BB
+    {0xC42F90, "Hikvision"}, // C4:2F:90
     {0xC43DC7, "Netgear"}, // C4:3D:C7
     {0xC44F33, "Espressif"}, // C4:4F:33
     {0xC83A35, "Tenda"}, // C8:3A:35
@@ -153,9 +177,13 @@ static const OuiEntry kOuiTable[] = {
     {0xD4CA6D, "MikroTik"}, // D4:CA:6D
     {0xD8132A, "Espressif"}, // D8:13:2A
     {0xD83ADD, "Raspberry Pi"}, // D8:3A:DD
+    {0xD8A011, "Espressif"}, // D8:A0:11
     {0xDCA632, "Raspberry Pi"}, // DC:A6:32
+    {0xE0553D, "Cisco Meraki"}, // E0:55:3D
     {0xE05A1B, "Espressif"}, // E0:5A:1B
     {0xE063DA, "Ubiquiti"}, // E0:63:DA
+    {0xE0B6F5, "Yuneec"}, // E0:B6:F5
+    {0xE42133, "Skydio"}, // E4:21:33
     {0xE45F01, "Raspberry Pi"}, // E4:5F:01
     {0xE48D8C, "MikroTik"}, // E4:8D:8C
     {0xE4C32A, "TP-Link"}, // E4:C3:2A
@@ -168,6 +196,7 @@ static const OuiEntry kOuiTable[] = {
     {0xF4F15A, "Apple"}, // F4:F1:5A
     {0xF4F5DB, "Google"}, // F4:F5:DB
     {0xFCECDA, "Ubiquiti"}, // FC:EC:DA
+    {0xFCF5C4, "Espressif"}, // FC:F5:C4
 };
 
 static constexpr std::size_t kOuiTableSize =

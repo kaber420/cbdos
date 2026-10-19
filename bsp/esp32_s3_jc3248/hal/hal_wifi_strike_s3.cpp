@@ -1,0 +1,222 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include <esp_random.h>
+
+#include <cstdio>
+
+#include "cbdos/system.hpp"
+#include "cbdos/wifi_radio.hpp"
+
+namespace cbdos {
+namespace bsp {
+
+static const char* TAG_STRIKE_S3 = "HAL_STRIKE_S3";
+
+using wifi::IWifiStrikeRadio;
+using wifi::RadioResult;
+using wifi::StrikeRadioState;
+using wifi::TxFrameParams;
+
+// ===========================================================================
+// Radio Wi-Fi Strike sobre el controlador del ESP32-S3
+// ===========================================================================
+//
+// La inyeccion usa esp_wifi_80211_tx() con la interfaz STA en modo broadcast
+// de sistema desactivado: es la misma via que GhostESP y Marauder usan para
+// el beacon spam y la unica que permite sacar del controlador una trama de
+// gestion 802.11 completa tal cual la ha construido BeaconEmitter.
+//
+// Requisitos del controlador, aplicados en init():
+//   - modo STA: esp_wifi_80211_tx() no acepta tramas crudas si la interfaz es
+//     AP con cliente asociado, y el beacon spam corre sin SoftAP propia.
+//   - promiscuo: sin el, el controlador descarta el paquete antes de emitirlo.
+//   - almacenamiento en RAM: esp_wifi_80211_tx() escribe la trama en la
+//     flash si el stack esta en WIFI_STORAGE_FLASH. Con el beacon spam eso son
+//     decenas de escrituras por segundo y deja la flash inservible en minutos.
+//     Por eso el modo de la cabecera de red se pone a RAM al arrancar y se
+//     restaura en shutdown().
+// ===========================================================================
+
+class WifiStrikeRadioS3 : public IWifiStrikeRadio {
+public:
+    bool isAvailable() const override {
+        // El ESP32-S3 siempre trae radio 2.4 GHz integrated; no hay un path de
+        // compilacion donde este target no la tenga.
+        return true;
+    }
+
+    RadioResult init() override {
+        if (m_state == StrikeRadioState::Emitting) return RadioResult::Ok;
+
+        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+        esp_err_t err = esp_wifi_init(&cfg);
+        // ESP_ERR_INVALID_STATE = el stack ya lo arranco otro consumidor
+        // (Air Recon, SoftAP del portal, cliente STA). Es el caso normal.
+        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+            return setError(RadioResult::HardwareError, "esp_wifi_init fallo");
+        }
+        m_initialized = true;
+
+        err = esp_wifi_set_mode(WIFI_MODE_STA);
+        if (err != ESP_OK) {
+            return setError(RadioResult::HardwareError, "esp_wifi_set_mode(STA) fallo");
+        }
+
+        err = esp_wifi_start();
+        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+            return setError(RadioResult::NotReady, "esp_wifi_start fallo");
+        }
+
+        // La trama se inyecta desde RAM: sin esto cada beacon acaba en la flash.
+        if (esp_wifi_set_storage(WIFI_STORAGE_RAM) != ESP_OK) {
+            return setError(RadioResult::HardwareError, "esp_wifi_set_storage(RAM) fallo");
+        }
+        m_storageIsRam = true;
+
+        err = esp_wifi_set_promiscuous(true);
+        if (err != ESP_OK) {
+            return setError(RadioResult::HardwareError, "esp_wifi_set_promiscuous fallo");
+        }
+        m_promiscuous = true;
+
+        setState(StrikeRadioState::Idle);
+        cbdos::system::log(cbdos::system::LogLevel::Info, TAG_STRIKE_S3,
+                           "Radio Wi-Fi Strike lista (STA + promiscuo, TX en RAM)");
+        return RadioResult::Ok;
+    }
+
+    RadioResult txFrame(const uint8_t* data, size_t len,
+                        const TxFrameParams& params) override {
+        if (data == nullptr || len == 0) {
+            return setError(RadioResult::InvalidArg, "trama vacia");
+        }
+        if (!m_initialized) {
+            return setError(RadioResult::NotReady, "init() no llamado");
+        }
+        if (len > kMaxTxFrameSize) {
+            return setError(RadioResult::InvalidArg, "trama mayor que el tope del controlador");
+        }
+
+        const wifi_interface_t iface =
+            (params.iface == 1) ? WIFI_IF_AP : WIFI_IF_STA;
+        setState(StrikeRadioState::Emitting);
+
+        const esp_err_t err = esp_wifi_80211_tx(iface, data, static_cast<int>(len), params.enSys);
+        if (err == ESP_OK) return RadioResult::Ok;
+        if (err == ESP_ERR_NO_MEM) {
+            // Sin buffers de TX: el emisor reintenta tras su pausa.
+            return setError(RadioResult::NoMemory, "sin buffers de TX");
+        }
+        return setError(RadioResult::HardwareError, "esp_wifi_80211_tx fallo");
+    }
+
+    RadioResult setChannel(uint8_t channel) override {
+        if (channel == 0) {
+            return setError(RadioResult::InvalidArg, "canal 0");
+        }
+        if (!m_initialized) {
+            return setError(RadioResult::NotReady, "init() no llamado");
+        }
+        // WIFI_SECOND_CHAN_NONE: sin HT40. El beacon spam necesita el canal
+        // primario exacto que anuncia el DS Parameter Set de cada baliza.
+        if (esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE) != ESP_OK) {
+            return setError(RadioResult::HardwareError, "esp_wifi_set_channel fallo");
+        }
+        m_channel = channel;
+        return RadioResult::Ok;
+    }
+
+    uint8_t getChannel() const override {
+        uint8_t primary = 0;
+        wifi_second_chan_t second = WIFI_SECOND_CHAN_NONE;
+        if (esp_wifi_get_channel(&primary, &second) == ESP_OK) {
+            return primary;
+        }
+        return m_channel;
+    }
+
+    RadioResult getMac(uint8_t* out) const override {
+        if (out == nullptr) {
+            return RadioResult::InvalidArg;
+        }
+        if (esp_wifi_get_mac(WIFI_IF_STA, out) != ESP_OK) {
+            return setError(RadioResult::HardwareError, "esp_wifi_get_mac fallo");
+        }
+        return RadioResult::Ok;
+    }
+
+    RadioResult getRandom(uint8_t* out, size_t len) override {
+        if (out == nullptr || len == 0) {
+            return RadioResult::InvalidArg;
+        }
+        esp_fill_random(out, len);
+        return RadioResult::Ok;
+    }
+
+    bool isStaConnected() const override {
+        wifi_ap_record_t ap;
+        return esp_wifi_sta_get_ap_info(&ap) == ESP_OK;
+    }
+
+    StrikeRadioState getState() const override {
+        return m_state;
+    }
+
+    void shutdown() override {
+        if (m_promiscuous) {
+            esp_wifi_set_promiscuous(false);
+            m_promiscuous = false;
+        }
+        if (m_storageIsRam) {
+            esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+            m_storageIsRam = false;
+        }
+        m_initialized = false;
+        m_channel = 0;
+        setState(StrikeRadioState::Idle);
+        cbdos::system::log(cbdos::system::LogLevel::Info, TAG_STRIKE_S3,
+                           "Radio Wi-Fi Strike devuelta a modo normal");
+    }
+
+    const char* getLastError() const override {
+        return m_lastError;
+    }
+
+private:
+    // El controlador ESP32 no admite tramas mas largas que el buffer de TX
+    // interno (la trama beacon completa mide 104 bytes como maximo).
+    static constexpr size_t kMaxTxFrameSize = 1600;
+
+    void setState(StrikeRadioState state) {
+        if (m_state == state) return;
+        m_state = state;
+        wifi::notifyStrikeRadioState(state);
+    }
+
+    RadioResult setError(RadioResult result, const char* reason) const {
+        snprintf(m_lastError, sizeof(m_lastError), "%s (%s)", reason,
+                 wifi::getRadioResultName(result));
+        cbdos::system::log(cbdos::system::LogLevel::Warn, TAG_STRIKE_S3, "%s",
+                           m_lastError);
+        return result;
+    }
+
+    mutable char m_lastError[96] = {0};
+    bool m_initialized = false;
+    bool m_promiscuous = false;
+    bool m_storageIsRam = false;
+    uint8_t m_channel = 0;
+    StrikeRadioState m_state = StrikeRadioState::Idle;
+};
+
+static WifiStrikeRadioS3 s_strikeRadioS3;
+
+void initWifiStrikeS3() {
+    wifi::registerStrikeRadio(&s_strikeRadioS3);
+    cbdos::system::log(cbdos::system::LogLevel::Info, TAG_STRIKE_S3,
+                       "Radio Wi-Fi Strike registrada (esp_wifi_80211_tx)");
+}
+
+} // namespace bsp
+} // namespace cbdos

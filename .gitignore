@@ -101,6 +101,7 @@ tools/tlvgl_gateway/clients.db
 tools/meshcore_upstream/
 external/
 poseidon/
+references/
 
 # --- Svelte Web & Python Venv ---
 site/node_modules/
@@ -109,3 +110,4 @@ dist/
 .venv/
 
 
+scratch/JC3248W535EN_LCD.zip

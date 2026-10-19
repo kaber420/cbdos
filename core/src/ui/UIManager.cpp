@@ -1,5 +1,6 @@
 #include "UIManager.hpp"
 #include "WallpaperManager.h"
+#include "components/AnimatedWallpaper.hpp"
 #include "themes/DefaultTheme.h"
 #include "assets/SystemIcons.hpp"
 #include "cbdos/system.hpp"
@@ -121,27 +122,16 @@ bool UIManager::init(lv_obj_t* rootScreen) {
     });
 #endif
 
-    // 5. Crear Contenedor de Contenido (Debajo de la HeaderBar flotante de 44px + margen)
+    // 5. Crear Contenedor de Contenido (Alineado dinámicamente según ViewMode)
     m_contentContainer = lv_obj_create(m_rootScreen);
-    lv_obj_set_pos(m_contentContainer, 0, 58);
     lv_obj_set_width(m_contentContainer, lv_pct(100));
-
-    int32_t screenHeight = 800;
-    lv_display_t* disp = lv_display_get_default();
-    if (disp) {
-        screenHeight = lv_display_get_vertical_resolution(disp);
-    } else if (m_rootScreen) {
-        screenHeight = lv_obj_get_height(m_rootScreen);
-        if (screenHeight <= 0) screenHeight = 800;
-    }
-    lv_obj_set_height(m_contentContainer, screenHeight - 58);
-    lv_obj_set_style_bg_opa(m_contentContainer, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(m_contentContainer, 0, 0);
     lv_obj_set_style_pad_all(m_contentContainer, 0, 0);
     lv_obj_set_style_radius(m_contentContainer, 0, 0);
     // Propaga texto claro a todas las vistas hijas
     lv_obj_set_style_text_color(m_contentContainer, lv_color_hex(palette.textPrimary), 0);
     lv_obj_remove_flag(m_contentContainer, LV_OBJ_FLAG_SCROLLABLE);
+    applyViewMode(ViewMode::Translucent);
 
     // 6. Suscribir a cambios de tema
     ThemeEngine::getInstance().registerCallback([this](cbdos::theme::ThemeType theme, const cbdos::theme::ThemePalette& pal) {
@@ -307,6 +297,63 @@ void UIManager::openKeyboard(lv_obj_t* ta) {
     lv_obj_send_event(ta, LV_EVENT_FOCUSED, NULL);
 }
 
+void UIManager::applyViewMode(ViewMode mode) {
+    if (!m_contentContainer || !lv_obj_is_valid(m_contentContainer)) return;
+
+    int32_t screenHeight = 800;
+    lv_display_t* disp = lv_display_get_default();
+    if (disp) {
+        screenHeight = lv_display_get_vertical_resolution(disp);
+    } else if (m_rootScreen) {
+        screenHeight = lv_obj_get_height(m_rootScreen);
+        if (screenHeight <= 0) screenHeight = 800;
+    }
+
+    const auto& palette = ThemeEngine::getInstance().getPalette();
+    m_headerBar.setMode(mode);
+
+    switch (mode) {
+        case ViewMode::Translucent: {
+            if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
+                lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
+            }
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+            lv_obj_set_pos(m_contentContainer, 0, 38);
+            lv_obj_set_height(m_contentContainer, screenHeight - 38);
+#else
+            lv_obj_set_pos(m_contentContainer, 0, 58);
+            lv_obj_set_height(m_contentContainer, screenHeight - 58);
+#endif
+            lv_obj_set_style_bg_opa(m_contentContainer, LV_OPA_TRANSP, 0);
+            break;
+        }
+        case ViewMode::Solid: {
+            if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
+                lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
+            }
+            int32_t headerHeight = 38;
+#if !defined(CONFIG_CBDOS_PROFILE_RED) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+            headerHeight = 44;
+#endif
+            lv_obj_set_pos(m_contentContainer, 0, headerHeight);
+            lv_obj_set_height(m_contentContainer, screenHeight - headerHeight);
+            lv_obj_set_style_bg_color(m_contentContainer, lv_color_hex(palette.bg), 0);
+            lv_obj_set_style_bg_opa(m_contentContainer, LV_OPA_COVER, 0);
+            break;
+        }
+        case ViewMode::Immersive: {
+            if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
+                lv_obj_add_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
+            }
+            lv_obj_set_pos(m_contentContainer, 0, 0);
+            lv_obj_set_height(m_contentContainer, screenHeight);
+            lv_obj_set_style_bg_color(m_contentContainer, lv_color_hex(palette.bg), 0);
+            lv_obj_set_style_bg_opa(m_contentContainer, LV_OPA_COVER, 0);
+            break;
+        }
+    }
+}
+
 void UIManager::pushView(std::shared_ptr<BaseView> view) {
     if (!view) return;
 
@@ -319,6 +366,15 @@ void UIManager::pushView(std::shared_ptr<BaseView> view) {
     }
 
     m_viewStack.push_back(view);
+
+    // 1. Adaptar HeaderBar y geometría según ViewMode
+    applyViewMode(view->getViewMode());
+
+    // 2. Control de Ciclos de CPU: Pausar Wallpaper animado en modo Solid/Immersive
+    if (view->getViewMode() == ViewMode::Solid || view->getViewMode() == ViewMode::Immersive) {
+        AnimatedWallpaper::getInstance().stop();
+    }
+
     view->onCreate(m_contentContainer);
     view->onShow();
 
@@ -350,6 +406,17 @@ void UIManager::popView() {
 
     if (!m_viewStack.empty()) {
         auto current = m_viewStack.back();
+
+        // 1. Restaurar modo de vista de la vista padre
+        applyViewMode(current->getViewMode());
+
+        // 2. Si regresamos a Translucent, reanudar wallpaper animado
+        if (current->getViewMode() == ViewMode::Translucent) {
+            if (WallpaperManager::getInstance().isAnimated()) {
+                AnimatedWallpaper::getInstance().start();
+            }
+        }
+
         current->onShow();
         if (m_viewStack.size() == 1) {
             m_headerBar.setTitle("CBDos");

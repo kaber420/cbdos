@@ -41,6 +41,7 @@ namespace bsp {
     void initNetworkAdapterP4();
     void init_lan_recon_p4();
     void initRadioBackendP4();
+    void initWifiStrikeP4();
     void initUsbHostBackendP4();
     void initSystemConsoleP4();
     cbdos::time::ITimeProvider* getEspIdfTimeProvider();
@@ -81,6 +82,9 @@ extern "C" void app_main(void) {
     cbdos::bsp::initSocketBackendP4();
     cbdos::bsp::initSshBackendP4();
     cbdos::bsp::initRadioBackendP4();
+    // Stub de Wi-Fi Strike: el P4 no tiene radio integrada, pero registrarlo
+    // permite a la UI consultar la disponibilidad sin comprobar nullptr.
+    cbdos::bsp::initWifiStrikeP4();
     cbdos::bsp::initMeshTransportP4();
     cbdos::bsp::initHttpClientP4();
     cbdos::bsp::init_lan_recon_p4();

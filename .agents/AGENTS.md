@@ -24,7 +24,12 @@
        - Flash y Monitor: `. /home/kaber420/esp/esp-idf/export.sh && idf.py -C bsp/esp32_p4_jc4880 -p /dev/ttyACM0 flash monitor`
      - **ESP32-S3 (PlatformIO):**
        - Build: `pio run -d bsp/esp32_s3_jc3248`
-       - Flash: `pio run -d bsp/esp32_s3_jc3248 -t upload`
+       - Flash: `pio run -d bsp/esp32_s3_jc3248 -t upload` (o con `-e <env>` ej: `-e esp32s3_red -t upload`)
+   - **Flasheo Automático 100% Manos Libres (Zero Botones Físicos en S3):**
+     - La placa JC3248W535 tiene configurado en `platformio.ini` los flags `--before=usb_reset --after=watchdog-reset`.
+     - **ESTRICTAMENTE PROHIBIDO** pedir al usuario pulsar botones físicos (`BOOT`/`RST`) o manipular el hardware.
+     - **ESTRICTAMENTE PROHIBIDO** invocar `esptool` manualmente por CLI o enviar comandos serie como `CBDOS:BOOTLOADER` antes de flashear: esto bloquea el endpoint nativo USB-Serial-JTAG con `[Errno 71] Protocol error` en Linux.
+     - El flasheo en S3 se debe ejecutar directa y exclusivamente mediante PlatformIO (`pio run -d bsp/esp32_s3_jc3248 [-e <env>] -t upload`) contra el firmware en ejecución, dejando que el reset CDC USB nativo opere automáticamente.
    - **Depuración en Caliente:** Usar la consola interactiva por puerto serie para validar APIs y comandos en caliente (`/dev/ttyACM0`). Evitar el ciclo lento de compilar y flashear repetitivamente para pruebas menores.
 
 4. **Desacoplamiento y Sistema Reactivo:**
@@ -35,7 +40,15 @@
    - El CLI de opencode se encuentra en `/home/kaber420/.opencode/bin/opencode`.
    - Para evaluar planes o archivos con un modelo específico, ejecutar en background:
      `/home/kaber420/.opencode/bin/opencode run -m "<provider/model>" "<prompt>"`
-   - Los modelos preferidos (como los de Muse Spark) son:
-     - `opencode/muse-spark-1.2-contributor-free`
-     - `opencode/muse-spark-1.3-contributor-free`
-   - Para listar modelos disponibles: `/home/kaber420/.opencode/bin/opencode models`
+   - Los modelos activos recomendados son:
+     - `opencode/glm-5.3-flash-free` (rápido, excelente auditor de código C++ y arquitectura)
+     - `opencode/deepseek-v4.1-flash-free` (análisis profundo y razonamiento lógico)
+     - `opencode/nemotron-3.5-lightning-free` (ultra rápido para revisiones sintácticas)
+     - Otros disponibles: `opencode/mimo-v2.6-flash-free`, `opencode/space-bunny-free`, `opencode/longcat-2.5-preview-free`
+   - Para listar modelos disponibles en cualquier momento: `/home/kaber420/.opencode/bin/opencode models`
+
+6. **Prohibición Absoluta de Simulaciones, Mocks Falsos y Datos de Engaño:**
+   - **Tolerancia Cero al Engaño:** Queda terminantemente prohibido escribir generadores de datos falsos, pulsos de tráfico simulado (`triggerSimulatedPulse`), datos inventados ("mock beacons", datos quemados en código para aparentar funcionalidad) o cualquier artificio que finja la operación de hardware o transceptores.
+   - **Hardware Real u Honestidad Absoluta:** Todo código, servicio y vista debe comunicarse con los periféricos y transceptores físicos reales (Wi-Fi promiscuo, escáner GAP BLE, buses UART/SPI/I2C).
+   - Si el hardware no ha recibido tráfico o el transceptor está inactivo, el sistema debe mostrar con total honestidad 0 dispositivos o el estado inactivo. Está prohibido falsear demostraciones.
+

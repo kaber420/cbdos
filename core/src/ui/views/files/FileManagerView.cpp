@@ -4,7 +4,9 @@
 #include "TextEditorView.hpp"
 #include "LuaRunnerView.hpp"
 #include "MusicPlayerView.hpp"
+#if CBDOS_FEATURE_CARTRIDGE
 #include "CartridgeView.hpp"
+#endif
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/display.hpp"
@@ -586,8 +588,12 @@ void FileManagerView::itemClickCb(lv_event_t* e) {
             UIManager::showToast("Abriendo reproductor de musica...");
             UIManager::getInstance().pushView(std::make_shared<MusicPlayerView>());
         } else if (ext == ".wad" || ext == ".gbc" || ext == ".gb") {
+#if CBDOS_FEATURE_CARTRIDGE
             UIManager::showToast("Abriendo Cartuchos...");
             UIManager::getInstance().pushView(std::make_shared<CartridgeView>());
+#else
+            UIManager::showToast("Cartuchos no disponibles en este perfil");
+#endif
         } else {
             char msg[96];
             snprintf(msg, sizeof(msg), "Archivo: %s (%s)", item.name.c_str(), formatBytes(item.size).c_str());

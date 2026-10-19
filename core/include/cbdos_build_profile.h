@@ -34,6 +34,7 @@
     #define CBDOS_FEATURE_TABLEHUB_MQTT 1
     #define CBDOS_FEATURE_SDR           0
     #define CBDOS_FEATURE_REST_PROBER   0
+    #define CBDOS_FEATURE_MULTIMEDIA    0
 
     #if defined(CONFIG_TABLEHUB_MODE_KDS)
         #define CBDOS_PROFILE_NAME      "TableHub KDS"
@@ -61,6 +62,7 @@
 
     #if defined(CONFIG_CBDOS_PROFILE_LITE)
         #define CBDOS_PROFILE_NAME      "Cyberdeck Lite"
+        #define CBDOS_FEATURE_MULTIMEDIA 0
         #define CBDOS_FEATURE_TERMINAL  1
         #define CBDOS_FEATURE_FLASHER   0
         #define CBDOS_FEATURE_LAN_RECON 0
@@ -70,11 +72,35 @@
         #define CBDOS_FEATURE_LUA       0
         #define CBDOS_FEATURE_SDR       0
         #define CBDOS_FEATURE_REST_PROBER 0
+        #define CBDOS_FEATURE_WIFI_SHIELD 0
+        #define CBDOS_FEATURE_BLE_SHIELD  0
+        #define CBDOS_FEATURE_WIFI_STRIKE 0
+        #define CBDOS_FEATURE_BLE_STRIKE  0
+
+    #elif defined(CONFIG_CBDOS_PROFILE_RED)
+        #define CBDOS_PROFILE_NAME      "Cyberdeck Red"
+        #define CBDOS_THEME_DEFAULT_ACCENT 0xE63946
+        #define CBDOS_FEATURE_MULTIMEDIA 0
+        #define CBDOS_FEATURE_TERMINAL  1
+        #define CBDOS_FEATURE_FLASHER   1
+        #define CBDOS_FEATURE_LAN_RECON 1
+        #define CBDOS_FEATURE_REST_PROBER 1
+        #define CBDOS_FEATURE_CARTRIDGE 0
+        #define CBDOS_FEATURE_PICOTTS   0
+        #define CBDOS_FEATURE_HELIX_CODECS 0
+        #define CBDOS_FEATURE_LUA       1
+        #define CBDOS_FEATURE_SDR       1
+        #define CBDOS_FEATURE_WIFI_SHIELD 1
+        #define CBDOS_FEATURE_BLE_SHIELD  1
+        #define CBDOS_FEATURE_WIFI_STRIKE 1
+        #define CBDOS_FEATURE_BLE_STRIKE  1
+
     #else
         #ifndef CONFIG_CBDOS_PROFILE_FULL
             #define CONFIG_CBDOS_PROFILE_FULL 1
         #endif
         #define CBDOS_PROFILE_NAME      "Cyberdeck Full"
+        #define CBDOS_FEATURE_MULTIMEDIA 1
         #define CBDOS_FEATURE_TERMINAL  1
         #define CBDOS_FEATURE_FLASHER   1
         #define CBDOS_FEATURE_LAN_RECON 1
@@ -89,6 +115,10 @@
         #else
             #define CBDOS_FEATURE_SDR   0
         #endif
+        #define CBDOS_FEATURE_WIFI_SHIELD 1
+        #define CBDOS_FEATURE_BLE_SHIELD  1
+        #define CBDOS_FEATURE_WIFI_STRIKE 1
+        #define CBDOS_FEATURE_BLE_STRIKE  1
     #endif
 
 #endif

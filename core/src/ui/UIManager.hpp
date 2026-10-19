@@ -44,6 +44,7 @@ public:
 
     HeaderBar& getHeaderBar() { return m_headerBar; }
     lv_obj_t* getContentContainer() const { return m_contentContainer; }
+    void applyViewMode(ViewMode mode);
 
 private:
     UIManager();
