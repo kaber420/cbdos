@@ -10,8 +10,8 @@ namespace ble {
 static const char* TAG_BLE_TX = "BLE_TX";
 
 // Task stack: el ciclo de TX llama a BlePayloadRegistry y al stack NimBLE/HCI.
-// 8192 bytes previenen cualquier desbordamiento de pila en FreeRTOS.
-static constexpr uint32_t kTxTaskStack = 8192;
+// 4096 bytes previenen desbordamiento y caben sin fragmentar SRAM.
+static constexpr uint32_t kTxTaskStack = 4096;
 
 BleTransmitter& BleTransmitter::getInstance() {
     static BleTransmitter instance;

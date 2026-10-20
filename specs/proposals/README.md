@@ -17,6 +17,7 @@ Este directorio almacena las especificaciones de diseño, borradores de arquitec
 | **Pasarela USB ↔ ESP-NOW Gateway** | Módem firmware C3, protocolo serial `0xAA 0x55` y pasarela Python/CBDos. | 🔬 En investigación | [`../network/plan_espnow_usb_bridge.md`](../network/plan_espnow_usb_bridge.md) |
 | **Monitor RAW 802.15.4** | Capturador y analizador de paquetes Thread / Zigbee directo en coprocesador C6. | 💡 Propuesta / Borrador | [`../drafts/draft_raw_802_15_4_protocol_design.md`](../drafts/draft_raw_802_15_4_protocol_design.md) |
 | **Suite de Diagnóstico de Red & LAN Recon** | Primitivas modulares HAL (Ping, ARP, Port Probe, OUI Vendor) + App gráfica interactiva LVGL 9.5 y automatización Lua. | 💡 Propuesta Formal | [`proposal_network_diagnostics_and_lan_recon_suite.md`](proposal_network_diagnostics_and_lan_recon_suite.md) |
+| **Suite de Certificación de Cables Ethernet (TDR/BERT/PoE) & Inspector de Puerto** | Reflectometría TDR (distancia al fallo en metros), prueba de frecuencia BERT 10M/100M, medidor PoE (24V MikroTik / 48V 802.3af/at), generador de tonos e inspector MNDP/LLDP/Rogue DHCP. | 💡 Propuesta Formal | [`proposal_ethernet_cable_tdr_and_port_tester.md`](proposal_ethernet_cable_tdr_and_port_tester.md) |
 
 ---
 
@@ -59,6 +60,7 @@ Este directorio almacena las especificaciones de diseño, borradores de arquitec
 | Propuesta | Descripción | Estado | Archivo |
 | :--- | :--- | :--- | :--- |
 | **Perfiles de Compilación y Subconjuntos Modulares** | Sistema de flags de build (`FULL`, `KIOSK`, `LITE`) para generar binarios dedicados (como quioscos TableHub o chips de baja memoria) sin bifurcar el código base. | 💡 Propuesta Formal | [`proposal_build_profiles_and_modular_subsets.md`](proposal_build_profiles_and_modular_subsets.md) |
+| **Screen Share & Grabador de Pantalla en PC** | Streaming de la pantalla LVGL 9.5 por USB/Wi-Fi (Delta+RLE en S3 y Hardware JPEG Encoder en P4) con grabador `.mp4`/OBS y control táctil remoto desde PC. | 💡 Propuesta Formal | [`proposal_screen_share_and_pc_recorder.md`](proposal_screen_share_and_pc_recorder.md) |
 
 
 ---
