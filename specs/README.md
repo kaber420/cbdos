@@ -45,6 +45,7 @@ specs/
 ### 3. 🔌 [Hardware y Pinouts (`docs/hardware/`)](hardware/)
 * **[Hito Técnico: Programador de Campo Autónomo USB-C](hardware/usb_c_field_flasher_milestone.md):** Evidencia en hardware real del flasheo autónomo de ESP32-C3 desde el ESP32-P4 por cable Tipo-C con Auto-Bootloader por hardware.
 * **[Mapa Completo de Pines y Puertos](hardware/pinouts_and_ports.md):** Pinouts GPIO de placas ESP32-P4 (JC4880) y ESP32-S3 (JC3248), pines del conector JP1, buses I2C/I2S/SPI y tabla de pines UART/Flasheador.
+* **[Medición Real de Batería (IP5306 + ADC) e Integración HeaderBar](hardware/battery_ip5306_measurement_and_headerbar_spec.md):** Caracterización matemática del divisor R52 (68k) / R57 (100k) en GPIO 53, comportamiento del PMU IP5306 y diseño del indicador en HeaderBar.
 * **[Resumen de Hardware y Backups](hardware/hardware_summary.md):** Especificaciones de memoria Flash, PSRAM y periféricos soportados.
 
 ---

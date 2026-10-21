@@ -36,7 +36,7 @@ Periféricos soldados fijos en el PCB. Manejados por drivers del SO (`system:*`)
 | | **SDMMC CLK** | **GPIO 43** | Reloj SDMMC | 20 / 40 MHz |
 | | **SDMMC CMD** | **GPIO 44** | Línea de Comando | Pull-up integrado |
 | | **Alimentación MicroSD** | LDO VO4 (3.3V) | Regulador interno ESP32-P4 | Conmutado vía MOSFET Q1 |
-| **Sensor de Batería** | **BAT_ADC** | **GPIO 53** | Entrada Analógica (ADC) | Divisor resistivo R52 (68k) / R57 (100k) |
+| **Sensor de Batería** | **BAT_ADC** | **GPIO 53** | Entrada Analógica (ADC) | Divisor resistivo R52 (68k) / R57 (100k) a celda `BAT+`. Ver [especificación técnica](battery_ip5306_measurement_and_headerbar_spec.md). |
 | **Coprocesador C6 (Interno U3)** | **SDIO D0..D3** | **GPIO 14, 15, 16, 17** | Bus SDIO interno | Comunicación de alta velocidad (oculta en módulo) |
 | | **SDIO CLK / CMD** | **GPIO 18 / 19** | Reloj y Comando | Bus SDIO interno hacia C6 |
 | | **Reset / Power-Down C6** | **GPIO 54** | Salida Digital (`C6_CHIP_PU`) | Control de reset y bajo consumo del C6 (carril 3.3V es permanente vía TLV62569) |
