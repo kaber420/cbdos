@@ -17,6 +17,8 @@ Este directorio almacena las especificaciones de diseño, borradores de arquitec
 | **Pasarela USB ↔ ESP-NOW Gateway** | Módem firmware C3, protocolo serial `0xAA 0x55` y pasarela Python/CBDos. | 🔬 En investigación | [`../network/plan_espnow_usb_bridge.md`](../network/plan_espnow_usb_bridge.md) |
 | **Monitor RAW 802.15.4** | Capturador y analizador de paquetes Thread / Zigbee directo en coprocesador C6. | 💡 Propuesta / Borrador | [`../drafts/draft_raw_802_15_4_protocol_design.md`](../drafts/draft_raw_802_15_4_protocol_design.md) |
 | **Suite de Diagnóstico de Red & LAN Recon** | Primitivas modulares HAL (Ping, ARP, Port Probe, OUI Vendor) + App gráfica interactiva LVGL 9.5 y automatización Lua. | 💡 Propuesta Formal | [`proposal_network_diagnostics_and_lan_recon_suite.md`](proposal_network_diagnostics_and_lan_recon_suite.md) |
+| **LAN NetLab (Suite Unificada de Red)** | Arquitectura de pestañas modulares (Tester Capa 1/2, Recon Capa 3/4 y Tools activas) integrando TDR, LLDP, ARP, OUI, cámaras y Triple Ping. | 💡 Propuesta Formal | [`proposal_lan_netlab_unified_suite.md`](proposal_lan_netlab_unified_suite.md) |
+| **Terminal VT100 (`libvterm`), Cliente VNC RFB y Aceleración JPEG/PPA** | Emulación xterm/VT100 real para SSH/UART (`htop`/`nano`), cliente de escritorio remoto VNC (RFB 3.8 + Tight/ZRLE) y decodificación/escalado hardware JPEG+PPA en ESP32-P4 para cámaras IP y VNC. | 💡 Propuesta Formal | [`proposal_vt100_terminal_vnc_client_and_hw_jpeg_ppa.md`](proposal_vt100_terminal_vnc_client_and_hw_jpeg_ppa.md) |
 
 ---
 
@@ -61,6 +63,7 @@ Este directorio almacena las especificaciones de diseño, borradores de arquitec
 | **Perfiles de Compilación y Subconjuntos Modulares** | Sistema de flags de build (`FULL`, `KIOSK`, `LITE`) para generar binarios dedicados (como quioscos TableHub o chips de baja memoria) sin bifurcar el código base. | 💡 Propuesta Formal | [`proposal_build_profiles_and_modular_subsets.md`](proposal_build_profiles_and_modular_subsets.md) |
 | **Screen Share & Grabador de Pantalla en PC** | Streaming de la pantalla LVGL 9.5 por USB/Wi-Fi (Delta+RLE en S3 y Hardware JPEG Encoder en P4) con grabador `.mp4`/OBS y control táctil remoto desde PC. | 💡 Propuesta Formal | [`proposal_screen_share_and_pc_recorder.md`](proposal_screen_share_and_pc_recorder.md) |
 | **Ciclo de Vida Dual (Multitarea vs Hold-to-Close) & Liberación de RAM** | Toque corto para multitarea en fondo vs pulsación sostenida (1.5s countdown) para destrucción total, `NimBLEDevice::deinit(true)` y recuperación de 131 KB de SRAM. | 💡 Propuesta Formal | [`proposal_hold_to_close_lifecycle_and_radio_ram_recovery.md`](proposal_hold_to_close_lifecycle_and_radio_ram_recovery.md) |
+| **Lanzador Cron Ultra-Ligero por Indicadores Cortos (`CronLauncher`)** | Programador de tareas y scripts Lua basado en códigos cortos Base36 (`uint32_t`, ej. `4g2hx`, 16 bytes/slot en RAM) con resolución diferida de rutas en disco (`crontab.idx`) al momento del disparo. | 💡 Propuesta Formal | [`proposal_lightweight_cron_short_id_launcher.md`](proposal_lightweight_cron_short_id_launcher.md) |
 
 
 ---

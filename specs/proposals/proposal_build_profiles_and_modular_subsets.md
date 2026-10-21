@@ -239,3 +239,11 @@ Para una compilación típica en microcontroladores con particiones de 16 MB Fla
    - Envolver el arranque de `DashboardView` y las entradas del menú de navegación en comprobaciones `#if CBDOS_FEATURE_*`.
 4. **Fase 4: Configuración de Entornos PlatformIO:**
    - Agregar el target `[env:esp32s3_kiosk]` en `bsp/esp32_s3_jc3248/platformio.ini`.
+
+---
+
+## 8. Extensiones Especializadas de Perfil
+
+Para perfiles orientados a dominios específicos de aplicación (SysAdmin/WISP y Telefonía/Oficina), consultar la especificación detallada en:
+* 📄 **[proposal_specialized_profiles_netadmin_and_office_deskstation.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/proposals/proposal_specialized_profiles_netadmin_and_office_deskstation.md)**: Detalla la segmentación de `PROFILE_NETADMIN` (NetRescue, NetTester, SSH) y `PROFILE_OFFICE_DESKSTATION` (Teléfono IP SIP, Megafonía Multicast, Reloj/Alarmas de turnos y Bloc de notas).
+
