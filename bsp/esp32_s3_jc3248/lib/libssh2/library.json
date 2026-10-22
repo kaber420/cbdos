@@ -1,0 +1,47 @@
+{
+  "name": "libssh2",
+  "version": "1.11.0",
+  "build": {
+    "includeDir": "libssh2/include",
+    "srcFilter": [
+      "-<*>",
+      "+<libssh2/src/agent.c>",
+      "+<libssh2/src/bcrypt_pbkdf.c>",
+      "+<libssh2/src/channel.c>",
+      "+<libssh2/src/comp.c>",
+      "+<libssh2/src/chacha.c>",
+      "+<libssh2/src/cipher-chachapoly.c>",
+      "+<libssh2/src/crypt.c>",
+      "+<libssh2/src/global.c>",
+      "+<libssh2/src/hostkey.c>",
+      "+<libssh2/src/keepalive.c>",
+      "+<libssh2/src/kex.c>",
+      "+<libssh2/src/knownhost.c>",
+      "+<libssh2/src/mac.c>",
+      "+<libssh2/src/misc.c>",
+      "+<libssh2/src/packet.c>",
+      "+<libssh2/src/pem.c>",
+      "+<libssh2/src/poly1305.c>",
+      "+<libssh2/src/publickey.c>",
+      "+<libssh2/src/scp.c>",
+      "+<libssh2/src/session.c>",
+      "+<libssh2/src/sftp.c>",
+      "+<libssh2/src/transport.c>",
+      "+<libssh2/src/userauth.c>",
+      "+<libssh2/src/userauth_kbd_packet.c>",
+      "+<libssh2/src/version.c>",
+      "+<libssh2/src/blowfish.c>",
+      "+<libssh2/src/mbedtls.c>"
+    ],
+    "flags": [
+      "-I .",
+      "-I libssh2/src",
+      "-I libssh2/include",
+      "-DHAVE_CONFIG_H",
+      "-DLIBSSH2_MBEDTLS",
+      "-Wno-error=format",
+      "-Wno-error=maybe-uninitialized",
+      "-Wno-error=uninitialized"
+    ]
+  }
+}

@@ -109,3 +109,30 @@ void TerminalDisplay::appendText(const char* text, size_t len) {
 | **Fase 3** | **Refactorización de `TerminalDisplay`** | `core/src/ui/components/terminal/TerminalDisplay.hpp/.cpp` | Implementar el widget de celdas LVGL v9.5, callbacks de daño, paleta Tango ANSI y buffer de scrollback. |
 | **Fase 4** | **Enriquecimiento de Controles e Interacción** | `core/src/ui/components/terminal/TerminalCommandBar.*`, `TerminalView.*` | Integrar flechas de navegación y combinaciones de control con el teclado en pantalla y teclado físico USB Host. |
 | **Fase 5** | **Compilación Cruzada y Validación** | ESP-IDF (ESP32-P4) y PlatformIO (ESP32-S3) | Validar compilación limpia sin errores de enlazado ni dependencias rotas en ambas arquitecturas. |
+
+---
+
+## 5. Bitácora de Validación en Hardware y Roadmap de Renderizado
+
+### 5.1. Pánico por Puntero a Pila en `libvterm` (Resuelto ✅)
+- **Síntoma:** `Guru Meditation Error: Core 1 panic'ed (Instruction access fault). MEPC: 0x0000000c RA: 0x400f5596 (damagerect at screen.c:158)`.
+- **Causa Raíz:** La estructura `VTermScreenCallbacks` fue declarada como variable local en la pila de `TerminalDisplay::create()`. `vterm_screen_set_callbacks` guarda el puntero directo sin copiar por valor. Al salir de la función, la pila fue reciclada y el puntero al callback `damage` quedó apuntando a memoria basura (`0x0000000c`).
+- **Solución:** Declarar `s_screenCallbacks` como `static const VTermScreenCallbacks` persistente e inmutable en Flash/ROM.
+
+### 5.2. Conflicto de Etiquetas de Color `#RRGGBB` y Cursor en LVGL v9 (Pendiente de Migración ⚠️)
+- **Síntoma:** Al recibir comandos interactivos o al posicionarse el cursor, aparecen caracteres literales en pantalla como `#121417 _`, `#34e2e2 `, y el texto se desalinea o quiebra en múltiples renglones.
+- **Causa Raíz:** 
+  1. En LVGL v8 existía la función `lv_label_set_recolor()` que interpretaba `#RRGGBB texto#` como colores dinámicos en tiempo de ejecución.
+  2. En **LVGL v9**, este mecanismo fue removido del core de `lv_label`.
+  3. Al formatear los colores en `TerminalDisplay::refreshDisplay()`, las cadenas `#RRGGBB ` se inyectan en el string del label y se imprimen **literalmente como caracteres visibles**, sumando entre 8 y 9 letras por cada cambio de color.
+  4. Este exceso de caracteres artificiales excede el ancho físico de columnas (`m_cols`), forzando saltos de línea prematuros en cascada y quebrando la alineación del cursor y de los prompts remotos.
+- **Hoja de Ruta (Roadmap):** 
+  - La arquitectura de `TerminalDisplay` está encapsulada modularmente respecto a `TerminalView`.
+  - La solución definitiva consiste en migrar el dibujo del widget al estándar nativo de LVGL v9: interceptar `LV_EVENT_DRAW_MAIN` y utilizar `lv_draw_rect` (para fondos de celda y cursor) y `lv_draw_label` (para glifos) directamente sobre el canvas/layer, eliminando por completo la concatenación de cadenas y las etiquetas de texto.
+
+### 5.3. Retorno de Carro `CR` vs `CRLF` y Prompts Duplicados
+- **Síntoma:** Al enviar comandos a routers (MikroTik RouterOS / Cisco / Linux), el prompt `[user@device] > ` se dibuja repetido 2 o 3 veces y las letras del autocompletado caen escalonadas.
+- **Causa:** 
+  1. En consolas de terminal interactivas, la tecla Enter envía únicamente un byte `\r` (CR, `0x0D`). Enviar `CRLF` (`\r\n`) despacha dos comandos consecutivos al PTY del servidor: el comando solicitado + un Enter en blanco, provocando la emisión de un prompt redundante.
+  2. Los mensajes de estado locales (`[SSH] Conectando...`, `Sesión establecida`) inyectados en el buffer antes del inicio empujan hacia abajo el primer prompt del servidor.
+- **Ajustes:** Establecer `CR` como fin de línea por defecto en la barra de comandos y limpiar la pantalla (`m_display.clear()`) en el momento en que se confirma la sesión interactiva para que el shell inicie en la celda (0,0).
