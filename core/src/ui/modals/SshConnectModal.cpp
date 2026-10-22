@@ -426,8 +426,8 @@ void SshConnectModal::show(lv_obj_t* parent, ConnectCallback onConnect) {
 
 void SshConnectModal::close() {
     UIManager::closeKeyboard();
-    if (m_modalMask) {
-        lv_obj_delete(m_modalMask);
+    if (m_modalMask && lv_obj_is_valid(m_modalMask)) {
+        lv_obj_delete_async(m_modalMask);
         m_modalMask = nullptr;
         m_card = nullptr;
     }

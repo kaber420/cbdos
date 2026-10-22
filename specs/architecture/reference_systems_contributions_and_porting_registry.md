@@ -2,7 +2,7 @@
 
 **Fecha de Actualización:** 21 de Octubre de 2026  
 **Ubicación:** `specs/architecture/reference_systems_contributions_and_porting_registry.md`  
-**Repositorios Locales Auditados:** `references/poseidon`, `references/bruce`, `references/ghostesp`, `references/esp32_marauder`, `references/TentacleOS`, `references/HomeTiles`, `references/momentum-firmware`, `references/NucleoOS-P4`
+**Repositorios Locales Auditados:** `references/poseidon`, `references/bruce`, `references/ghostesp`, `references/esp32_marauder`, `references/TentacleOS`, `references/HomeTiles`, `references/momentum-firmware`, `references/NucleoOS-P4`, `references/Slave_I`
 
 ---
 
@@ -57,13 +57,29 @@ Para cada punto se define claramente si conviene **portar su código C/C++ direc
 | # | Funcionalidad para Redes / Campo | Origen en `NucleoOS-P4` | ¿Portar o Crear Versión Propia? | Evaluación de Dificultad y Estrategia Recomendada |
 | :-: | :--- | :--- | :---: | :--- |
 | **B1** | **Aceleración Hardware JPEG + Escalador PPA en ESP32-P4** (Para Cámaras IP en `LAN NetLab` y VNC) | `components/nv_apps/gallery_jpeg_hw.cpp` (286 líneas) | 🔄 **Portado Directo al BSP P4 (Muy Fácil)** | `gallery_jpeg_hw.cpp` usa directamente las APIs oficiales de ESP-IDF v5.5 (`driver/jpeg_decode.h` y `driver/ppa.h`) sin depender de NucleoOS. Ya resuelve los 3 bugs difíciles del P4: redondeo MCU 16×16, orden BGR para LVGL RGB565 y alineación de caché de 64 bytes en PSRAM. Se porta casi 1:1 a `bsp/esp32_p4_jc4880/`. |
-| **B2** | **Emulador de Terminal ANSI/VT100 (`libvterm`)** (Para SSH interactivo `htop`/`nano` y Consola UART) | `components/libvterm/` + `components/nv_apps/terminal_app.cpp` | ⚖️ **Híbrido: Portar `libvterm` C intacto + Crear Widget LVGL 9.5 propio** | 1) La carpeta `components/libvterm/` es C puro estándar sin dependencias: **se copia intacta** a `core/`.<br>2) `terminal_app.cpp` (1,924 líneas) tiene partes acopladas al shell WASI de NucleoOS, por lo que **no conviene copiarlo entero**: tomamos solo su lógica de pintado de celdas dañadas (`damage`), paleta ANSI y barra de teclas (`CTRL`, `ESC`, `TAB`, flechas) en una clase limpia `VTermWidget` conectada a `cbdos::ssh` y `cbdos::uart`. |
+| **B2** | **Emulador de Terminal ANSI/VT100 (`libvterm`)** (Para SSH interactivo `htop`/`nano` y Consola UART) | `components/libvterm/` + `components/nv_apps/terminal_app.cpp` | ✅ **Implementado y Validado (P4 & S3)** | Integrado `libvterm 0.3.3` en `core/src/terminal/libvterm/`, tipografía `cbdos_font_mono_17` (DejaVu Sans Mono 17 con semigráficos `0x2500-259F`), renderizado reactivo por filas sucias (`cb_damage`) en `TerminalDisplay`, paleta Tango ANSI y 1,000 líneas de scrollback en PSRAM. Especificación: [`specs/architecture/especificacion_terminal_vt100_libvterm_y_widget_lvgl.md`](especificacion_terminal_vt100_libvterm_y_widget_lvgl.md). |
 | **B3** | **Cliente de Escritorio Remoto VNC (RFB 3.8 + Tight-JPEG / ZRLE + mDNS)** | `components/nv_secondscreen/ss_vnc.cpp` (1,175 líneas) + `ss_des.c` (180 líneas) | ⚖️ **Híbrido: Portar Motor RFB/DES + Crear Vista `VncViewerView` propia** | 1) `ss_des.c` (autenticación VNC) y el parser de codificaciones RFB de `ss_vnc.cpp` (`Raw`, `CopyRect`, `Hextile`, `Zlib`, `ZRLE`, `Tight-JPEG` y escalado de filas al vuelo sin buffer 4K) están muy bien aislados en una sola tarea FreeRTOS con sockets LwIP estándar: **se portan directamente**.<br>2) La parte de `ss_engine.cpp` que apaga LVGL es específica de su placa; en CBDos es mejor crear nuestra propia `VncViewerView` derivada de `BaseView` para que funcione tanto en **ESP32-P4** como en **ESP32-S3** e integrarla con el escáner `LAN NetLab` (puerto 5900). |
 
 ---
 
-## 4. Criterio de Decisión Rápida al Momento de Implementar
+## 4. Nuevos Aportes Seleccionados de `Slave_I` (ESP32-P4 + C6 sobre SDIO)
+
+Tras auditar `references/Slave_I` (firmware para M5Stack Tab5 basado en arquitectura dual **ESP32-P4 + ESP32-C6 sobre SDIO `esp_hosted`** con LVGL v9), se aprueban las siguientes adaptaciones estratégicas para la placa oficial **JC4880P443C**:
+
+| # | Módulo / Característica | Origen en `Slave_I` | ¿Portar o Crear Versión Propia? | Evaluación y Especificación en CBDos |
+| :-: | :--- | :--- | :---: | :--- |
+| **S1** | **Subsistema Teclado Físico USB Host (HID) e I2C Unificado** | `platforms/tab5/main/hal/components/hal_usb.cpp` (512 líneas) | 🔄 **Portado Directo de Lógica HID y Cola FreeRTOS** | Utiliza `usb/hid_host` oficial de ESP-IDF. Traduce el boot protocol de 8 bytes de teclados USB y registros ASCII de teclados I2C a una cola compartida `kb_queue` vinculada a un indev `LV_INDEV_TYPE_KEYPAD` y `lv_group_t` en LVGL v9.5. Permite navegación completa por flechas y escritura en consolas/editores. Especificación: [`specs/hardware/usb_host_hid_keyboard_p4_spec.md`](../hardware/usb_host_hid_keyboard_p4_spec.md). |
+| **S2** | **Sniffer y Auditoría 802.15.4 / Zigbee con PCAP Wireshark** | `platforms/c6/components/spectra5_offensive/spectra5_offensive.c` | 🔄 **Portado de Firmware C6 y Parser P4** | Aprovecha el hardware 802.15.4 nativo del ESP32-C6 (`esp_ieee802154`), capturando tramas en ISR IRAM, con salto automático de canales 11-26 y volcado directo a archivos `.pcap` en la microSD con `LINKTYPE_IEEE802_15_4_NOFCS` (230) abribles en Wireshark. Especificación: [`specs/architecture/especificacion_coprocesador_c6_spectra5_sdio.md`](especificacion_coprocesador_c6_spectra5_sdio.md). |
+| **S3** | **Motor de Inyección Raw Wi-Fi y Extractor EAPOL / PMKID Hashcat 22000** | `platforms/c6/components/spectra5_offensive/` | 🔄 **Portado de Parser C y Opcodes RPC** | 1) Bypass de validación en `libnet80211` con `-Wl,-zmuldefs` para inyección de tramas de desautenticación sin pánico en modo AP.<br>2) Parser de tramas EAPOL (M1..M4) y extracción directa de PMKID (tag `0xDD` RSN) a formato `WPA*01*...***` (Hashcat mode 22000) y volcado a `.pcap` 802.11 (LINKTYPE 105). |
+| **S4** | **Auto-Provisionamiento Single-Flash del Coprocesador C6** | `platforms/tab5/main/services/c6_updater.cpp` | 🔄 **Portado de Flasher OTA SDIO** | El binario compilado del C6 se incrusta en el binario del P4 (`target_add_binary_data`). En el primer arranque, el P4 valida el CRC en NVS y flashea el C6 por OTA a través de SDIO con `rpc_ota_*` sin requerir cables ni botones físicos. |
+| **S5** | **Resolución Ultraligera OUI Vendor Lookup** | `app/domain/radio/oui.cpp` | 🔄 **Portado Inmediato a Core** | Inspección en un solo ciclo del bit 1 de la MAC (`mac[0] & 0x02`) para catalogar MACs aleatorias/privadas (`(random)`), y tabla directa en Flash de los 40 fabricantes de consumo más comunes sin alocación dinámica en heap. |
+
+---
+
+## 5. Criterio de Decisión Rápida al Momento de Implementar
 
 Cuando iniciemos la codificación de cualquiera de los puntos anteriores, aplicaremos esta regla práctica:
-1. **Si el archivo de `NucleoOS-P4` habla con estándares (Lua C API, ESP-IDF `jpeg_decode`/`ppa`, `libvterm`, sockets LwIP RFB/DES):** **Lo portamos directo** adaptando solo los nombres de funciones al namespace `cbdos::` para ahorrar semanas de depuración de protocolos.
-2. **Si el archivo de `NucleoOS-P4` habla con su propio sistema de ventanas (`nv_ui_kit`, `nv_wasm`, `nv_event_bus`):** **No arrastramos sus dependencias**; escribimos nuestra clase limpia en C++ usando `BaseView`, `HeaderBar`, `DefaultTheme` y `LuaBridge` de CBDos, guiándonos únicamente por sus fórmulas y estructuras de datos.
+1. **Si el archivo de referencia habla con estándares (Lua C API, ESP-IDF `usb/hid_host`, `esp_ieee802154`, `jpeg_decode`/`ppa`, `libvterm`, sockets LwIP RFB/DES):** **Lo portamos directo** adaptando solo los nombres de funciones al namespace `cbdos::` para ahorrar semanas de depuración de protocolos.
+2. **Si el archivo de referencia habla con su propio sistema de ventanas o frameworks propietarios:** **No arrastramos sus dependencias**; escribimos nuestra clase limpia en C++ usando `BaseView`, `HeaderBar`, `DefaultTheme` y `LuaBridge` de CBDos, guiándonos únicamente por sus fórmulas y estructuras de datos.
+3. **Para subsistemas de `Slave_I` (USB HID Host y Radio C6 sobre SDIO):** Se aplica el mismo principio; se portan directamente los controladores que interactúan con estándares de ESP-IDF (`usb/hid_host`, `esp_ieee802154`, `libnet80211`), adaptándolos a la arquitectura de colas y vistas `BaseView` de CBDos sin importar su shell de UI.
+

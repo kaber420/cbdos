@@ -37,6 +37,9 @@
       "-I src/security/kerberos/kerberos_core",
       "-I src/security/kerberos/tinycbor",
       "-I src/apps/kerberos",
+      "-I src/terminal/libvterm/include",
+      "-I src/terminal/libvterm/src",
+      "-I src/ui/fonts",
       "-DESP32",
       "-DUSE_DEFAULT_STDLIB",
       "-DHELIX_LOGGING_ACTIVE=0"

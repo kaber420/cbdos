@@ -1,15 +1,26 @@
 #include "cbdos/ssh.hpp"
 #include <libssh/libssh.h>
+#include "libssh_esp32.h"
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <cstring>
+#include <string>
 #include <vector>
+#include <mutex>
 
 namespace cbdos {
 namespace bsp {
 
 class S3SshClient : public cbdos::ssh::ISshClient {
 public:
-    S3SshClient() : m_session(nullptr), m_shellChannel(nullptr), m_shellTaskHandle(nullptr), m_stopShell(false) {}
+    S3SshClient()
+        : m_session(nullptr)
+        , m_shellChannel(nullptr)
+        , m_shellTaskHandle(nullptr)
+        , m_stopShell(false)
+        , m_connected(false)
+    {}
 
     ~S3SshClient() override {
         disconnect();
@@ -19,20 +30,16 @@ public:
         disconnect();
 
         if (onStateChanged) {
-            onStateChanged(cbdos::ssh::SshSessionState::ConnectingTcp, "Iniciando conexión SSH...");
+            onStateChanged(cbdos::ssh::SshSessionState::ConnectingTcp, "Iniciando cliente SSH...");
         }
 
         static bool s_sshInited = false;
         if (!s_sshInited) {
-            if (ssh_init() != SSH_OK) {
-                if (onStateChanged) {
-                    onStateChanged(cbdos::ssh::SshSessionState::ErrorSocket, "Fallo al inicializar libssh");
-                }
-                return false;
-            }
+            libssh_begin();
             s_sshInited = true;
         }
 
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
         m_session = ssh_new();
         if (!m_session) {
             if (onStateChanged) {
@@ -49,10 +56,13 @@ public:
         ssh_options_set(m_session, SSH_OPTIONS_TIMEOUT, &timeoutSec);
         bool processConfig = false;
         ssh_options_set(m_session, SSH_OPTIONS_PROCESS_CONFIG, &processConfig);
-        const char* sshDir = "/spiffs";
-        ssh_options_set(m_session, SSH_OPTIONS_SSH_DIR, sshDir);
-        const char* knownHosts = "/spiffs/known_hosts";
-        ssh_options_set(m_session, SSH_OPTIONS_KNOWNHOSTS, knownHosts);
+
+        int strictHostKey = 0;
+        ssh_options_set(m_session, SSH_OPTIONS_STRICTHOSTKEYCHECK, &strictHostKey);
+
+        if (onStateChanged) {
+            onStateChanged(cbdos::ssh::SshSessionState::ConnectingTcp, "Conectando socket TCP...");
+        }
 
         int rc = ssh_connect(m_session);
         if (rc != SSH_OK) {
@@ -76,7 +86,9 @@ public:
                 if (onStateChanged) {
                     onStateChanged(cbdos::ssh::SshSessionState::ErrorAuthFailed, err);
                 }
-                disconnect();
+                ssh_disconnect(m_session);
+                ssh_free(m_session);
+                m_session = nullptr;
                 return false;
             }
         } else if (config.authType == cbdos::ssh::SshAuthType::PublicKey) {
@@ -92,7 +104,9 @@ public:
                     if (onStateChanged) {
                         onStateChanged(cbdos::ssh::SshSessionState::ErrorAuthFailed, err);
                     }
-                    disconnect();
+                    ssh_disconnect(m_session);
+                    ssh_free(m_session);
+                    m_session = nullptr;
                     return false;
                 }
             } else {
@@ -100,32 +114,38 @@ public:
                 if (onStateChanged) {
                     onStateChanged(cbdos::ssh::SshSessionState::ErrorAuthFailed, err);
                 }
-                disconnect();
+                ssh_disconnect(m_session);
+                ssh_free(m_session);
+                m_session = nullptr;
                 return false;
             }
         }
 
+        m_connected = true;
         if (onStateChanged) {
-            onStateChanged(cbdos::ssh::SshSessionState::Ready, "Conexión SSH establecida y autenticada");
+            onStateChanged(cbdos::ssh::SshSessionState::Ready, "Sesión SSH autenticada");
         }
         return true;
     }
 
     void disconnect() override {
         closeShell();
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
         if (m_session) {
             ssh_disconnect(m_session);
             ssh_free(m_session);
             m_session = nullptr;
         }
+        m_connected = false;
     }
 
     bool isConnected() const override {
-        return (m_session != nullptr && ssh_is_connected(m_session));
+        return m_connected && (m_session != nullptr);
     }
 
     cbdos::ssh::SshExecResult execute(const std::string& command, uint32_t timeoutMs) override {
         cbdos::ssh::SshExecResult result;
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
         if (!isConnected()) {
             result.success = false;
             result.exitCode = -1;
@@ -187,6 +207,7 @@ public:
 
         closeShell();
 
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
         m_shellChannel = ssh_channel_new(m_session);
         if (!m_shellChannel) {
             return false;
@@ -216,11 +237,21 @@ public:
         m_onData = onData;
         m_stopShell = false;
 
-        xTaskCreatePinnedToCore([](void* arg) {
+        // Tarea de lectura anclada a Core 0 (dejando Core 1 libre para LVGL)
+        // Stack de 16 KB en memoria interna para descifrado MbedTLS
+        BaseType_t res = xTaskCreatePinnedToCore([](void* arg) {
             S3SshClient* self = static_cast<S3SshClient*>(arg);
-            char buf[256];
-            while (!self->m_stopShell && self->m_shellChannel && ssh_channel_is_open(self->m_shellChannel)) {
-                int nbytes = ssh_channel_read_nonblocking(self->m_shellChannel, buf, sizeof(buf), 0);
+            char buf[512];
+            while (!self->m_stopShell && self->m_shellChannel) {
+                int nbytes = 0;
+                {
+                    std::lock_guard<std::mutex> lk(self->m_sessionMutex);
+                    if (self->m_shellChannel && ssh_channel_is_open(self->m_shellChannel)) {
+                        nbytes = ssh_channel_read_nonblocking(self->m_shellChannel, buf, sizeof(buf), 0);
+                    } else {
+                        break;
+                    }
+                }
                 if (nbytes > 0 && self->m_onData) {
                     self->m_onData(reinterpret_cast<const uint8_t*>(buf), nbytes);
                 } else if (nbytes < 0) {
@@ -230,13 +261,14 @@ public:
             }
             self->m_shellTaskHandle = nullptr;
             vTaskDelete(nullptr);
-        }, "s3_ssh_rx", 4096, this, 5, &m_shellTaskHandle, 1);
+        }, "s3_ssh_rx", 16384, this, 5, &m_shellTaskHandle, 0);
 
-        return true;
+        return (res == pdPASS);
     }
 
     bool sendInput(const uint8_t* buffer, size_t length) override {
-        if (!m_shellChannel || !ssh_channel_is_open(m_shellChannel)) {
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
+        if (!m_shellChannel || !ssh_channel_is_open(m_shellChannel) || !buffer || length == 0) {
             return false;
         }
         int written = ssh_channel_write(m_shellChannel, buffer, length);
@@ -244,6 +276,7 @@ public:
     }
 
     void resizePty(uint16_t cols, uint16_t rows) override {
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
         if (m_shellChannel && ssh_channel_is_open(m_shellChannel)) {
             ssh_channel_change_pty_size(m_shellChannel, cols, rows);
         }
@@ -251,9 +284,10 @@ public:
 
     void closeShell() override {
         m_stopShell = true;
-        if (m_shellTaskHandle) {
-            vTaskDelay(pdMS_TO_TICKS(50));
+        for (int i = 0; i < 20 && m_shellTaskHandle != nullptr; ++i) {
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
         if (m_shellChannel) {
             ssh_channel_close(m_shellChannel);
             ssh_channel_free(m_shellChannel);
@@ -268,6 +302,8 @@ private:
     cbdos::ssh::SshDataCallback m_onData;
     TaskHandle_t m_shellTaskHandle;
     volatile bool m_stopShell;
+    bool m_connected;
+    std::mutex m_sessionMutex;
 };
 
 static S3SshClient s_s3SshClient;

@@ -1,33 +1,59 @@
 #pragma once
-#include <lvgl.h>
+
+#include "lvgl.h"
 #include <string>
-#include <cstddef>
+#include <cstdint>
+#include "vterm.h"
 
 namespace cbdos {
 namespace ui {
 
 class TerminalDisplay {
 public:
-    TerminalDisplay() = default;
-    ~TerminalDisplay() = default;
+    TerminalDisplay();
+    ~TerminalDisplay();
 
     bool create(lv_obj_t* parent);
+    void destroy();
+
     void appendText(const char* text, size_t len);
     void clear();
-    bool toggleHold();
-    bool isHoldActive() const { return m_isHoldActive; }
-    bool saveLogToSd(std::string& outMessage);
-    lv_obj_t* getObject() const { return m_taTerminal; }
 
-    static std::string sanitizeAndStripAnsi(const char* data, size_t len);
+    bool toggleHold();
+    bool isHold() const { return m_hold; }
+
+    bool saveLogToSd(std::string& outMessage);
+    lv_obj_t* getObject() const { return m_container; }
+
+    void refreshDisplay();
 
 private:
-    lv_obj_t* m_taTerminal = nullptr;
-    bool m_isHoldActive = false;
-    std::string m_terminalBuffer;
-    std::string m_holdPendingBuffer;
+    lv_obj_t* m_container = nullptr;
+    lv_obj_t* m_lblText = nullptr;
+    lv_timer_t* m_refreshTimer = nullptr;
 
-    static constexpr size_t MAX_TERMINAL_BUFFER_SIZE = 8192;
+    bool m_hold = false;
+    bool m_cursorVisible = true;
+    bool m_altScreen = false;
+    bool m_dirty = false;
+
+    int m_rows = 16;
+    int m_cols = 64;
+
+    VTerm*       m_vt = nullptr;
+    VTermScreen* m_vs = nullptr;
+    VTermPos     m_cursorPos = {0, 0};
+
+    // Callbacks VTerm
+    static int cbDamage(VTermRect rect, void* user);
+    static int cbMoveCursor(VTermPos pos, VTermPos old, int visible, void* user);
+    static int cbSetTermProp(VTermProp prop, VTermValue* val, void* user);
+    static int cbBell(void* user);
+    static int cbSbPushline(int cols, const VTermScreenCell* cells, void* user);
+    static int cbSbPopline(int cols, VTermScreenCell* cells, void* user);
+    static int cbSbClear(void* user);
+
+    static const VTermScreenCallbacks s_screenCallbacks;
 };
 
 } // namespace ui

@@ -200,7 +200,41 @@ CBDos puede **emular al 100% el servidor oficial Agile Config** sin requerir un 
 
 ---
 
-## 🚦 5. Hoja de Ruta de Implementación (Roadmap)
+## ⚡ 5. Optimizaciones de Velocidad Real y Rendimiento de Transferencia
+
+En firmwares y herramientas de recuperación tradicionales, las transferencias TFTP a menudo se estancan en **150 a 300 KB/s** debido al diseño original de la RFC 1350 (bloques de 512 bytes con parada obligatoria para esperar un paquete ACK antes de enviar el siguiente). 
+
+Para lograr velocidades reales de **4.5 a 8.5 MB/s** en **CBDos** sobre la interfaz Ethernet 10/100 del ESP32-P4 / adaptadores de red, se incorporan las mejores prácticas de sistemas industriales como U-Boot y TFTPD-HPA:
+
+```
+Transferencia Tradicional (RFC 1350) - 250 KB/s:
+P4 ──[Bloque 512B]──► Router ──[ACK]──► P4 ──[Bloque 512B]──► Router ──[ACK]──► (Latencia dominante)
+
+Transferencia Optimizada CBDos (RFC 2348 + RFC 7440) - 6.5 MB/s:
+P4 ──[Bloque 1 1468B]──►
+P4 ──[Bloque 2 1468B]──► Router ──[ACK Ventana]──► P4 ──[Siguientes bloques...]
+P4 ──[Bloque 3 1468B]──►
+```
+
+### 1. Negociación Adaptativa de `blksize` (RFC 2348)
+* En lugar de los 512 bytes por defecto, el cliente/servidor de CBDos propone una opción de bloque de **1428 o 1468 bytes**.
+* Esto llena completamente la trama Ethernet (MTU 1500) sin causar fragmentación IP, multiplicando la tasa de transferencia efectiva por casi 3x de forma inmediata.
+
+### 2. Ventana Deslizante TFTP `windowsize` (RFC 7440)
+* En routers modernos y servidores U-Boot que soportan la RFC 7440, CBDos negocia una ventana de **4 a 8 bloques**.
+* El transmisor despacha 4 o 8 paquetes consecutivos sin pausar; el receptor confirma la recepción del lote completo con un solo ACK. Esto elimina casi todo el impacto del Round Trip Time (RTT).
+
+### 3. Pipeline de Almacenamiento MicroSD y Alineación de Buffers (SDMMC 4-Bit)
+* **Modo SDMMC 4-bit @ 40-50 MHz:** El hardware opera con el bus nativo de 4 bits, logrando un throughput físico de lectura de **14 a 22 MB/s**.
+* **Buffers de Bloque Alineados:** Se prohíbe leer de la tarjeta en fragmentos menores a un sector. CBDos lee en búferes alineados a clusters de **32 KB o 64 KB** en memoria PSRAM/SRAM interna, desacoplando la lectura del archivo del streaming UDP hacia la red mediante una cola doble (*ping-pong buffer*).
+
+### 4. Zero-Copy y Buffers LwIP en ESP-IDF
+* Aumentar `SO_SNDBUF` y `SO_RCVBUF` del socket UDP a mínimo 16 KB.
+* Utilizar punteros directos al buffer de transmisión sin llamadas intermedias a `memcpy`, permitiendo que el controlador EMAC DMA del ESP32-P4 lea directo desde memoria compartida.
+
+---
+
+## 🚦 6. Hoja de Ruta de Implementación (Roadmap)
 
 ### Fase 1: Motor TFTP Dual (Cliente y Servidor) en `core/services/`
 * Implementación del protocolo TFTP estándar (RFC 1350) y extensiones de rendimiento (RFC 2347, RFC 2348 para `blksize=1428` y `timeout`).

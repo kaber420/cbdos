@@ -169,6 +169,7 @@ void TerminalView::onDestroy() {
     m_serialStream.close();
     m_sshStream.close();
     m_sshModal.close();
+    m_display.destroy();
     BaseView::onDestroy();
 }
 

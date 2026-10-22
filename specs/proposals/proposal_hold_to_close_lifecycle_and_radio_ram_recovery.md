@@ -1,23 +1,28 @@
 # Propuesta Técnica: Ciclo de Vida Dual (Multitarea vs Cierre Total "Hold-to-Close") y Liberación Dinámica de RAM
 
-**Fecha:** 2026-10-19  
-**Estado:** Propuesta Formal (En Revisión por el Usuario)  
-**Categoría:** Arquitectura Core / UX / Gestión de Memoria  
+**Fecha:** 2026-10-19 (Actualizado: 2026-10-21)  
+**Estado:** Aprobado por el Usuario (En Cola de Reparación / Implementación)  
+**Categoría:** Arquitectura Core / UX / Gestión de Memoria y Privacidad RF  
 **Target:** ESP32-S3 (JC3248W535) y ESP32-P4 (JC4880)
 
 ---
 
 ## 1. Motivación y Problemática
 
-En un sistema operativo embebido como **CBDos**, herramientas especializadas como **BLE Lab** o **Wi-Fi Suite** demandan cantidades significativas de memoria SRAM interna para controladores de hardware y tareas de fondo (~60 KB a 80 KB para la pila Bluetooth/NimBLE).
+En un sistema operativo embebido como **CBDos**, herramientas especializadas como **BLE Lab** o **Wi-Fi Suite** demandan cantidades críticas de memoria SRAM interna para controladores de hardware y tareas de fondo (~60 KB a 80 KB para la pila Bluetooth/NimBLE).
 
-Actualmente:
-1. Al salir de la vista con el botón estándar de volver (`<`), la aplicación se oculta/destruye parcialmente en UI, pero la radio NimBLE **permanece permanentemente activa en memoria** (`NimBLEDevice::deinit()` no se invocaba).
-2. La memoria libre pasa de **131 KB** a solo **16 KB**, y no existía un mecanismo para que el usuario decidiera si deseaba **mantener la herramienta en segundo plano (multitarea)** o **cerrarla definitivamente para recuperar los 131 KB libres**.
+Actualmente se identifican dos problemas críticos que **debemos reparar**:
+1. **Secuestro de Memoria RAM:** Al salir de la vista con el botón estándar de volver (`<`), la aplicación se oculta/destruye parcialmente en UI, pero la radio NimBLE **permanece permanentemente activa en memoria** (`NimBLEDevice::deinit()` no se invocaba). La memoria libre colapsa de **131 KB** a solo **16 KB**, sin un mecanismo para **tumbar el subsistema por completo de la memoria** y recuperar el 100% de la SRAM.
+2. **Violación de Privacidad RF (Emisión y Escaneo No Consentido):** Si el transceptor sigue activo en segundo plano transmitiendo paquetes o escaneando balizas a espaldas del usuario, se rompe el principio fundamental de *Privacidad RF* y el modo *Offline-First* de CBDos, exponiendo al dispositivo a rastreo externo.
 
-El usuario propone un modelo ergonómico inspirado en el patrón de seguridad del botón *"Limpiar NVS"* de CBDos:
-* **Toque corto:** Volver / Minimizar al Dashboard (la herramienta puede continuar trabajando en segundo plano si la memoria lo permite).
-* **Mantener presionado (Hold-to-Close con cuenta regresiva):** Inicia una cuenta regresiva visual (1.5 - 2.0s). Si se mantiene hasta el final, ejecuta un **cierre total**, destruye las tareas, apaga el transceptor de radio (`deinit`) y devuelve el 100% de la SRAM al sistema operativo.
+### Solución Aprobada: Botón de Salir con Pulsación Sostenida de 2 Segundos ("Hold-to-Close")
+El usuario estipula un mecanismo ergonómico definitivo:
+* **Toque corto (< 500 ms):** Volver / Minimizar al Dashboard (para flujos multitarea deliberados).
+* **Pulsación sostenida de 2.0 segundos (Hold >= 2000 ms):** Inicia una cuenta regresiva visual clara de 2.0s en el botón de salida. Si se mantiene presionada los 2 segundos completos:
+  * Ejecuta el **cierre forzoso y total** (`shutdown()`).
+  * Destruye las tareas FreeRTOS y sus colas.
+  * Desinicializa el hardware y apaga la radio (`deinit` / `esp_bt_controller_disable()` / `esp_wifi_stop()`).
+  * **Tumba el subsistema por completo de la memoria RAM**, restaurando de inmediato los 131 KB libres y garantizando el silencio RF.
 
 ---
 
@@ -108,9 +113,9 @@ Replicar el patrón probado de `ConfigView::nvs_timer_cb`:
 3. Si la pulsación supera el umbral de hold:
    * Crear un timer LVGL de 50 ms.
    * Mostrar el contador regresivo en la etiqueta (`snprintf(buf, "Cerrando %.1fs", rem)`).
-   * Al expirar (1500 ms):
+   * Al expirar (2000 ms exactos sostenidos):
      * Invocar `BleTransmitter::getInstance().shutdown();`
-     * Regresar a la vista anterior.
+     * Regresar a la vista anterior y forzar recolección de memoria.
 
 ---
 

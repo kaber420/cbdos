@@ -13,11 +13,16 @@ struct QuickKey {
 };
 
 static const QuickKey s_quickKeys[] = {
-    {"ENTER", "\r\n", 2},
+    {"ESC", "\x1B", 1},
+    {"TAB", "\t", 1},
     {"^C", "\x03", 1},
-    {"^Z", "\x1A", 1},
-    {"SPACE", " ", 1},
-    {"TAB", "\t", 1}
+    {"^D", "\x04", 1},
+    {"↑", "\x1B[A", 3},
+    {"↓", "\x1B[B", 3},
+    {"←", "\x1B[D", 3},
+    {"→", "\x1B[C", 3},
+    {"ENTER", "\r", 1},
+    {"SPACE", " ", 1}
 };
 
 bool TerminalCommandBar::create(lv_obj_t* parent, SendCommandCallback onSendCmd, SendRawCallback onSendRaw) {
@@ -34,16 +39,17 @@ bool TerminalCommandBar::create(lv_obj_t* parent, SendCommandCallback onSendCmd,
     lv_obj_set_style_pad_row(m_container, 4, 0);
     DefaultTheme::disableScroll(m_container);
 
-    // Fila 1: Protocolo + Botones Rápidos
+    // Fila 1: Protocolo + Botones Rápidos (Scroll horizontal para teclas tácticas)
     lv_obj_t* quickRow = lv_obj_create(m_container);
-    lv_obj_set_size(quickRow, LV_PCT(100), 32);
+    lv_obj_set_size(quickRow, LV_PCT(100), 34);
     lv_obj_set_style_bg_opa(quickRow, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(quickRow, 0, 0);
     lv_obj_set_style_pad_all(quickRow, 0, 0);
     lv_obj_set_flex_flow(quickRow, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(quickRow, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(quickRow, 4, 0);
-    DefaultTheme::disableScroll(quickRow);
+    lv_obj_set_scroll_dir(quickRow, LV_DIR_HOR);
+    lv_obj_set_scrollbar_mode(quickRow, LV_SCROLLBAR_MODE_OFF);
 
     m_ddLineEnding = lv_dropdown_create(quickRow);
     lv_dropdown_set_options(m_ddLineEnding, "CRLF\nLF\nCR\nNone");
