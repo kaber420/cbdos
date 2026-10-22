@@ -78,7 +78,7 @@ bool TerminalView::onCreate(lv_obj_t* parent) {
                 m_lastSshHost = cfg.username + "@" + cfg.host + ":" + std::to_string(cfg.port);
                 std::string connMsg = "\n[SSH] Conectando a " + m_lastSshHost + "...\n";
                 m_display.appendText(connMsg.c_str(), connMsg.size());
-                bool ok = m_sshStream.connect(cfg);
+                bool ok = m_sshStream.connect(cfg, m_display.getCols(), m_display.getRows());
                 m_sshBar.setConnected(ok, m_lastSshHost);
                 std::string resMsg = ok ? "\n[SSH] Sesión interactiva establecida.\n"
                                         : "\n[ERR] Fallo al iniciar sesión SSH.\n";
@@ -94,7 +94,7 @@ bool TerminalView::onCreate(lv_obj_t* parent) {
             } else {
                 m_sshModal.show(m_container, [this](const cbdos::ssh::SshConfig& cfg) {
                     m_lastSshHost = cfg.username + "@" + cfg.host + ":" + std::to_string(cfg.port);
-                    bool ok = m_sshStream.connect(cfg);
+                    bool ok = m_sshStream.connect(cfg, m_display.getCols(), m_display.getRows());
                     m_sshBar.setConnected(ok, m_lastSshHost);
                 });
             }

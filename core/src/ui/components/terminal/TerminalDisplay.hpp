@@ -25,6 +25,9 @@ public:
     bool saveLogToSd(std::string& outMessage);
     lv_obj_t* getObject() const { return m_container; }
 
+    uint16_t getCols() const { return (uint16_t)m_cols; }
+    uint16_t getRows() const { return (uint16_t)m_rows; }
+
     void refreshDisplay();
 
 private:
@@ -36,9 +39,10 @@ private:
     bool m_cursorVisible = true;
     bool m_altScreen = false;
     bool m_dirty = false;
+    char m_lastChar = 0;
 
-    int m_rows = 16;
-    int m_cols = 64;
+    int m_rows = 24;
+    int m_cols = 80;
 
     VTerm*       m_vt = nullptr;
     VTermScreen* m_vs = nullptr;

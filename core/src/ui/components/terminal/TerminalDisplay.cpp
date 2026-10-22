@@ -1,5 +1,6 @@
 #include "TerminalDisplay.hpp"
 #include "../../themes/DefaultTheme.h"
+#include "../../fonts/cbdos_fonts.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -60,13 +61,27 @@ bool TerminalDisplay::create(lv_obj_t* parent) {
     m_lblText = lv_label_create(m_container);
     lv_obj_set_size(m_lblText, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_label_set_recolor(m_lblText, true);
-    lv_obj_set_style_text_font(m_lblText, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(m_lblText, &cbdos_font_mono_17, 0);
     lv_obj_set_style_text_color(m_lblText, lv_color_hex(kFg), 0);
     lv_label_set_text(m_lblText, "#34e2e2 [CBDos VT100 Terminal]#\n");
 
-    // Inicializar emulador libvterm (64 cols x 18 rows)
-    m_rows = 18;
-    m_cols = 64;
+    // Calcular dimensiones según resolución física
+    lv_display_t* disp = lv_display_get_default();
+    int32_t screenW = disp ? lv_display_get_horizontal_resolution(disp) : 480;
+    int32_t screenH = disp ? lv_display_get_vertical_resolution(disp) : 800;
+
+    int32_t availW = screenW - 16;
+    int32_t availH = screenH - 210;
+    if (availW < 240) availW = 240;
+    if (availH < 200) availH = 200;
+
+    m_cols = availW / 10;
+    m_rows = availH / 21;
+    if (m_cols < 30) m_cols = 30;
+    if (m_rows < 14) m_rows = 14;
+    if (m_cols > 100) m_cols = 100;
+    if (m_rows > 45) m_rows = 45;
+
     m_vt = vterm_new(m_rows, m_cols);
     if (!m_vt) return false;
 
@@ -98,7 +113,7 @@ void TerminalDisplay::appendText(const char* text, size_t len) {
         size_t start = 0;
         for (size_t i = 0; i < len; i++) {
             if (text[i] == '\n') {
-                const char prev = (i > 0) ? text[i - 1] : 0;
+                const char prev = i ? text[i - 1] : m_lastChar;
                 vterm_input_write(m_vt, text + start, i - start);
                 start = i;
                 if (prev != '\r') {
@@ -108,6 +123,7 @@ void TerminalDisplay::appendText(const char* text, size_t len) {
         }
         vterm_input_write(m_vt, text + start, len - start);
     }
+    if (len > 0) m_lastChar = text[len - 1];
     vterm_screen_flush_damage(m_vs);
     m_dirty = true;
 }
