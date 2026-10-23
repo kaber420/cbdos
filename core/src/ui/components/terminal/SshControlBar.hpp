@@ -28,7 +28,6 @@ public:
 
 private:
     static void hostConfigBtnCb(lv_event_t* e);
-    static void connectBtnCb(lv_event_t* e);
     static void holdBtnCb(lv_event_t* e);
     static void clearBtnCb(lv_event_t* e);
     static void saveBtnCb(lv_event_t* e);
@@ -36,8 +35,7 @@ private:
     lv_obj_t* m_toolbar = nullptr;
     lv_obj_t* m_lblHost = nullptr;
     lv_obj_t* m_btnConfig = nullptr;
-    lv_obj_t* m_btnConnect = nullptr;
-    lv_obj_t* m_lblConnect = nullptr;
+    lv_obj_t* m_lblConfig = nullptr;
     lv_obj_t* m_btnHold = nullptr;
     lv_obj_t* m_lblHold = nullptr;
     lv_obj_t* m_btnClear = nullptr;
