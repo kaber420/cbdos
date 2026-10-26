@@ -40,6 +40,7 @@ namespace bsp {
     void initHidDriverP4();
     void initNetworkAdapterP4();
     void init_lan_recon_p4();
+    void initNeighborDiscoveryP4();
     void initRadioBackendP4();
     void initWifiStrikeP4();
     void initUsbHostBackendP4();
@@ -88,6 +89,7 @@ extern "C" void app_main(void) {
     cbdos::bsp::initMeshTransportP4();
     cbdos::bsp::initHttpClientP4();
     cbdos::bsp::init_lan_recon_p4();
+    cbdos::bsp::initNeighborDiscoveryP4();
     cbdos::bsp::initSystemConsoleP4();
     // Gestor USB de sistema: el único PHY HS es exclusivo por arranque.
     // Decide qué stack es dueño del hardware; las apps solo piden modo vía UsbManager.

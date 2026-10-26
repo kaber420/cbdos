@@ -41,6 +41,7 @@
 #if CBDOS_FEATURE_REST_PROBER
 #include "views/RestProberView.hpp"
 #endif
+#include "views/omniwisp/OmniwispView.hpp"
 #if CBDOS_FEATURE_SDR
 #include "views/SdrView.hpp"
 #endif
@@ -242,6 +243,17 @@ void AppRegistry::initSystemApps() {
         []() { UIManager::getInstance().pushView(std::make_shared<RestProberView>()); }
     });
 #endif
+
+    // 13d. OmniWISP Suite (AirOS & MikroTik Tool)
+    registerApp({
+        "omniwisp",
+        "OmniWISP",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_WIFI },
+        0x00F5D4,
+        true,
+        []() { UIManager::getInstance().pushView(std::make_shared<OmniwispView>()); }
+    });
 
 #if CBDOS_FEATURE_SDR
     // 13b. SDR Spectrum Analyzer (ESPARGOS Companion)

@@ -2,6 +2,8 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>
+#include <WiFiClientSecure.h>
+#include <cstring>
 
 namespace cbdos {
 namespace bsp {
@@ -13,17 +15,43 @@ public:
         response.statusCode = 0;
         response.success = false;
 
-        WiFiClient client;
-        client.setTimeout(request.timeoutMs);
+        bool isHttps = (request.url.rfind("https://", 0) == 0 ||
+                        request.url.rfind("HTTPS://", 0) == 0);
+
+        WiFiClient plainClient;
+        WiFiClientSecure secureClient;
+        WiFiClient* activeClient = &plainClient;
+
+        if (isHttps) {
+            if (request.insecure) {
+                secureClient.setInsecure();
+            }
+            secureClient.setTimeout(request.timeoutMs);
+            activeClient = &secureClient;
+        } else {
+            plainClient.setTimeout(request.timeoutMs);
+        }
 
         HTTPClient http;
         http.setTimeout(request.timeoutMs);
         http.setUserAgent("CBDos-Http/1.0 (ESP32-S3)");
         http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
 
+        static const char* kCollectHeaders[] = {
+            "X-CSRF-ID",
+            "Set-Cookie",
+            "Content-Type",
+            "Location",
+            "Server",
+            "WWW-Authenticate",
+            "Authorization",
+            "X-Auth-Token"
+        };
+        http.collectHeaders(kCollectHeaders, sizeof(kCollectHeaders) / sizeof(kCollectHeaders[0]));
+
         uint32_t t0 = millis();
 
-        if (http.begin(client, request.url.c_str())) {
+        if (http.begin(*activeClient, request.url.c_str())) {
             for (const auto& hdr : request.headers) {
                 http.addHeader(hdr.key.c_str(), hdr.value.c_str());
             }
@@ -42,6 +70,15 @@ public:
 
             response.rttMs = millis() - t0;
             response.statusCode = httpCode;
+
+            int hdrCount = http.headers();
+            for (int i = 0; i < hdrCount; ++i) {
+                String hVal = http.header(i);
+                if (hVal.length() > 0) {
+                    String hName = http.headerName(i);
+                    response.headers.push_back({std::string(hName.c_str()), std::string(hVal.c_str())});
+                }
+            }
 
             if (httpCode > 0) {
                 response.success = (httpCode >= 200 && httpCode < 300);

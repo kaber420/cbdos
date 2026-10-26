@@ -256,14 +256,175 @@ void registerSshAPI(lua_State* L) {
     lua_setfield(L, -2, "ssh");
 }
 
+static void populateRequestHeadersFromTable(lua_State* L, int tableIdx, std::vector<cbdos::http::HttpHeader>& outHeaders) {
+    if (!lua_istable(L, tableIdx)) return;
+    int absIdx = tableIdx > 0 ? tableIdx : (lua_gettop(L) + tableIdx + 1);
+    lua_pushnil(L);
+    while (lua_next(L, absIdx) != 0) {
+        if (lua_type(L, -2) == LUA_TSTRING && lua_isstring(L, -1)) {
+            const char* k = lua_tostring(L, -2);
+            const char* v = lua_tostring(L, -1);
+            if (k && v) {
+                outHeaders.push_back({k, v});
+            }
+        }
+        lua_pop(L, 1);
+    }
+}
+
+static void pushHttpResponseTable(lua_State* L, const cbdos::http::HttpResponse& res) {
+    lua_newtable(L);
+
+    lua_pushboolean(L, res.success);
+    lua_setfield(L, -2, "success");
+
+    lua_pushinteger(L, res.statusCode);
+    lua_setfield(L, -2, "status");
+
+    lua_pushinteger(L, res.statusCode);
+    lua_setfield(L, -2, "statusCode");
+
+    lua_pushinteger(L, res.statusCode);
+    lua_setfield(L, -2, "status_code");
+
+    lua_pushlstring(L, res.body.data(), res.body.size());
+    lua_setfield(L, -2, "body");
+
+    lua_pushinteger(L, (lua_Integer)res.rttMs);
+    lua_setfield(L, -2, "rtt");
+
+    lua_pushboolean(L, res.truncated);
+    lua_setfield(L, -2, "truncated");
+
+    lua_pushstring(L, res.errorMessage.c_str());
+    lua_setfield(L, -2, "error");
+
+    // Tabla de cabeceras de respuesta (con clave original, minúscula y normalización para X-CSRF-ID / Set-Cookie)
+    lua_newtable(L);
+    for (const auto& hdr : res.headers) {
+        lua_pushstring(L, hdr.value.c_str());
+        lua_setfield(L, -2, hdr.key.c_str());
+
+        std::string lowerKey = hdr.key;
+        std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(), ::tolower);
+        if (lowerKey != hdr.key) {
+            lua_pushstring(L, hdr.value.c_str());
+            lua_setfield(L, -2, lowerKey.c_str());
+        }
+
+        if (lowerKey == "x-csrf-id" && hdr.key != "X-CSRF-ID") {
+            lua_pushstring(L, hdr.value.c_str());
+            lua_setfield(L, -2, "X-CSRF-ID");
+        } else if (lowerKey == "set-cookie" && hdr.key != "Set-Cookie") {
+            lua_pushstring(L, hdr.value.c_str());
+            lua_setfield(L, -2, "Set-Cookie");
+        }
+    }
+    lua_setfield(L, -2, "headers");
+}
+
+static int lua_http_request(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+
+    cbdos::http::HttpRequest req;
+
+    lua_getfield(L, 1, "method");
+    if (lua_isstring(L, -1)) {
+        req.method = cbdos::http::stringToHttpMethod(lua_tostring(L, -1));
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "url");
+    if (lua_isstring(L, -1)) {
+        req.url = lua_tostring(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "body");
+    if (lua_isstring(L, -1)) {
+        size_t len = 0;
+        const char* b = lua_tolstring(L, -1, &len);
+        if (b && len > 0) req.body.assign(b, len);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "timeout_ms");
+    if (lua_isnumber(L, -1)) {
+        req.timeoutMs = (uint32_t)lua_tointeger(L, -1);
+    } else {
+        lua_pop(L, 1);
+        lua_getfield(L, 1, "timeout");
+        if (lua_isnumber(L, -1)) {
+            req.timeoutMs = (uint32_t)lua_tointeger(L, -1);
+        }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "insecure");
+    if (lua_isboolean(L, -1)) {
+        req.insecure = lua_toboolean(L, -1) != 0;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 1, "headers");
+    if (lua_istable(L, -1)) {
+        populateRequestHeadersFromTable(L, -1, req.headers);
+    }
+    lua_pop(L, 1);
+
+    cbdos::http::HttpResponse res = cbdos::http::execute(req);
+    pushHttpResponseTable(L, res);
+    return 1;
+}
+
 static int lua_http_get(lua_State* L) {
     const char* url = luaL_checkstring(L, 1);
+
+    // Si el 2do argumento es una tabla de opciones (ej. http.get(url, { headers = {...} })),
+    // ejecutamos petición estructurada y devolvemos la tabla de respuesta completa + tupla compatible
+    if (lua_istable(L, 2)) {
+        cbdos::http::HttpRequest req;
+        req.method = cbdos::http::HttpMethod::Get;
+        req.url = url;
+
+        lua_getfield(L, 2, "timeout_ms");
+        if (lua_isnumber(L, -1)) {
+            req.timeoutMs = (uint32_t)lua_tointeger(L, -1);
+        } else {
+            lua_pop(L, 1);
+            lua_getfield(L, 2, "timeout");
+            if (lua_isnumber(L, -1)) {
+                req.timeoutMs = (uint32_t)lua_tointeger(L, -1);
+            }
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "insecure");
+        if (lua_isboolean(L, -1)) {
+            req.insecure = lua_toboolean(L, -1) != 0;
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "headers");
+        if (lua_istable(L, -1)) {
+            populateRequestHeadersFromTable(L, -1, req.headers);
+        } else {
+            // También permitir pasar directamente una tabla de headers si no tiene subtabla "headers"
+            populateRequestHeadersFromTable(L, 2, req.headers);
+        }
+        lua_pop(L, 1);
+
+        cbdos::http::HttpResponse res = cbdos::http::execute(req);
+        pushHttpResponseTable(L, res);
+        return 1;
+    }
+
     uint32_t timeoutMs = (uint32_t)luaL_optinteger(L, 2, 5000);
     cbdos::http::HttpResponse res = cbdos::http::get(url, timeoutMs);
 
     lua_pushboolean(L, res.success);
     lua_pushinteger(L, res.statusCode);
-    lua_pushstring(L, res.body.c_str());
+    lua_pushlstring(L, res.body.data(), res.body.size());
     return 3;
 }
 
@@ -276,7 +437,7 @@ static int lua_http_post(lua_State* L) {
 
     lua_pushboolean(L, res.success);
     lua_pushinteger(L, res.statusCode);
-    lua_pushstring(L, res.body.c_str());
+    lua_pushlstring(L, res.body.data(), res.body.size());
     return 3;
 }
 
@@ -332,6 +493,8 @@ void registerNetAPI(lua_State* L) {
     lua_setfield(L, -2, "http_get");
     lua_pushcfunction(L, lua_http_post);
     lua_setfield(L, -2, "http_post");
+    lua_pushcfunction(L, lua_http_request);
+    lua_setfield(L, -2, "http_request");
     lua_setfield(L, -2, "net");
 }
 
@@ -341,5 +504,7 @@ void registerHttpAPI(lua_State* L) {
     lua_setfield(L, -2, "get");
     lua_pushcfunction(L, lua_http_post);
     lua_setfield(L, -2, "post");
+    lua_pushcfunction(L, lua_http_request);
+    lua_setfield(L, -2, "request");
     lua_setfield(L, -2, "http");
 }

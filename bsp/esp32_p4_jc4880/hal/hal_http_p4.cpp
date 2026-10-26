@@ -10,6 +10,33 @@ namespace cbdos {
 namespace bsp {
 
 class EspIdfHttpClient : public http::IHttpClient {
+private:
+    static esp_err_t httpEventHandler(esp_http_client_event_t* evt) {
+        if (!evt || !evt->user_data) return ESP_OK;
+        auto* response = static_cast<http::HttpResponse*>(evt->user_data);
+
+        if (evt->event_id == HTTP_EVENT_ON_HEADER && evt->header_key && evt->header_value) {
+            // Si ya existe la cabecera (ej. múltiples Set-Cookie), concatenamos con "; " o actualizamos
+            std::string key = evt->header_key;
+            std::string val = evt->header_value;
+            bool merged = false;
+            if (strcasecmp(key.c_str(), "Set-Cookie") == 0) {
+                // Extraer solo el par clave=valor principal antes del primer ';' para facilitar reenvío en Cookie:
+                for (auto& existing : response->headers) {
+                    if (strcasecmp(existing.key.c_str(), "Set-Cookie") == 0) {
+                        existing.value += "; " + val;
+                        merged = true;
+                        break;
+                    }
+                }
+            }
+            if (!merged) {
+                response->headers.push_back({std::move(key), std::move(val)});
+            }
+        }
+        return ESP_OK;
+    }
+
 public:
     http::HttpResponse execute(const http::HttpRequest& request) override {
         http::HttpResponse response;
@@ -24,6 +51,11 @@ public:
         config.user_agent = "CBDos-Http/1.0 (ESP32-P4)";
         config.buffer_size = 2048;
         config.buffer_size_tx = 1024;
+        config.event_handler = httpEventHandler;
+        config.user_data = &response;
+        if (request.insecure) {
+            config.skip_cert_common_name_check = true;
+        }
 
         esp_http_client_method_t espMethod = HTTP_METHOD_GET;
         switch (request.method) {

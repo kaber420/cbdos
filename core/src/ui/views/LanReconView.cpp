@@ -8,6 +8,7 @@
 #include "RestProberView.hpp"
 #include "../../network/LanScannerService.hpp"
 #include "cbdos/lan_recon.hpp"
+#include "cbdos/neighbor_discovery.hpp"
 
 #include <lvgl.h>
 
@@ -259,7 +260,9 @@ void LanReconView::scanBtnCb(lv_event_t* e) {
                 return;
             }
         }
-        if (!ok) {
+        if (ok) {
+            cbdos::network::NeighborDiscoveryService::getInstance().triggerScan(3500);
+        } else {
             auto* backend = cbdos::network::getLanScannerBackend();
             if (backend == nullptr || !backend->isNetworkConnected()) {
                 UIManager::showToast("Wi-Fi desconectado · Ve a Ajustes > Red para conectar");
@@ -541,11 +544,23 @@ void LanReconView::rebuildHostList(const std::vector<cbdos::network::LanHostInfo
         lv_obj_set_style_text_color(vendorLbl, lv_color_hex(0x94A3B8), 0);
         lv_obj_set_style_text_font(vendorLbl, &lv_font_montserrat_12, 0);
 
-        // v2: linea de descubrimiento (metodo + RTT + SERVER SSDP).
+        // v2 + Neighbor Discovery: enriquecimiento con UBNT / MNDP
+        cbdos::network::NeighborDevice nd;
+        bool hasNeighbor = cbdos::network::NeighborDiscoveryService::getInstance().findByIp(host.ip, nd);
+
         if (!host.discovery.empty() || host.rttMs > 0 || !host.ssdpServer.empty() ||
-            host.isTv) {
+            host.isTv || hasNeighbor) {
             lv_obj_t* discLbl = lv_label_create(card);
             std::string disc;
+            if (hasNeighbor) {
+                disc += "[" + nd.getBrandString() + "] ";
+                if (!nd.identity.empty()) {
+                    disc += nd.identity + " ";
+                }
+                if (!nd.model.empty()) {
+                    disc += "(" + nd.model + ") · ";
+                }
+            }
             if (host.isTv) {
                 disc += "[TV] ";
             }
@@ -565,7 +580,7 @@ void LanReconView::rebuildHostList(const std::vector<cbdos::network::LanHostInfo
                 disc += " · " + srv;
             }
             lv_label_set_text(discLbl, disc.c_str());
-            lv_obj_set_style_text_color(discLbl, lv_color_hex(0x64748B), 0);
+            lv_obj_set_style_text_color(discLbl, hasNeighbor ? lv_color_hex(kAccent) : lv_color_hex(0x64748B), 0);
             lv_obj_set_style_text_font(discLbl, &lv_font_montserrat_12, 0);
         }
 

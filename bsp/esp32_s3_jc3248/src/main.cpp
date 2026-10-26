@@ -49,6 +49,7 @@ namespace bsp {
     void initUsbHostBackendS3();
     void initNetworkAdapterS3();
     void init_lan_recon_s3();
+    void initNeighborDiscoveryS3();
     void initRadioBackendS3();
     void initBleDriverS3();
     void initWifiShieldS3();
@@ -131,7 +132,9 @@ void setup() {
         if (usbBoot == cbdos::usb::UsbMode::Host) {
             cbdos::bsp::initUsbHostBackendS3();
         } else if (usbBoot == cbdos::usb::UsbMode::Cdc) {
-            // Modo Consola puro: unica via por la que existe CDC en el bus USB
+            // Modo Consola puro: TinyUSB CDC ACM nativo
+            USB.productName("CBDos Serial Console");
+            USB.manufacturerName("CBDos / Poseidon");
             USBSerial.begin(115200);
             USB.begin();
         } else {
@@ -140,6 +143,7 @@ void setup() {
     }
 
     cbdos::bsp::init_lan_recon_s3();
+    cbdos::bsp::initNeighborDiscoveryS3();
 
 #if CBDOS_FEATURE_PICOTTS
     // Registrar servicio de TTS (Offline-First: permanece en reposo hasta su primer uso)
@@ -255,33 +259,43 @@ void loop() {
         cbdos_hid_s3_poll();
     }
 
-    // Respuesta al flasheador web: "CBDOS:VERSION?" -> banner de identidad.
-    // Con CDC_ON_BOOT=0, Serial es la UART fisica; en modo Cdc se atiende USBSerial.
-    Stream& console = (bootMode == cbdos::usb::UsbMode::Cdc) ? (Stream&)USBSerial : (Stream&)Serial;
-    while (console.available()) {
-        static String s3CliLine;
-        char c = (char)console.read();
-        if (c == '\n' || c == '\r') {
-            if (s3CliLine.length() > 0) {
-                std::string line(s3CliLine.c_str());
-                s3CliLine = "";
-                cbdos::cli::CommandContext ctx;
-                ctx.write = [&console](const std::string& chunk) {
-                    console.print(chunk.c_str());
-                };
-                ctx.isAborted = [&console]() -> bool {
-                    return console.available() > 0;
-                };
-                cbdos::cli::dispatch(line, ctx);
+    // Procesar CLI tanto en UART física como en USB CDC (si está activo)
+    auto handleConsoleInput = [](Stream& stream, String& buffer) {
+        while (stream.available()) {
+            char c = (char)stream.read();
+            if (c == '\n' || c == '\r') {
+                if (buffer.length() > 0) {
+                    std::string line(buffer.c_str());
+                    buffer = "";
+                    cbdos::cli::CommandContext ctx;
+                    ctx.write = [&stream](const std::string& chunk) {
+                        stream.print(chunk.c_str());
+                    };
+                    ctx.isAborted = [&stream]() -> bool {
+                        return stream.available() > 0;
+                    };
+                    cbdos::cli::dispatch(line, ctx);
+                }
+            } else if (c == '\b' || c == 127) {
+                if (buffer.length() > 0) {
+                    buffer.remove(buffer.length() - 1);
+                }
+            } else if (c >= 32 && c <= 126) {
+                buffer += c;
+                if (buffer.length() > 256) buffer = "";
             }
-        } else if (c == '\b' || c == 127) {
-            if (s3CliLine.length() > 0) {
-                s3CliLine.remove(s3CliLine.length() - 1);
-            }
-        } else if (c >= 32 && c <= 126) {
-            s3CliLine += c;
-            if (s3CliLine.length() > 256) s3CliLine = "";
         }
+    };
+
+    static String s_uartCliLine;
+    static String s_usbCliLine;
+
+    // Atender siempre la UART física (CH340/puerto serie de flasheo)
+    handleConsoleInput(Serial, s_uartCliLine);
+
+    // En modo CDC, atender también el puerto USB nativo OTG (TinyUSB)
+    if (bootMode == cbdos::usb::UsbMode::Cdc) {
+        handleConsoleInput(USBSerial, s_usbCliLine);
     }
 
     if (LuaBridge::checkAndClearNeedsRefresh()) {

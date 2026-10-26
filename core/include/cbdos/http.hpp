@@ -32,6 +32,7 @@ struct HttpRequest {
     std::string body;
     uint32_t timeoutMs = 8000;
     size_t maxBodyCaptureBytes = 32768; // Límite defensivo de 32 KB para evitar OOM
+    bool insecure = true;               // Permitir certificados autofirmados (ej. Ubiquiti AirOS / LAN routers)
 };
 
 struct HttpResponse {

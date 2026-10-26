@@ -12,6 +12,7 @@
       "-I src/ui/components",
       "-I src/ui/mascot",
       "-I src/ui/views",
+      "-I src/ui/views/omniwisp",
       "-I src/ui/views/restprober",
       "-I src/ui/views/utilities",
       "-I src/ui/views/meshcore",

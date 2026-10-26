@@ -76,10 +76,50 @@ Tras auditar `references/Slave_I` (firmware para M5Stack Tab5 basado en arquitec
 
 ---
 
-## 5. Criterio de Decisión Rápida al Momento de Implementar
+## 5. Aportes Técnicos y Lecciones de `HomeTiles` (Hardware JC4880 P4 y UI)
+
+Aunque **HomeTiles** es un firmware de domótica para pared (Appliance) cuya lógica de Home Assistant y MQTT no encaja en la arquitectura de un Cyberdeck OS, su hardware de referencia principal es nuestra placa gemela **Guition JC4880P443C (ESP32-P4)** y su motor gráfico es **LVGL v9.6** (100% compatible con nuestro estándar LVGL v9.5).
+
+A continuación se registran los aportes de bajo nivel y soluciones de silicio para consulta y portado selectivo:
+
+| # | Módulo / Característica | Origen en `HomeTiles` | ¿Portar o Crear Versión Propia? | Evaluación y Justificación Técnica en CBDos |
+| :-: | :--- | :--- | :---: | :--- |
+| **H1** | **Árbitro de DMA2D y Protección "PPA Wedged"** (Evita error 259 en ESP-IDF v5.5) | `src/core/display/dma2d_arbiter.h` + `.cpp` (120 líneas) | 🔄 **Portado Directo a BSP P4** | Resuelve la colisión por hardware entre el acelerador PPA y el decodificador JPEG al compartir canales DMA2D. Incluye guardia RAII (`Dma2dArbiterGuard`) y conmutación transparente a rotación por CPU (`p4_dsi_cpu_rotate.h`) si el PPA entra en timeout (>200 ms). Vital para visor VNC y streaming en P4. |
+| **H2** | **Drivers de Cámara Física MIPI-CSI en P4 (SC202CS, OV5647, OV02C10)** | `src/video/local_camera/` + `local_camera_board.cpp` | 🔄 **Portado de Inicialización a BSP P4** | Provee la secuencia SCCB/I2C, configuración del regulador interno LDO Canal 3 a 2500 mV y el pipeline CSI para el conector de cinta de la JC4880. Permite dotar al Cyberdeck P4 de cámara de inspección o visión de campo sin ingeniería inversa. |
+| **H3** | **Streaming de Video con Control de Flujo TCP ACK (Backpressure)** | `src/video/camera_stream.cpp` + `tcp_ack_wire.h` | 🔄 **Adaptación a `VideoStreamingService`** | Implementa triple buffering (`kFrameBufferCount = 3`) y control de ventana por TCP ACK para recepción de MJPEG: si el tráfico satura la memoria o cae el margen DMA (`kMinCameraDmaHeadroomBytes`), frena al emisor para no agotar la RAM de red de LwIP. |
+| **H4** | **Configuración Fina de Hardware JC4880 (SDMMC, Panel DSI, Touch)** | `src/devices/guition_jc4880p443_portrait/` | 🔄 **Referencia y Ajustes al BSP P4** | 1) SDMMC Slot-0 (4 bits) en pines IO-MUX 39..44 con alimentación interna LDO Canal 4 a 3300 mV.<br>2) Panel ST7701 DSI 2-lanes con encendido suave de backlight (90 ms warmup para evitar destellos blancos al boot).<br>3) Filtro anti-jitter y debounce táctil GT911 (`kTouchJitterThresholdPx = 2`). |
+| **H5** | **Catálogo de Material Design Icons (MDI) y Extractor para LVGL 9** | `src/fonts/` + `mdi-extractor/` | 🔄 **Reutilización de Tooling y Fuentes** | Iconos compilados para LVGL v9 en tamaños desde 15px hasta 48px y script generador en Node.js para convertir cualquier glifo MDI en arrays C de LVGL sin depender de convertidores web manuales. |
+
+### 5.1. Similitudes y Lecciones Arquitectónicas Observadas:
+* **Uso Estricto de `namespaces` en C++:** Ambos proyectos aíslan sus subsistemas en espacios de nombres limpios (`local_camera::`, `dma2d_arbiter::`, `speaker::`, `cbdos::`), evitando colisiones de símbolos y funciones globales dispersas.
+* **Manejo de Idiomas e Internacionalización (`i18n.cpp`):** Manejan las traducciones mediante un catálogo monolítico de cadenas con perfiles de estado, exactamente el mismo enfoque estructurado que utilizábamos en fases tempranas de CBDos antes de modularizar las tablas de texto.
+* **Patrón Ergonómico del HeaderBar con Botón "Volver" (`<`):** Valida la decisión de diseño de CBDos de usar un botón de navegación visible en la barra superior en lugar de gestos táctiles complejos (*swipes*), garantizando fiabilidad contra el ruido de pantalla y actuando como el destructor seguro de memoria de la vista activa (`popView`).
+
+---
+
+## 6. Nuevos Aportes Seleccionados de `ESP32-Bit-Pirate` (Hardware Hacking & Memory Exploitation)
+
+`references/ESP32-Bit-Pirate` es un firmware multipropósito de análisis y explotación de hardware para ESP32/S3/P4. Cuenta con módulos listos para interactuar a nivel eléctrico y de protocolo con memorias no volátiles y periféricos externos para tareas de volcado (dump), lectura, borrado y flasheo.
+
+Se registran los siguientes componentes clave para futura evaluación y portado a CBDos:
+
+| # | Módulo / Característica | Origen en `ESP32-Bit-Pirate` | ¿Portar o Crear Versión Propia? | Evaluación y Justificación Técnica en CBDos |
+| :-: | :--- | :--- | :---: | :--- |
+| **B1** | **SPI Flash Flasher & Dumper Universal (JEDEC RDID 0x9F)** | `src/Services/SpiService.cpp` + `src/Data/FlashDatabase.h` | 🔄 **Portado Directo de Rutinas y Base de Datos** | Incluye base de datos con >300 modelos de memorias SPI Flash (Winbond, Macronix, Spansion, GigaDevice, etc.), soporte para modos 3-byte y 4-byte (>16MB), comandos Write Enable (`0x06`), Page Program (`0x02`/`0x12`), Sector Erase (`0x20`/`0xD8`), Chip Erase (`0xC7`), verificación bit a bit y yield cooperativo con FreeRTOS para evitar triggers del Task Watchdog. Permite convertir el Cyberdeck en programador de BIOS/chips externos con pinzas SOIC-8. |
+| **B2** | **I2C EEPROM Suite (Series 24Cxx: 24C01 a 24C1024)** | `src/Services/I2cService.cpp` (L587-668) | 🔄 **Portado a Servicio I2C de CBDos** | Detección automática de capacidad (`detectMemorySizeBytes`), tamaño de página (`detectPageSizeBytes`), longitud de direccionamiento (1 o 2 bytes) y tiempos de escritura. Funciones completas de lectura secuencial, volcado de memoria (dump), escritura y borrado de EEPROMs I2C. |
+| **B3** | **Smartcard 2-Wire & Protocolos SLE44xx** | `src/Services/TwoWireService.cpp` + `.h` | 🧬 **Versión Propia Inspirada / Portado Opcional** | Rutinas de lectura ATR (Answer to Reset), decodificación de estructuras protegidas, lectura y escritura de memorias de seguridad y verificación de códigos PIN/PSC (ej. tarjetas telefónicas antiguas o chips criptográficos de 2 hilos). |
+| **B4** | **Hardware Pinout Analyzer (Automated Pinout Hunting)** | `src/Analyzers/PinAnalyzer.cpp` + `.h` | 🔄 **Adaptación a Tool de Diagnóstico GPIO** | Algoritmo tipo *JTAGulator* para identificar automáticamente líneas UART (TX/RX), I2C (SDA/SCL) o SPI mediante barrido y análisis de estados lógicos y transiciones en pines desconocidos. |
+| **B5** | **Sniffer I2C en Tiempo Real** | `src/Services/I2cSnifferService.cpp` | 🔄 **Adaptación a Driver RMT / Interrupción** | Captura de tramas en el bus I2C (Start, Stop, ACK/NACK, Addr, Data) para depurar periféricos en placa o interceptar comunicaciones entre chips externos. |
+
+---
+
+## 7. Criterio de Decisión Rápida al Momento de Implementar
 
 Cuando iniciemos la codificación de cualquiera de los puntos anteriores, aplicaremos esta regla práctica:
-1. **Si el archivo de referencia habla con estándares (Lua C API, ESP-IDF `usb/hid_host`, `esp_ieee802154`, `jpeg_decode`/`ppa`, `libvterm`, sockets LwIP RFB/DES):** **Lo portamos directo** adaptando solo los nombres de funciones al namespace `cbdos::` para ahorrar semanas de depuración de protocolos.
+1. **Si el archivo de referencia habla con estándares (Lua C API, ESP-IDF `usb/hid_host`, `esp_ieee802154`, `jpeg_decode`/`ppa`, `libvterm`, sockets LwIP RFB/DES, árbitro DMA2D, comandos SPI Flash JEDEC 0x9F/0x02/0x03):** **Lo portamos directo** adaptando solo los nombres de funciones al namespace `cbdos::` para ahorrar semanas de depuración de protocolos.
 2. **Si el archivo de referencia habla con su propio sistema de ventanas o frameworks propietarios:** **No arrastramos sus dependencias**; escribimos nuestra clase limpia en C++ usando `BaseView`, `HeaderBar`, `DefaultTheme` y `LuaBridge` de CBDos, guiándonos únicamente por sus fórmulas y estructuras de datos.
 3. **Para subsistemas de `Slave_I` (USB HID Host y Radio C6 sobre SDIO):** Se aplica el mismo principio; se portan directamente los controladores que interactúan con estándares de ESP-IDF (`usb/hid_host`, `esp_ieee802154`, `libnet80211`), adaptándolos a la arquitectura de colas y vistas `BaseView` de CBDos sin importar su shell de UI.
+4. **Para aportes de `HomeTiles` (Hardware JC4880 y DMA2D):** Se toman exclusivamente los drivers de bajo nivel (`dma2d_arbiter`, LDOs de SDMMC/CSI y control de flujo de video), ignorando por completo toda la capa de Home Assistant y MQTT.
+5. **Para aportes de `ESP32-Bit-Pirate` (Memorias y Hardware Hacking):** Se aprovechan las tablas de comandos físicos y tiempos (`FlashDatabase.h`, opcodes SPI/I2C EEPROM) integrándolos directamente sobre los buses SPI e I2C del BSP de CBDos con interfaz gráfica LVGL 9.5 y/o comandos desde la shell.
+
 

@@ -1,8 +1,9 @@
 # Propuesta y Plan de Arquitectura: Screen Share y Grabación de Pantalla en PC (CBDos)
 
-> **Estado:** Propuesta Técnica / Plan de Arquitectura  
-> **Fecha:** 19 de Octubre de 2026  
-> **Targets:** ESP32-S3 (JC3248W535) y ESP32-P4 (JC4880P443C)  
+> **Estado:** Promovida a Especificación Oficial de Arquitectura  
+> **Documento Activo:** [especificacion_tecnica_screenshare_y_grabador_pc.md](file:///home/kaber420/Documentos/proyectos/cbdos/specs/architecture/especificacion_tecnica_screenshare_y_grabador_pc.md)  
+> **Fecha:** 19 de Octubre de 2026 (Actualizada el 22 de Octubre de 2026)  
+> **Targets:** ESP32-P4 (JC4880P443C) y ESP32-S3 (JC3248W535)  
 > **Framework Gráfico:** LVGL v9.5 estricto  
 
 ---

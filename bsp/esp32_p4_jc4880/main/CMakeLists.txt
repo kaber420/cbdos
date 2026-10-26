@@ -27,6 +27,7 @@ idf_component_register(
         "../hal/hal_hid_p4.cpp"
         "../hal/hal_console_p4.cpp"
         "../hal/hal_lan_recon_p4.cpp"
+        "../hal/hal_neighbor_discovery_p4.cpp"
         "../hal/EspIdfTimeProvider.cpp"
     INCLUDE_DIRS 
         "."

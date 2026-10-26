@@ -1,0 +1,82 @@
+-- @name: OmniWISP
+-- @icon: wifi
+-- @accent: #00F5D4
+-- @author: CBDos Field Suite
+-- @version: 1.0.0
+-- @description: Monitor reactivo de estaciones y telemetria AirOS / MikroTik
+
+local host = "192.168.1.20"
+local user = "ubnt"
+local pass = ""
+
+-- 1. Consultar Vault si existen credenciales guardadas
+if cbdos.vault and cbdos.vault.is_unlocked() then
+    local items = cbdos.vault.list("ubnt")
+    if items and #items > 0 then
+        local it = cbdos.vault.find_by_host(items[1].host)
+        if it then
+            host = it.host
+            user = it.user
+            pass = it.secret
+        end
+    end
+end
+
+print("[Ubiquiti] Conectando a AP:", host)
+
+-- 2. Autenticacion contra AirOS
+local auth_res = cbdos.http.request({
+    method = "POST",
+    url = "https://" .. host .. "/api/auth",
+    headers = {
+        ["Content-Type"] = "application/x-www-form-urlencoded"
+    },
+    body = "username=" .. user .. "&password=" .. pass,
+    timeout_ms = 6000
+})
+
+local cookie = nil
+local csrf = nil
+
+if auth_res and auth_res.headers then
+    for k, v in pairs(auth_res.headers) do
+        local lk = string.lower(k)
+        if lk == "set-cookie" then
+            cookie = v
+        elseif lk == "x-csrf-id" or lk == "x-csrf-token" then
+            csrf = v
+        end
+    end
+end
+
+-- 3. Consulta de telemetria /status.cgi
+local req_headers = {}
+if cookie then req_headers["Cookie"] = cookie end
+if csrf then req_headers["X-CSRF-ID"] = csrf end
+
+local status_res = cbdos.http.request({
+    method = "GET",
+    url = "https://" .. host .. "/status.cgi",
+    headers = req_headers,
+    timeout_ms = 8000
+})
+
+if status_res.status == 200 then
+    local data, err = cbdos.json.decode(status_res.body)
+    if data then
+        print("[Ubiquiti] Hostname:", data.host and data.host.hostname or "N/A")
+        if data.wireless then
+            print(string.format("[Ubiquiti] SSID: %s | Frecuencia: %s MHz", tostring(data.wireless.essid), tostring(data.wireless.frequency)))
+            if data.wireless.sta then
+                print("[Ubiquiti] Estaciones conectadas: " .. #data.wireless.sta)
+                for i, sta in ipairs(data.wireless.sta) do
+                    print(string.format("  [%d] MAC: %s | Senal: %s dBm | IP: %s", i, tostring(sta.mac), tostring(sta.signal), tostring(sta.lastip)))
+                end
+            end
+        end
+    else
+        print("[Ubiquiti] Error al parsear JSON:", err)
+    end
+else
+    print("[Ubiquiti] Fallo HTTP /status.cgi. Codigo:", status_res.status)
+end
