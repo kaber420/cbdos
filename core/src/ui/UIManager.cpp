@@ -4,6 +4,7 @@
 #include "themes/DefaultTheme.h"
 #include "assets/SystemIcons.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/input.hpp"
 #include "PowerManager.hpp"
 #include "../../lua/LuaBridge.hpp"
 #include "cbdos_build_profile.h"
@@ -241,6 +242,14 @@ static void ta_event_cb(lv_event_t* e) {
     lv_obj_t* targetTa = (lv_obj_t*)lv_event_get_target(e);
 
     if (code == LV_EVENT_FOCUSED || code == LV_EVENT_CLICKED) {
+        if (cbdos::input::hasPhysicalKeyboard()) {
+            if (s_activeKeyboard && lv_obj_is_valid(s_activeKeyboard)) {
+                lv_obj_add_flag(s_activeKeyboard, LV_OBJ_FLAG_HIDDEN);
+            }
+            lv_obj_scroll_to_view(targetTa, LV_ANIM_ON);
+            return;
+        }
+
         if (!s_activeKeyboard || !lv_obj_is_valid(s_activeKeyboard)) {
             lv_obj_t* topLayer = lv_layer_top();
             s_activeKeyboard = lv_keyboard_create(topLayer);

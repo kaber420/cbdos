@@ -1,5 +1,6 @@
 #include "hal_usb_host_p4.hpp"
 #include "hal_usb_cdc_p4.hpp"
+#include "hal_usb_hid_host_p4.hpp"
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <usb/usb_host.h>
@@ -149,6 +150,9 @@ bool P4UsbHostBackend::init() {
 
     // 3. Registrar el canal CDC como driver USB predeterminado
     registerDriver(getP4UsbCdcChannel());
+
+    // 4. Inicializar el driver HID Host para teclados físicos USB
+    initUsbHidHostP4();
 
     m_initialized = true;
     ESP_LOGI(TAG, "HAL USB Host P4 inicializado con éxito");

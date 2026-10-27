@@ -17,6 +17,7 @@ public:
 
     bool init(lv_obj_t* parent);
     void update();
+    void updateKeyboardStatus();
     void onThemeChanged(cbdos::theme::ThemeType theme, const cbdos::theme::ThemePalette& palette);
     void setOnClickCallback(ClickCallback cb);
     void setTitle(const char* title);
@@ -43,6 +44,7 @@ private:
     lv_obj_t* m_btnBack;
     lv_obj_t* m_labelClock;
     lv_obj_t* m_labelWifi;
+    lv_obj_t* m_labelKeyboard;
     lv_obj_t* m_btnRightAction;
     lv_obj_t* m_labelRightAction;
     lv_timer_t* m_timer;

@@ -33,6 +33,10 @@ bool getTouch(TouchPoint& point) {
     return false;
 }
 
+bool hasPhysicalKeyboard() {
+    return false;
+}
+
 } // namespace input
 } // namespace cbdos
 

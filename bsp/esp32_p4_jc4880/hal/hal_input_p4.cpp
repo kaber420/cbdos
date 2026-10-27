@@ -1,5 +1,6 @@
 #include "cbdos/input.hpp"
 #include "TouchHAL.h"
+#include "hal_usb_hid_host_p4.hpp"
 
 namespace cbdos {
 namespace input {
@@ -17,6 +18,10 @@ bool getTouch(TouchPoint& point) {
     point.y = y;
     point.fingerCount = pressed ? 1 : 0;
     return pressed;
+}
+
+bool hasPhysicalKeyboard() {
+    return cbdos::bsp::isUsbKeyboardConnected();
 }
 
 } // namespace input

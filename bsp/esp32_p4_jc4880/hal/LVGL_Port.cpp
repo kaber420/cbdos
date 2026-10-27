@@ -1,6 +1,7 @@
 #include "LVGL_Port.h"
 #include "DisplayHAL.h"
 #include "TouchHAL.h"
+#include "hal_usb_hid_host_p4.hpp"
 #include "cbdos/ui.hpp"
 #include "../../core/src/lua/LuaBridge.hpp"
 #include "misc/cache/instance/lv_image_cache.h"
@@ -83,6 +84,21 @@ void LVGL_Port::touchReadCallback(lv_indev_t* indev, lv_indev_data_t* data) {
     }
 }
 
+void LVGL_Port::keyboardReadCallback(lv_indev_t* indev, lv_indev_data_t* data) {
+    QueueHandle_t q = cbdos::bsp::getUsbKeyboardQueue();
+    static cbdos::bsp::KeyboardEvent lastEvent = {0, false};
+    cbdos::bsp::KeyboardEvent ev;
+
+    if (q && xQueueReceive(q, &ev, 0) == pdTRUE) {
+        lastEvent = ev;
+        data->key = ev.key;
+        data->state = ev.pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    } else {
+        data->key = lastEvent.key;
+        data->state = lastEvent.pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    }
+}
+
 void LVGL_Port::lvglTask(void* arg) {
     LVGL_Port* self = static_cast<LVGL_Port*>(arg);
     ESP_LOGI(TAG, "Tarea LVGL 9 iniciada en Core %d", xPortGetCoreID());
@@ -158,6 +174,20 @@ esp_err_t LVGL_Port::init(int h_res, int v_res) {
         lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
         lv_indev_set_read_cb(indev, touchReadCallback);
         lv_indev_set_display(indev, display);
+    }
+
+    // 5.1. Crear e Inicializar Dispositivo de Entrada de Teclado Físico
+    kbIndev = lv_indev_create();
+    if (kbIndev) {
+        lv_indev_set_type(kbIndev, LV_INDEV_TYPE_KEYPAD);
+        lv_indev_set_read_cb(kbIndev, keyboardReadCallback);
+        lv_indev_set_display(kbIndev, display);
+
+        // Crear grupo global por defecto de LVGL para navegación por foco y teclas
+        defaultGroup = lv_group_create();
+        lv_group_set_default(defaultGroup);
+        lv_indev_set_group(kbIndev, defaultGroup);
+        ESP_LOGI(TAG, "Dispositivo de entrada KEYPAD y grupo de navegación creados con éxito");
     }
 
     // 6. Lanzar Tarea FreeRTOS para el loop de LVGL

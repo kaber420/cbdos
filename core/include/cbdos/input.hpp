@@ -13,6 +13,7 @@ struct TouchPoint {
 
 bool init();
 bool getTouch(TouchPoint& point);
+bool hasPhysicalKeyboard();
 
 } // namespace input
 } // namespace cbdos

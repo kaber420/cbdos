@@ -4,6 +4,7 @@
 #include "cbdos/system.hpp"
 #include "cbdos/network.hpp"
 #include "cbdos/time.hpp"
+#include "cbdos/input.hpp"
 #include "cbdos_build_profile.h"
 #include "../views/BaseView.hpp"
 #include <cstdio>
@@ -19,6 +20,7 @@ HeaderBar::HeaderBar()
       m_btnBack(nullptr),
       m_labelClock(nullptr),
       m_labelWifi(nullptr),
+      m_labelKeyboard(nullptr),
       m_btnRightAction(nullptr),
       m_labelRightAction(nullptr),
       m_timer(nullptr),
@@ -165,6 +167,13 @@ bool HeaderBar::init(lv_obj_t* parent) {
     lv_obj_set_style_text_font(m_labelRightAction, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(m_labelRightAction, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_center(m_labelRightAction);
+
+    m_labelKeyboard = lv_label_create(rightBox);
+    lv_label_set_text(m_labelKeyboard, LV_SYMBOL_KEYBOARD);
+    lv_obj_set_style_text_color(m_labelKeyboard, lv_color_hex(0x00F5D4), 0); // Cian Cyberpunk
+    lv_obj_set_style_text_font(m_labelKeyboard, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_pad_right(m_labelKeyboard, 8, 0);
+    lv_obj_add_flag(m_labelKeyboard, LV_OBJ_FLAG_HIDDEN);
 
     m_labelWifi = lv_label_create(rightBox);
     lv_label_set_text(m_labelWifi, LV_SYMBOL_WIFI);
@@ -315,6 +324,20 @@ void HeaderBar::update() {
         bool connected = cbdos::network::isConnected();
         lv_label_set_text(m_labelWifi, LV_SYMBOL_WIFI);
         lv_obj_set_style_text_color(m_labelWifi, lv_color_hex(connected ? 0x10B981 : 0x64748B), 0);
+    }
+
+    // 3. Actualizar Indicador de Teclado Físico
+    updateKeyboardStatus();
+}
+
+void HeaderBar::updateKeyboardStatus() {
+    if (m_labelKeyboard && lv_obj_is_valid(m_labelKeyboard)) {
+        bool hasKbd = cbdos::input::hasPhysicalKeyboard();
+        if (hasKbd) {
+            lv_obj_remove_flag(m_labelKeyboard, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(m_labelKeyboard, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 }
 
