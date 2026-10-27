@@ -2,6 +2,7 @@
 
 #include "OmniwispCommon.hpp"
 #include <functional>
+#include <vector>
 
 namespace cbdos {
 namespace ui {

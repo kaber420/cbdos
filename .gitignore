@@ -8,8 +8,8 @@
 .piolibdeps/
 
 # --- ESP-IDF 5.5 / CMake / Ninja (ESP32-P4) ---
-build/
-**/build/
+build*/
+**/build*/
 managed_components/
 **/managed_components/
 dependencies.lock

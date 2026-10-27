@@ -27,26 +27,30 @@ void OmniwispAddGroupModal::show(lv_obj_t* parent, const std::string& parentId, 
     lv_obj_center(s_mask);
 
     s_card = lv_obj_create(s_mask);
-    lv_obj_set_size(s_card, 320, 260);
+    lv_obj_set_size(s_card, 300, 260);
     lv_obj_center(s_card);
     lv_obj_set_style_bg_color(s_card, lv_color_hex(omni_colors::CARD_BG), 0);
     lv_obj_set_style_border_color(s_card, lv_color_hex(omni_colors::TEAL_ACCENT), 0);
     lv_obj_set_style_border_width(s_card, 1, 0);
     lv_obj_set_style_radius(s_card, 10, 0);
-    lv_obj_set_style_pad_all(s_card, 12, 0);
+    lv_obj_set_style_pad_all(s_card, 10, 0);
     lv_obj_set_flex_flow(s_card, LV_FLEX_FLOW_COLUMN);
 
     lv_obj_t* lblTitle = lv_label_create(s_card);
-    lv_label_set_text(lblTitle, LV_SYMBOL_DIRECTORY " Crear PoP / Torre / Zona");
+    if (s_parentId.empty()) {
+        lv_label_set_text(lblTitle, LV_SYMBOL_DIRECTORY " Crear Zona");
+    } else {
+        lv_label_set_text(lblTitle, LV_SYMBOL_DIRECTORY " Crear PoP");
+    }
     lv_obj_set_style_text_color(lblTitle, lv_color_hex(omni_colors::TEAL_ACCENT), 0);
 
     lv_obj_t* lblN = lv_label_create(s_card);
-    lv_label_set_text(lblN, "Nombre (ej: Torre Cerro Colorado):");
+    lv_label_set_text(lblN, s_parentId.empty() ? "Nombre de la Zona:" : "Nombre del PoP:");
     lv_obj_set_style_text_color(lblN, lv_color_hex(omni_colors::TEXT_MUTED), 0);
 
     s_taName = lv_textarea_create(s_card);
     lv_obj_set_size(s_taName, lv_pct(100), 38);
-    lv_textarea_set_placeholder_text(s_taName, "Torre Norte...");
+    lv_textarea_set_placeholder_text(s_taName, s_parentId.empty() ? "Zona Norte..." : "PoP Centro...");
     lv_textarea_set_one_line(s_taName, true);
     UIManager::attachKeyboard(s_taName);
 
@@ -93,7 +97,7 @@ void OmniwispAddGroupModal::show(lv_obj_t* parent, const std::string& parentId, 
         grp.name = nameStr;
         grp.notes = notesStr ? notesStr : "";
         grp.parentId = s_parentId;
-        grp.id = "grp_" + std::to_string(lv_tick_get());
+        grp.id = (s_parentId.empty() ? "city_" : "pop_") + std::to_string(lv_tick_get());
 
         if (s_onSave) s_onSave(grp);
         OmniwispAddGroupModal::close();

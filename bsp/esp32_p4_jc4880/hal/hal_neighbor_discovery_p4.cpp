@@ -178,7 +178,10 @@ public:
             dev.ip = ipStr;
             dev.lastSeenMs = static_cast<uint32_t>(esp_log_timestamp());
 
-            size_t offset = 0;
+            // Decodificación TLV MikroTik MNDP:
+            // Cabecera MNDP: 4 bytes (2B flags/unknown + 2B SeqNo)
+            // Formato TLV: [Type: 2B (big-endian)] [Length: 2B (big-endian)] [Value: Length bytes]
+            size_t offset = 4;
             while (offset + 4 <= static_cast<size_t>(n)) {
                 uint16_t type = (static_cast<uint16_t>(rx[offset]) << 8) | rx[offset + 1];
                 uint16_t len = (static_cast<uint16_t>(rx[offset + 2]) << 8) | rx[offset + 3];
@@ -192,9 +195,15 @@ public:
                     dev.identity.assign(reinterpret_cast<const char*>(val), len);
                 } else if (type == 0x0007) {
                     dev.firmware.assign(reinterpret_cast<const char*>(val), len);
-                } else if (type == 0x0008) {
+                } else if (type == 0x000C) {
+                    // Board model exacto (ej: "RB750Gr3", "CCR2004")
                     dev.model.assign(reinterpret_cast<const char*>(val), len);
-                } else if (type == 0x0009 && len == 4) {
+                } else if (type == 0x0008) {
+                    // Platform fallback si aún no tenemos Board (ej: "RouterBOARD")
+                    if (dev.model.empty()) {
+                        dev.model.assign(reinterpret_cast<const char*>(val), len);
+                    }
+                } else if (type == 0x000A && len == 4) {
                     dev.uptimeSec = (static_cast<uint32_t>(val[0]) << 24) |
                                    (static_cast<uint32_t>(val[1]) << 16) |
                                    (static_cast<uint32_t>(val[2]) << 8)  |

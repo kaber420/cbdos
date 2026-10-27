@@ -43,14 +43,17 @@ bool NeighborDiscoveryService::isScanning() const {
 }
 
 void NeighborDiscoveryService::clear() {
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_devices.clear();
 }
 
 std::vector<NeighborDevice> NeighborDiscoveryService::getDiscoveredDevices() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
     return m_devices;
 }
 
 bool NeighborDiscoveryService::findByIp(const std::string& ip, NeighborDevice& outDev) const {
+    std::lock_guard<std::mutex> lock(m_mutex);
     for (const auto& dev : m_devices) {
         if (dev.ip == ip) {
             outDev = dev;
@@ -61,6 +64,7 @@ bool NeighborDiscoveryService::findByIp(const std::string& ip, NeighborDevice& o
 }
 
 void NeighborDiscoveryService::setNeighborDiscoveredCallback(OnNeighborDiscoveredCb cb) {
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_onDeviceCb = cb;
 }
 
@@ -77,20 +81,25 @@ void NeighborDiscoveryService::discoveryTask(void* param) {
     }
 
     auto onDevice = [p](const NeighborDevice& dev) {
-        bool found = false;
-        for (auto& existing : p->service->m_devices) {
-            if (existing.ip == dev.ip || 
-                (existing.mac[0] != 0 && std::memcmp(existing.mac, dev.mac, 6) == 0)) {
-                existing = dev;
-                found = true;
-                break;
+        OnNeighborDiscoveredCb cbCopy = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(p->service->m_mutex);
+            bool found = false;
+            for (auto& existing : p->service->m_devices) {
+                if (existing.ip == dev.ip || 
+                    (existing.mac[0] != 0 && std::memcmp(existing.mac, dev.mac, 6) == 0)) {
+                    existing = dev;
+                    found = true;
+                    break;
+                }
             }
+            if (!found) {
+                p->service->m_devices.push_back(dev);
+            }
+            cbCopy = p->service->m_onDeviceCb;
         }
-        if (!found) {
-            p->service->m_devices.push_back(dev);
-        }
-        if (p->service->m_onDeviceCb) {
-            p->service->m_onDeviceCb(dev);
+        if (cbCopy) {
+            cbCopy(dev);
         }
     };
 

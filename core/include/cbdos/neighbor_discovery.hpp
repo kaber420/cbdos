@@ -5,6 +5,8 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <atomic>
 
 namespace cbdos {
 namespace network {
@@ -74,9 +76,10 @@ private:
     NeighborDiscoveryService(const NeighborDiscoveryService&) = delete;
     NeighborDiscoveryService& operator=(const NeighborDiscoveryService&) = delete;
 
+    mutable std::mutex m_mutex;
     std::vector<NeighborDevice> m_devices;
     OnNeighborDiscoveredCb m_onDeviceCb{nullptr};
-    bool m_isScanning{false};
+    std::atomic<bool> m_isScanning{false};
 
     static void discoveryTask(void* param);
 };

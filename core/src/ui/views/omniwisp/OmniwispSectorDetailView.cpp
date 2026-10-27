@@ -35,9 +35,15 @@ void OmniwispSectorDetailView::render(lv_obj_t* parent,
     auto* nav = new NavCbHolder{onBack, onRefresh};
     lv_obj_add_event_cb(btnBack, [](lv_event_t* e) {
         auto* n = static_cast<NavCbHolder*>(lv_event_get_user_data(e));
-        if (n && n->onBack) n->onBack();
-        delete n;
+        if (n && n->onBack) {
+            auto cb = n->onBack;
+            cb();
+        }
     }, LV_EVENT_CLICKED, nav);
+    lv_obj_add_event_cb(btnBack, [](lv_event_t* e) {
+        auto* n = static_cast<NavCbHolder*>(lv_event_get_user_data(e));
+        delete n;
+    }, LV_EVENT_DELETE, nav);
 
     lv_obj_t* lblTitle = lv_label_create(bar);
     std::string t = sector.name + " (" + sector.host + ")";
@@ -54,9 +60,15 @@ void OmniwispSectorDetailView::render(lv_obj_t* parent,
     auto* navRef = new NavCbHolder{onBack, onRefresh};
     lv_obj_add_event_cb(btnRefresh, [](lv_event_t* e) {
         auto* n = static_cast<NavCbHolder*>(lv_event_get_user_data(e));
-        if (n && n->onRefresh) n->onRefresh();
-        delete n;
+        if (n && n->onRefresh) {
+            auto cb = n->onRefresh;
+            cb();
+        }
     }, LV_EVENT_CLICKED, navRef);
+    lv_obj_add_event_cb(btnRefresh, [](lv_event_t* e) {
+        auto* n = static_cast<NavCbHolder*>(lv_event_get_user_data(e));
+        delete n;
+    }, LV_EVENT_DELETE, navRef);
 
     // 2. Tarjeta Resumen RF y Saturación del Sector
     lv_obj_t* cardRf = lv_obj_create(parent);
@@ -154,9 +166,16 @@ void OmniwispSectorDetailView::render(lv_obj_t* parent,
         auto* ch = new CpeHolder{sta, onSelectCpe};
         lv_obj_add_event_cb(btnDiag, [](lv_event_t* e) {
             auto* h = static_cast<CpeHolder*>(lv_event_get_user_data(e));
-            if (h && h->cb) h->cb(h->cpe);
-            delete h;
+            if (h && h->cb) {
+                auto cb = h->cb;
+                auto cpe = h->cpe;
+                cb(cpe);
+            }
         }, LV_EVENT_CLICKED, ch);
+        lv_obj_add_event_cb(btnDiag, [](lv_event_t* e) {
+            auto* h = static_cast<CpeHolder*>(lv_event_get_user_data(e));
+            delete h;
+        }, LV_EVENT_DELETE, ch);
     }
 }
 

@@ -167,6 +167,8 @@ if(NOT CONFIG_CBDOS_PRODUCT_TABLEHUB)
         "src/ui/views/restprober/RestProberView_Collections.cpp"
         "src/ui/views/omniwisp/OmniwispView.cpp"
         "src/ui/views/omniwisp/OmniwispMainView.cpp"
+        "src/ui/views/omniwisp/OmniwispDiscoveryView.cpp"
+        "src/ui/views/omniwisp/OmniwispSettingsView.cpp"
         "src/ui/views/omniwisp/OmniwispSectorDetailView.cpp"
         "src/ui/views/omniwisp/OmniwispCpeDetailView.cpp"
         "src/ui/views/omniwisp/OmniwispAddGroupModal.cpp"

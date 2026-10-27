@@ -28,9 +28,15 @@ void OmniwispCpeDetailView::render(lv_obj_t* parent, const cbdos::network::AirOS
     auto* holder = new CbHolder{onBack};
     lv_obj_add_event_cb(btnBack, [](lv_event_t* e) {
         auto* h = static_cast<CbHolder*>(lv_event_get_user_data(e));
-        if (h && h->cb) h->cb();
-        delete h;
+        if (h && h->cb) {
+            auto cb = h->cb;
+            cb();
+        }
     }, LV_EVENT_CLICKED, holder);
+    lv_obj_add_event_cb(btnBack, [](lv_event_t* e) {
+        auto* h = static_cast<CbHolder*>(lv_event_get_user_data(e));
+        delete h;
+    }, LV_EVENT_DELETE, holder);
 
     lv_obj_t* lblHost = lv_label_create(topBar);
     std::string title = " " + (cpe.name.empty() ? cpe.mac : cpe.name) + " (" + cpe.ip + ")";

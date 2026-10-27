@@ -14,7 +14,13 @@ lv_obj_t* OmniwispAddApModal::s_taPass = nullptr;
 std::string OmniwispAddApModal::s_groupId = "";
 OmniwispAddApModal::OnSectorSavedCb OmniwispAddApModal::s_onSave = nullptr;
 
-void OmniwispAddApModal::show(lv_obj_t* parent, const std::string& defaultGroupId, OnSectorSavedCb onSave) {
+void OmniwispAddApModal::show(lv_obj_t* parent,
+                              const std::string& defaultGroupId,
+                              OnSectorSavedCb onSave,
+                              const std::string& initialHost,
+                              const std::string& initialName,
+                              const std::string& defaultUser,
+                              const std::string& defaultPass) {
     close();
     s_groupId = defaultGroupId;
     s_onSave = onSave;
@@ -29,36 +35,46 @@ void OmniwispAddApModal::show(lv_obj_t* parent, const std::string& defaultGroupI
     lv_obj_center(s_mask);
 
     s_card = lv_obj_create(s_mask);
-    lv_obj_set_size(s_card, 340, 360);
+    lv_obj_set_width(s_card, lv_pct(90));
+    lv_obj_set_height(s_card, LV_SIZE_CONTENT);
+    lv_obj_set_style_max_height(s_card, lv_pct(88), 0);
     lv_obj_center(s_card);
     lv_obj_set_style_bg_color(s_card, lv_color_hex(omni_colors::CARD_BG), 0);
     lv_obj_set_style_border_color(s_card, lv_color_hex(omni_colors::TEAL_ACCENT), 0);
     lv_obj_set_style_border_width(s_card, 1, 0);
     lv_obj_set_style_radius(s_card, 10, 0);
-    lv_obj_set_style_pad_all(s_card, 12, 0);
+    lv_obj_set_style_pad_all(s_card, 10, 0);
     lv_obj_set_flex_flow(s_card, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(s_card, 4, 0);
+    lv_obj_add_flag(s_card, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t* lblTitle = lv_label_create(s_card);
-    lv_label_set_text(lblTitle, LV_SYMBOL_WIFI " Agregar Sector / Radio AP");
+    lv_label_set_text(lblTitle, LV_SYMBOL_WIFI " Agregar AP / Radio");
     lv_obj_set_style_text_color(lblTitle, lv_color_hex(omni_colors::TEAL_ACCENT), 0);
 
     // Nombre / Sector
     lv_obj_t* l1 = lv_label_create(s_card);
-    lv_label_set_text(l1, "Nombre del Sector / Antena:");
+    lv_label_set_text(l1, "Nombre del AP / Sector:");
     lv_obj_set_style_text_color(l1, lv_color_hex(omni_colors::TEXT_MUTED), 0);
     s_taName = lv_textarea_create(s_card);
-    lv_obj_set_size(s_taName, lv_pct(100), 36);
-    lv_textarea_set_placeholder_text(s_taName, "Sector Norte 90°...");
+    lv_obj_set_size(s_taName, lv_pct(100), 34);
+    lv_textarea_set_placeholder_text(s_taName, "AP Norte 90...");
+    if (!initialName.empty()) {
+        lv_textarea_set_text(s_taName, initialName.c_str());
+    }
     lv_textarea_set_one_line(s_taName, true);
     UIManager::attachKeyboard(s_taName);
 
-    // IP en la red ruteada
+    // IP
     lv_obj_t* l2 = lv_label_create(s_card);
-    lv_label_set_text(l2, "Direccion IP (Red Ruteada):");
+    lv_label_set_text(l2, "Direccion IP:");
     lv_obj_set_style_text_color(l2, lv_color_hex(omni_colors::TEXT_MUTED), 0);
     s_taHost = lv_textarea_create(s_card);
-    lv_obj_set_size(s_taHost, lv_pct(100), 36);
+    lv_obj_set_size(s_taHost, lv_pct(100), 34);
     lv_textarea_set_placeholder_text(s_taHost, "10.200.10.21 o 192.168.1.20");
+    if (!initialHost.empty()) {
+        lv_textarea_set_text(s_taHost, initialHost.c_str());
+    }
     lv_textarea_set_one_line(s_taHost, true);
     UIManager::attachKeyboard(s_taHost);
 
@@ -67,8 +83,8 @@ void OmniwispAddApModal::show(lv_obj_t* parent, const std::string& defaultGroupI
     lv_label_set_text(l3, "Usuario AirOS:");
     lv_obj_set_style_text_color(l3, lv_color_hex(omni_colors::TEXT_MUTED), 0);
     s_taUser = lv_textarea_create(s_card);
-    lv_obj_set_size(s_taUser, lv_pct(100), 36);
-    lv_textarea_set_text(s_taUser, "ubnt");
+    lv_obj_set_size(s_taUser, lv_pct(100), 34);
+    lv_textarea_set_text(s_taUser, defaultUser.c_str());
     lv_textarea_set_one_line(s_taUser, true);
     UIManager::attachKeyboard(s_taUser);
 
@@ -77,14 +93,17 @@ void OmniwispAddApModal::show(lv_obj_t* parent, const std::string& defaultGroupI
     lv_label_set_text(l4, "Contrasena:");
     lv_obj_set_style_text_color(l4, lv_color_hex(omni_colors::TEXT_MUTED), 0);
     s_taPass = lv_textarea_create(s_card);
-    lv_obj_set_size(s_taPass, lv_pct(100), 36);
+    lv_obj_set_size(s_taPass, lv_pct(100), 34);
+    if (!defaultPass.empty()) {
+        lv_textarea_set_text(s_taPass, defaultPass.c_str());
+    }
     lv_textarea_set_password_mode(s_taPass, true);
     lv_textarea_set_one_line(s_taPass, true);
     UIManager::attachKeyboard(s_taPass);
 
-    // Botones
+    // Botones Cancelar y Guardar
     lv_obj_t* btnRow = lv_obj_create(s_card);
-    lv_obj_set_size(btnRow, lv_pct(100), 45);
+    lv_obj_set_size(btnRow, lv_pct(100), 42);
     lv_obj_set_style_bg_opa(btnRow, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(btnRow, 0, 0);
     lv_obj_set_flex_flow(btnRow, LV_FLEX_FLOW_ROW);
@@ -92,6 +111,7 @@ void OmniwispAddApModal::show(lv_obj_t* parent, const std::string& defaultGroupI
 
     lv_obj_t* btnCancel = lv_button_create(btnRow);
     lv_obj_set_style_bg_color(btnCancel, lv_color_hex(0x334155), 0);
+    lv_obj_set_height(btnCancel, 34);
     lv_obj_t* lblC = lv_label_create(btnCancel);
     lv_label_set_text(lblC, "Cancelar");
     lv_obj_add_event_cb(btnCancel, [](lv_event_t*) {
@@ -100,8 +120,9 @@ void OmniwispAddApModal::show(lv_obj_t* parent, const std::string& defaultGroupI
 
     lv_obj_t* btnSave = lv_button_create(btnRow);
     lv_obj_set_style_bg_color(btnSave, lv_color_hex(omni_colors::TEAL_ACCENT), 0);
+    lv_obj_set_height(btnSave, 34);
     lv_obj_t* lblS = lv_label_create(btnSave);
-    lv_label_set_text(lblS, "Guardar en Vault");
+    lv_label_set_text(lblS, "Guardar");
     lv_obj_set_style_text_color(lblS, lv_color_hex(0x06080E), 0);
 
     lv_obj_add_event_cb(btnSave, [](lv_event_t*) {
