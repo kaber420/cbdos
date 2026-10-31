@@ -1,8 +1,8 @@
 # 🏛️ Registro Maestro de Aportes, Portados e Inspiraciones de Sistemas de Referencia (`references/`)
 
-**Fecha de Actualización:** 21 de Octubre de 2026  
+**Fecha de Actualización:** 30 de Octubre de 2026  
 **Ubicación:** `specs/architecture/reference_systems_contributions_and_porting_registry.md`  
-**Repositorios Locales Auditados:** `references/poseidon`, `references/bruce`, `references/ghostesp`, `references/esp32_marauder`, `references/TentacleOS`, `references/HomeTiles`, `references/momentum-firmware`, `references/NucleoOS-P4`, `references/Slave_I`
+**Repositorios Locales Auditados:** `references/poseidon`, `references/bruce`, `references/ghostesp`, `references/esp32_marauder`, `references/TentacleOS`, `references/HomeTiles`, `references/momentum-firmware`, `references/tab5-cyberdeck` (DECK//OS), `references/Slave_I`, `references/ESP32-Bit-Pirate`, `references/SquachWatch-CYD`
 
 ---
 
@@ -32,33 +32,25 @@ En **CBDos**, los sistemas almacenados en `references/` sirven como base de inge
 
 ---
 
-## 3. Nuevos Aportes Seleccionados de `NucleoOS-P4` (En Cola de Implementación)
+## 3. Aportes Seleccionados de `DECK//OS` (`references/tab5-cyberdeck` - Licencia MIT)
 
-Tras auditar `references/NucleoOS-P4`, se aprobaron **dos grandes bloques de evolución** para CBDos: las mejoras al ecosistema **Lua++ (`cbdos.lua`)** y las **3 herramientas de Redes / Servidores / Hardware P4**.
+**DECK//OS** es un sistema operativo abierto para ciberdecks basado en ESP32-P4 y LVGL v9.5 puro, distribuido bajo la licencia permisiva **MIT**. Se adopta como la fuente de referencia canónica para el subsistema de emulación de terminal e interfaces direct-draw de alto rendimiento:
 
-Para cada punto se define claramente si conviene **portar su logica C/C++ ** o **crear nuestra versión nativa inspirada en la suya**:
-
-### 3.1. Bloque A: Evolución del Ecosistema Lua++ y Automatización
-*(Detalle técnico en [`comparison_nucleoos_p4_vs_cbdos_lua.md`](comparison_nucleoos_p4_vs_cbdos_lua.md) y [`proposal_lightweight_cron_short_id_launcher.md`](../proposals/proposal_lightweight_cron_short_id_launcher.md))*
-
-| # | Funcionalidad | Origen en `NucleoOS-P4` | ¿Portar o Crear Versión Propia? | Justificación Técnica de Integración en CBDos |
+| # | Módulo / Característica | Implementación en DECK//OS | Estrategia en CBDos | Evaluación y Justificación Técnica |
 | :-: | :--- | :--- | :---: | :--- |
-| **A1** | **Trazas de Error Completas (`luaL_traceback`) y `.last_error`** | `ports/luaapp/luaapp.c` (L708-725, L809-812) | 🔄 **Portado Directo (~20 líneas C)** | El callback `traceback()` de `luaapp.c` usa API estándar de Lua 5.4 (`luaL_traceback`). Se integra directo en `LuappView.cpp` y `LuaBindings_UI.cpp`. |
-| **A2** | **Timers Reactivos en Lua (`cbdos.timer.every` / `after` / `cancel`)** | `ports/luaapp/lib/nvrt.lua` (L61-79) | 🧬 **Versión Propia Nativa sobre `lv_timer_t`** | En NucleoOS los timers hacen polling en cada frame porque no tienen LVGL. En CBDos es mucho más limpio y eficiente crearlos sobre `lv_timer_create` de LVGL 9.5 vinculados a `LuappView`. |
-| **A3** | **Persistencia Clave-Valor por App (`cbdos.storage.save` / `load`)** | `ports/luaapp/lib/nvrt.lua` (L81-113) | 🧬 **Versión Propia en C++ (`LuaBindings_FS.cpp`)** | NucleoOS lo hace en Lua sobre su sandbox WASI. En CBDos es más rápido serializar la tabla/valor desde C++ en `/sdcard/apps/.data/<app>.json` con escritura atómica (`.tmp` -> `rename`). |
-| **A4** | **Apps `.luapp` en Carpeta + `require()` relativo** | `ports/luaapp/luaapp.c` (`searcher` L640-665) | 🔄 **Adaptación de `searcher` C** | La función `searcher()` de `luaapp.c` que transforma `require("a.b")` en la ruta local de la app es C puro de Lua y se adapta fácilmente a `LuappView.cpp` y `LuappManager.cpp`. |
-| **A5** | **Primitivas 2D Avanzadas para `cbdos.canvas` / `cbdos.gfx`** | `ports/luaapp/gfx.c` (600 líneas C) | 🔄 **Portado Selectivo de Rutinas C** | `gfx.c` es código C autónomo que opera sobre buffers `uint16_t*` RGB565 (igual que nuestro `LuaCanvasCtx`). Podemos portar sus funciones de arcos, bordes antialias, polígonos y rotación directamente a `LuaBindings_Canvas.cpp`. |
+| **D1** | **Motor de Emulación ANSI/VT100 (`libvterm 0.3.3`)** | `components/libvterm/` (MIT oficial, Paul Evans) | 🔄 **Sustitución Limpia (Clean Provenance)** | Motor C99 puro para terminales xterm/VT100 sin modificaciones propietarias. Cadena de custodia limpia con archivo `LICENSE` MIT oficial. Ubicado en `core/src/terminal/libvterm/`. |
+| **D2** | **Renderizador Direct-Draw en LVGL 9.5 (`LV_EVENT_DRAW_MAIN`)** | `components/deck_term/deck_term.c` | 🔄 **Portado Arquitectónico a `TerminalDisplay.cpp`** | Sustituye la ineficiente concatenación de strings `#RRGGBB` por dibujo directo de fondos (`lv_draw_rect`) y etiquetas (`lv_draw_label`) con daño selectivo (`cbDamage` -> `lv_obj_invalidate_area`), reduciendo el consumo de CPU a 0% en reposo. |
+| **D3** | **Scrollback de 2,000 Líneas en PSRAM (`sb_cell_t`)** | Buffer circular dinámico en PSRAM + gestos táctiles | 🔄 **Integración en `TerminalDisplay`** | Buffer de celdas compactas (codepoint UTF-32, colores RGB y atributos) con soporte de arrastre vertical táctil (`LV_EVENT_PRESSING` / `lv_indev_get_vect`). |
 
 ---
 
-### 3.2. Bloque B: Redes, Administración de Servidores y Aceleración Hardware P4
-*(Detalle técnico en [`proposal_vt100_terminal_vnc_client_and_hw_jpeg_ppa.md`](../proposals/proposal_vt100_terminal_vnc_client_and_hw_jpeg_ppa.md))*
+## 3.1. Bitácora de Sistemas Expulsados por Licencia Incompatible
 
-| # | Funcionalidad para Redes / Campo | Origen en `NucleoOS-P4` | ¿Portar o Crear Versión Propia? | Evaluación de Dificultad y Estrategia Recomendada |
-| :-: | :--- | :--- | :---: | :--- |
-| **B1** | **Aceleración Hardware JPEG + Escalador PPA en ESP32-P4** (Para Cámaras IP en `LAN NetLab` y VNC) | `components/nv_apps/gallery_jpeg_hw.cpp` (286 líneas) | 🔄 **Portado Directo al BSP P4 (Muy Fácil)** | `gallery_jpeg_hw.cpp` usa directamente las APIs oficiales de ESP-IDF v5.5 (`driver/jpeg_decode.h` y `driver/ppa.h`) sin depender de NucleoOS. Ya resuelve los 3 bugs difíciles del P4: redondeo MCU 16×16, orden BGR para LVGL RGB565 y alineación de caché de 64 bytes en PSRAM. Se porta casi 1:1 a `bsp/esp32_p4_jc4880/`. |
-| **B2** | **Emulador de Terminal ANSI/VT100 (`libvterm`)** (Para SSH interactivo `htop`/`nano` y Consola UART) | `components/libvterm/` + `components/nv_apps/terminal_app.cpp` | 🔄 **Validado en Hardware (En proceso de ajuste de render)** | Integrado motor `libvterm 0.3.3`, tipografía `cbdos_font_mono_17`, callbacks estáticos en Flash y fin de línea `CR`. Operativo en JC4880 (P4) y compilación limpia en S3. En roadmap: migración de renderizado a `LV_EVENT_DRAW_MAIN` para colores ANSI reales y cursor nativo sin etiquetas `#RRGGBB`. Especificación: [`specs/architecture/especificacion_terminal_vt100_libvterm_y_widget_lvgl.md`](especificacion_terminal_vt100_libvterm_y_widget_lvgl.md). |
-| **B3** | **Cliente de Escritorio Remoto VNC (RFB 3.8 + Tight-JPEG / ZRLE + mDNS)** | `components/nv_secondscreen/ss_vnc.cpp` (1,175 líneas) + `ss_des.c` (180 líneas) | ⚖️ **Híbrido: Portar Motor RFB/DES + Crear Vista `VncViewerView` propia** | 1) `ss_des.c` (autenticación VNC) y el parser de codificaciones RFB de `ss_vnc.cpp` (`Raw`, `CopyRect`, `Hextile`, `Zlib`, `ZRLE`, `Tight-JPEG` y escalado de filas al vuelo sin buffer 4K) están muy bien aislados en una sola tarea FreeRTOS con sockets LwIP estándar: **se portan directamente**.<br>2) La parte de `ss_engine.cpp` que apaga LVGL es específica de su placa; en CBDos es mejor crear nuestra propia `VncViewerView` derivada de `BaseView` para que funcione tanto en **ESP32-P4** como en **ESP32-S3** e integrarla con el escáner `LAN NetLab` (puerto 5900). |
+| Sistema Expulsado | Licencia Detectada | Causa de Expulsión y Riesgo | Fecha de Purga | Medidas Correctivas Ejecutadas |
+| :--- | :--- | :--- | :---: | :--- |
+| **NucleoOS-P4** (`references/NucleoOS-P4`) | **PolyForm Noncommercial 1.0.0** (`COMMERCIAL.md`) | Prohíbe el uso comercial, distribución embebida en productos de hardware y despliegue en producción sin pago de licencia privada. Su presencia compromete la seguridad legal de CBDos como SO abierto. | 30 Oct 2026 | 1. Eliminación física total del repositorio local (307 MB purgados).<br>2. Sustitución de `libvterm` por la distribución limpia MIT de **DECK//OS**.<br>3. Cancelación de cualquier portado directo de código; futuros módulos (JPEG HW PPA, VNC RFB 3.8) se implementan desde especificaciones RFC/estándares ESP-IDF v5.5 (Clean-Room). |
+
+---
 
 ---
 
@@ -113,7 +105,22 @@ Se registran los siguientes componentes clave para futura evaluación y portado 
 
 ---
 
-## 7. Criterio de Decisión Rápida al Momento de Implementar
+## 7. Nuevos Aportes Seleccionados de `SquachWatch-CYD` (Detección de Drones y Firmas de Vigilancia)
+
+`references/SquachWatch-CYD` contiene rutinas matemáticas de radiofrecuencia y tablas de firmas auditadas contra la IEEE para dispositivos de vigilancia aérea y física.
+
+Se registran los siguientes componentes clave para integración en CBDos (especificación detallada en [`plan_integracion_remote_id_firmas_rf_y_pin_senuelo.md`](plan_integracion_remote_id_firmas_rf_y_pin_senuelo.md)):
+
+| # | Módulo / Característica | Origen en `SquachWatch-CYD` | ¿Portar o Crear Versión Propia? | Evaluación y Justificación Técnica en CBDos |
+| :-: | :--- | :--- | :---: | :--- |
+| **S1** | **Decodificador ASTM F3411 Remote ID (Drones)** | `src/remote_id.cpp` + `include/remote_id.h` | 🔄 **Portado Directo de Parser C++** | Parser autónomo sin librerías externas que decodifica paquetes BLE AD 0x16 (0xFFFA) y Wi-Fi vendor elements. Extrae latitud, longitud, altitud barométrica, número de serie y la **posición geográfica exacta del operador/piloto**. Se integra directamente en `BleShieldService.cpp` de CBDos. |
+| **S2** | **Tabla de Firmas Auditada con Confianza Escalonada** | `src/signatures.cpp` + `include/signatures.h` | 🔄 **Portado y Adaptación de Taxonomía** | Firmas verificadas contra el registro IEEE separadas por nivel de certeza (`HIGH_CONF`, `MED_CONF`, `LOW_CONF`). Permite detectar cámaras ALPR (Flock, Motorola, Genetec), bodycams Axon, detectores de disparos ShotSpotter y skimmers SPP de tarjetas sin incurrir en falsos positivos causados por direcciones MAC estándar de Espressif. |
+| **S3** | **Modo Señuelo para Código de Coacción (Decoy Mode)** | Inspirado en el concepto de PIN de coacción de `src/security.cpp` | 🧬 **Versión Propia Superior (Modo Señuelo de CBDos)** | En lugar de purgar datos de forma evidente, el PIN secundario disfraza el sistema ocultando la suite táctica, la bóveda y los escáneres, presentando a CBDos exclusivamente como un reproductor MP3 y visor de utilidades estándar. |
+| **--** | *Renderizado de Mascota en C++ Procedural* | `src/squachy.cpp` (9.000 líneas) | ❌ **DESCARTADO** | El enfoque de dibujar extremidades con primitivas matemáticas en C++ es rígido y difícil de mantener. En CBDos se mantiene la arquitectura moderna de **Lottie (ThorVG) en LVGL 9.5** vía JSON en MicroSD. |
+
+---
+
+## 8. Criterio de Decisión Rápida al Momento de Implementar
 
 Cuando iniciemos la codificación de cualquiera de los puntos anteriores, aplicaremos esta regla práctica:
 1. **Si el archivo de referencia habla con estándares (Lua C API, ESP-IDF `usb/hid_host`, `esp_ieee802154`, `jpeg_decode`/`ppa`, `libvterm`, sockets LwIP RFB/DES, árbitro DMA2D, comandos SPI Flash JEDEC 0x9F/0x02/0x03):** **Lo portamos directo** adaptando solo los nombres de funciones al namespace `cbdos::` para ahorrar semanas de depuración de protocolos.

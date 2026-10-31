@@ -109,5 +109,7 @@ site/dist/
 dist/
 .venv/
 
+# --- Respaldos locales preventivos ---
+*_backup*/
 
 scratch/JC3248W535EN_LCD.zip

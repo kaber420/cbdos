@@ -204,10 +204,8 @@ static void decode_table(VTermEncoding *enc, void *data,
   }
 }
 
-/* NucleoOS: the DEC special graphics and UK national charsets (ESC ( 0, ESC ( A) come from
- * tables generated at build time by upstream's perl script; they are left out here, so those
- * designations fall back to US-ASCII. UTF-8 box drawing (what current programs emit) is
- * unaffected. */
+#include "encoding/DECdrawing.inc"
+#include "encoding/uk.inc"
 
 static struct {
   VTermEncodingType type;
@@ -216,6 +214,8 @@ static struct {
 }
 encodings[] = {
   { ENC_UTF8,      'u', &encoding_utf8 },
+  { ENC_SINGLE_94, '0', (VTermEncoding*)&encoding_DECdrawing },
+  { ENC_SINGLE_94, 'A', (VTermEncoding*)&encoding_uk },
   { ENC_SINGLE_94, 'B', &encoding_usascii },
   { 0 },
 };

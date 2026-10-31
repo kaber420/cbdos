@@ -1,6 +1,6 @@
 # Plan de Commits Atómicos y Validación para Pull Request: Guition JC3248W535 (ESP32-S3)
 
-Este documento desglosa los cambios validados en hardware real en **commits independientes, atómicos y modulares**, separando la configuración de memoria, el display QSPI, la integración de LVGL y el panel táctil I2C. Esto facilita la revisión técnica por parte de los mantenedores de GhostESP y garantiza una replicación limpia desde cero.
+Este documento desglosa los cambios validados, Esto facilita la revisión técnica por parte de los mantenedores de GhostESP y garantiza una replicación limpia desde cero.
 
 ---
 
@@ -383,28 +383,3 @@ commit 4: feat(touch): configure I2C touch controller for AXS15231B on JC3248W53
 383: -    enable_touch_polling = false;
 384: +    enable_touch_polling = true;
 385: ```
-386: 
-387: ---
-388: 
-389: ## 3. Plan de Pruebas y Evidencias de Validación
-390: 
-391: Para incluir en la descripción del PR de GitHub como evidencia irrefutable de que fue validado en hardware real:
-392: 
-393: ### A. Proceso de Compilación Limpia
-394: ```bash
-395: . $HOME/esp/esp-idf/export.sh
-396: idf.py -C references/ghostesp build
-397: ```
-398: **Resultado Esperado:** Salida limpia `[100%] Built target app` y generación del binario `Ghost_ESP_IDF.bin` (~3.5 MB) con 44% de espacio libre en partición.
-399: 
-400: ### B. Proceso de Flasheo
-401: ```bash
-402: idf.py -C references/ghostesp -p /dev/ttyACM0 flash
-403: ```
-404: 
-405: ### C. Checkpoints de Validación Visual y Funcional
-406: - [x] **Sin pantalla negra:** El panel enciende inmediatamente sin quedar congelado en negro.
-407: - [x] **Alineación geométrica perfecta:** La headerbar (reloj, batería, estado) se sitúa en la parte superior `(Y = 0..30)`. Los iconos de aplicaciones se muestran centrados en la pantalla física sin distorsión vertical ni superposiciones.
-408: - [x] **Orientación natural:** Formato 320x480 Portrait correcto.
-409: - [x] **Interacción Táctil (AXS15231B):** Pantalla táctil capacitiva 100% reactiva y fluida; navegación entre menús, selección de apps y deslizamiento validados en hardware físico.
-410: - [x] **Estabilidad de memoria:** La consola serie no reporta abortos por OOM (*Out Of Memory*), manteniendo más de 60 KB de SRAM interna libre tras la inicialización de LVGL y Wi-Fi.
