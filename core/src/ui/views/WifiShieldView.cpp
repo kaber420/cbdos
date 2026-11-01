@@ -30,9 +30,7 @@ bool WifiShieldView::onCreate(lv_obj_t* parent) {
 }
 
 void WifiShieldView::onForceClose() {
-    security::WifiShieldService::getInstance().stopScan();
-    security::WifiShieldService::getInstance().setSnifferEnabled(false);
-    security::WifiShieldService::getInstance().setIdsEnabled(false);
+    security::WifiShieldService::getInstance().shutdownAndReleaseMemory();
     onDestroy();
 }
 

@@ -26,9 +26,10 @@ namespace ble {
  */
 enum class BleAdapterState : uint8_t {
     Unavailable = 0,  // El target no tiene radio BT (ej. ESP32-P4)
-    Idle,             // Stack inicializado, sin actividad
-    Scanning,         // Escaneo GAP activo (Air Recon)
-    Advertising       // Emisión publicitaria activa (BLE Lab)
+    Off,              // Hardware presente, pero stack BT/NimBLE apagado (0 KB SRAM consumida)
+    Idle,             // Stack inicializado, en espera (standby)
+    Scanning,         // Escaneo GAP activo (Air Recon / Shield)
+    Advertising       // Emisión publicitaria activa (BLE Lab / Strike)
 };
 
 /**

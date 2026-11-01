@@ -31,6 +31,7 @@ public:
     void startScan();
     void stopScan();
     bool isScanning() const { return m_scanning; }
+    void shutdownAndReleaseMemory();
 
     // Procesamiento de paquetes de radio (GAP Advertising)
     void processRawPacket(const radio::BleRawPacket& pkt);

@@ -115,33 +115,33 @@ static const char* const lang_es[] = {
     "MicroSD formateada y montada OK!",
     "Error al formatear MicroSD",
     // NetworkManager 0x0066-0x0080
-    "Slot 0: Radio Integrada (2.4 GHz)",
+    "Slot 0: Radio Integrada",
     "Modo Operativo:",
     "ESP-NOW Normal\nESP-NOW LR\nWi-Fi Internet (STA)\nWi-Fi SoftAP\nApagada (OFF)",
     "Canal RF: %u",
     "Potencia TX: +%d dBm",
     "Escanear Canales (1..13)",
-    "Listo para buscar nodos/torres.",
+    "",
     "Buscar Redes Wi-Fi",
-    "Pulsa para buscar redes cercanas.",
-    "Radio 2.4 GHz Encendida",
-    "Radio 2.4 GHz Apagada",
+    "",
+    "Radio Encendida",
+    "Radio Apagada",
     "Modo de Radio Guardado",
-    "🔍 Escaneando redes Wi-Fi...",
+    "Escaneando redes Wi-Fi...",
     "No se detectaron redes Wi-Fi cercanas.",
     "Conectar a %s",
     "Contrasena Wi-Fi",
     "Conectar",
     "Conectando a Wi-Fi...",
-    "📡 Realizando barrido 1..13...",
+    "Realizando barrido 1..13...",
     "Barrido completado: %zu nodos detectados",
     "Slot 1: Mochila LoRa (JP1)",
-    "🔌 Estado: Desconectada (Listo para detectar mochila LoRa al acoplarse)",
-    "✅ Mochila LoRa SX1262 Conectada (915 MHz)",
+    "Desconectada",
+    "Mochila LoRa SX1262 Conectada (915 MHz)",
     "Slot 2: Modem USB Radio (OTG)",
-    "✅ Modem: %s | Modo: %s\n📡 Canal RF: %u | MAC: %s",
+    "Modem: %s | Modo: %s\nCanal RF: %u | MAC: %s",
     "Modem USB",
-    "🔌 Estado: Desconectado (Listo para detectar dongle USB-C)",
+    "Desconectado",
     // PowerConfig 0x0081-0x008E
     "Ahorro de Bateria por Inactividad:",
     "Auto-Apagado de Pantalla",
@@ -234,20 +234,20 @@ static const char* const lang_es[] = {
     "Cambiar PIN",                                 // 0x00D5
     "Nuevo PIN (4 digitos)",                       // 0x00D6
     "Confirmar PIN",                               // 0x00D7
-    "Seguridad y Bloqueo",                         // 0x00D8
-    "Proteccion de pantalla y ajustes",            // 0x00D9
+    "Bloqueo",                                     // 0x00D8
+    "",                                            // 0x00D9
     "Desactivado",                                 // 0x00DA
-    "Acceso libre sin restriccion de PIN",         // 0x00DB
+    "",                                            // 0x00DB
     "Bloqueo de Pantalla",                         // 0x00DC
-    "Exige PIN tras arrancar o reactivar",         // 0x00DD
-    "Solo Ajustes (Kiosco)",                       // 0x00DE
-    "Exige PIN para entrar a configuracion",       // 0x00DF
-    "Credenciales de Acceso",                      // 0x00E0
-    "PIN por defecto activo (1234)",               // 0x00E1
-    "PIN personalizado configurado",               // 0x00E2
-    "Bloquear Dispositivo Ahora",                  // 0x00E3
-    "PIN guardado correctamente",                  // 0x00E4
-    "Politica de seguridad actualizada",           // 0x00E5
+    "",                                            // 0x00DD
+    "Solo Ajustes",                                // 0x00DE
+    "",                                            // 0x00DF
+    "PIN de Acceso",                               // 0x00E0
+    "PIN por defecto (1234)",                      // 0x00E1
+    "PIN personalizado",                           // 0x00E2
+    "Bloquear Ahora",                              // 0x00E3
+    "PIN guardado",                                // 0x00E4
+    "Bloqueo actualizado",                         // 0x00E5
 };
 
 static const char* const lang_en[] = {
@@ -356,33 +356,33 @@ static const char* const lang_en[] = {
     "MicroSD formatted and mounted OK!",
     "Error formatting MicroSD",
     // NetworkManager 0x0066-0x0080
-    "Slot 0: Integrated Radio (2.4 GHz)",
+    "Slot 0: Integrated Radio",
     "Operating Mode:",
     "ESP-NOW Normal\nESP-NOW LR\nWi-Fi Internet (STA)\nWi-Fi SoftAP\nOff",
     "RF Channel: %u",
     "TX Power: +%d dBm",
     "Scan Channels (1..13)",
-    "Ready to search nodes/towers.",
+    "",
     "Scan Wi-Fi Networks",
-    "Tap to scan for nearby networks.",
-    "2.4 GHz Radio On",
-    "2.4 GHz Radio Off",
+    "",
+    "Radio On",
+    "Radio Off",
     "Radio Mode Saved",
-    "🔍 Scanning Wi-Fi networks...",
+    "Scanning Wi-Fi networks...",
     "No nearby Wi-Fi networks found.",
     "Connect to %s",
     "Wi-Fi Password",
     "Connect",
     "Connecting to Wi-Fi...",
-    "📡 Sweeping 1..13...",
+    "Sweeping 1..13...",
     "Sweep done: %zu nodes found",
     "Slot 1: LoRa Backpack (JP1)",
-    "🔌 Status: Disconnected (Ready to detect LoRa backpack on attach)",
-    "✅ LoRa Backpack SX1262 Connected (915 MHz)",
+    "Disconnected",
+    "LoRa Backpack SX1262 Connected (915 MHz)",
     "Slot 2: USB Radio Modem (OTG)",
-    "✅ Modem: %s | Mode: %s\n📡 RF Channel: %u | MAC: %s",
+    "Modem: %s | Mode: %s\nRF Channel: %u | MAC: %s",
     "USB Modem",
-    "🔌 Status: Disconnected (Ready to detect USB-C dongle)",
+    "Disconnected",
     // PowerConfig 0x0081-0x008E
     "Idle Battery Saver:",
     "Screen Auto-Off",
@@ -475,20 +475,20 @@ static const char* const lang_en[] = {
     "Change PIN",                                  // 0x00D5
     "New PIN (4 digits)",                          // 0x00D6
     "Confirm PIN",                                 // 0x00D7
-    "Security & Lock",                             // 0x00D8
-    "Screen and settings protection",              // 0x00D9
+    "Lock",                                        // 0x00D8
+    "",                                            // 0x00D9
     "Disabled",                                    // 0x00DA
-    "Open access without PIN restrictions",        // 0x00DB
+    "",                                            // 0x00DB
     "Screen Lock",                                 // 0x00DC
-    "Requires PIN on startup or wake",             // 0x00DD
-    "Settings Only (Kiosk)",                       // 0x00DE
-    "Requires PIN to enter settings",              // 0x00DF
-    "Access Credentials",                          // 0x00E0
-    "Default PIN active (1234)",                   // 0x00E1
-    "Custom PIN configured",                       // 0x00E2
-    "Lock Device Now",                             // 0x00E3
-    "PIN successfully saved",                      // 0x00E4
-    "Security policy updated",                     // 0x00E5
+    "",                                            // 0x00DD
+    "Settings Only",                               // 0x00DE
+    "",                                            // 0x00DF
+    "Access PIN",                                  // 0x00E0
+    "Default PIN (1234)",                          // 0x00E1
+    "Custom PIN",                                  // 0x00E2
+    "Lock Now",                                    // 0x00E3
+    "PIN saved",                                   // 0x00E4
+    "Lock updated",                                // 0x00E5
 };
 
 static_assert(sizeof(lang_es) / sizeof(lang_es[0]) == (size_t)StrId::STR_COUNT,

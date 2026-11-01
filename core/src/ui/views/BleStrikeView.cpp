@@ -6,6 +6,7 @@
 #include "cbdos/ble.hpp"
 #include "cbdos/ble_payloads.hpp"
 #include "cbdos/ble_transmitter.hpp"
+#include "../../security/BleShieldService.hpp"
 
 namespace cbdos {
 namespace ui {
@@ -394,8 +395,12 @@ void BleStrikeView::refreshStatus() {
 }
 
 void BleStrikeView::onForceClose() {
-    if (BleTransmitter::getInstance().isTransmitting()) {
-        BleTransmitter::getInstance().stop();
+    BleTransmitter::getInstance().shutdown();
+    if (!security::BleShieldService::getInstance().isScanning()) {
+        auto* adapter = ble::getAdapter();
+        if (adapter) {
+            adapter->shutdown();
+        }
     }
     onDestroy();
 }

@@ -11,6 +11,9 @@
 #include "cbdos/config_manager.hpp"
 #include "cbdos/security.hpp"
 #include "cbdos/language.hpp"
+#include "cbdos/ble.hpp"
+#include "cbdos/ble_transmitter.hpp"
+#include "../../security/BleShieldService.hpp"
 #include "../modals/LockPinModal.hpp"
 #include <cstdio>
 
@@ -77,6 +80,34 @@ void QuickSettingsPanel::wifi_switch_cb(lv_event_t* e) {
             cbdos::network::disconnectWifi();
         }
     }
+}
+
+void QuickSettingsPanel::ble_switch_cb(lv_event_t* e) {
+    lv_obj_t* sw = (lv_obj_t*)lv_event_get_target(e);
+    if (!sw) return;
+
+    bool checked = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    auto* adapter = cbdos::ble::getAdapter();
+    if (!adapter || !adapter->isAvailable()) {
+        UIManager::showToast("Hardware BLE no disponible");
+        lv_obj_remove_state(sw, LV_STATE_CHECKED);
+        return;
+    }
+
+    if (checked) {
+        if (adapter->init("CBDos")) {
+            UIManager::showToast("Bluetooth activado");
+        } else {
+            UIManager::showToast("Error al inicializar BLE");
+            lv_obj_remove_state(sw, LV_STATE_CHECKED);
+        }
+    } else {
+        cbdos::ble::BleTransmitter::getInstance().shutdown();
+        cbdos::security::BleShieldService::getInstance().shutdownAndReleaseMemory();
+        adapter->shutdown();
+        UIManager::showToast("Bluetooth apagado");
+    }
+    UIManager::getInstance().getHeaderBar().update();
 }
 
 void QuickSettingsPanel::radio_mode_dropdown_cb(lv_event_t* e) {
@@ -205,6 +236,32 @@ void QuickSettingsPanel::toggle() {
     }
     lv_obj_add_event_cb(swWifi, wifi_switch_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
+    // Fila 1b: Bluetooth LE Switch
+    lv_obj_t* rowBle = lv_obj_create(panelObj);
+    lv_obj_set_width(rowBle, lv_pct(100));
+    lv_obj_set_height(rowBle, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(rowBle, 0, 0);
+    lv_obj_set_style_border_width(rowBle, 0, 0);
+    lv_obj_set_style_pad_all(rowBle, 0, 0);
+    lv_obj_set_flex_flow(rowBle, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(rowBle, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    DefaultTheme::disableScroll(rowBle);
+
+    lv_obj_t* lblBle = lv_label_create(rowBle);
+    lv_label_set_text(lblBle, LV_SYMBOL_BLUETOOTH " Bluetooth LE");
+    lv_obj_set_style_text_color(lblBle, DefaultTheme::getTextColor(), 0);
+    lv_obj_set_style_text_font(lblBle, &lv_font_montserrat_12, 0);
+
+    lv_obj_t* swBle = lv_switch_create(rowBle);
+    auto bleState = cbdos::ble::getState();
+    if (bleState != cbdos::ble::BleAdapterState::Off && bleState != cbdos::ble::BleAdapterState::Unavailable) {
+        lv_obj_add_state(swBle, LV_STATE_CHECKED);
+    }
+    if (bleState == cbdos::ble::BleAdapterState::Unavailable) {
+        lv_obj_add_state(swBle, LV_STATE_DISABLED);
+    }
+    lv_obj_add_event_cb(swBle, ble_switch_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
     // Fila 2: Slider Volumen
     createSliderRow(panelObj, LV_SYMBOL_AUDIO " Volumen",
                     0, 100, cbdos::audio::getVolume(),
@@ -235,10 +292,10 @@ void QuickSettingsPanel::toggle() {
     lv_obj_set_width(ddRadio, lv_pct(100));
     lv_obj_set_height(ddRadio, 34);
     lv_dropdown_set_options(ddRadio,
-        "📶 Wi-Fi (Estación TCP/IP)\n"
-        "📻 ESP-NOW Normal (1-2 Mbps)\n"
-        "🚀 ESP-NOW Long Range\n"
-        "⚡ Híbrido (Wi-Fi + ESP-NOW)"
+        "Wi-Fi (Estación TCP/IP)\n"
+        "ESP-NOW Normal (1-2 Mbps)\n"
+        "ESP-NOW Long Range\n"
+        "Híbrido (Wi-Fi + ESP-NOW)"
     );
     uint16_t currentModeIdx = 1;
     auto curMode = cbdos::radio::getMode();
@@ -278,7 +335,7 @@ void QuickSettingsPanel::toggle() {
     }, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t* lblBtnOpen = lv_label_create(btnOpenRadio);
-    lv_label_set_text(lblBtnOpen, "📻 Configuración de Radio Integrada");
+    lv_label_set_text(lblBtnOpen, "Configuración de Radio Integrada");
     lv_obj_set_style_text_font(lblBtnOpen, &lv_font_montserrat_12, 0);
     lv_obj_center(lblBtnOpen);
 }

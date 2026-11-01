@@ -1,6 +1,8 @@
 #include "BleShieldView.hpp"
 #include "../UIManager.hpp"
 #include "../../security/BleShieldService.hpp"
+#include "cbdos/ble.hpp"
+#include "cbdos/ble_transmitter.hpp"
 #include <cstdio>
 
 namespace cbdos {
@@ -30,8 +32,13 @@ bool BleShieldView::onCreate(lv_obj_t* parent) {
 }
 
 void BleShieldView::onForceClose() {
-    security::BleShieldService::getInstance().stopScan();
-    security::BleShieldService::getInstance().setIdsEnabled(false);
+    security::BleShieldService::getInstance().shutdownAndReleaseMemory();
+    if (!ble::BleTransmitter::getInstance().isTransmitting()) {
+        auto* adapter = ble::getAdapter();
+        if (adapter) {
+            adapter->shutdown();
+        }
+    }
     onDestroy();
 }
 

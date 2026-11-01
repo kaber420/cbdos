@@ -398,15 +398,20 @@ void HeaderBar::update() {
 void HeaderBar::updateBluetoothStatus() {
     if (!m_labelBluetooth || !lv_obj_is_valid(m_labelBluetooth)) return;
 
-    if (cbdos::ble::BleTransmitter::getInstance().isTransmitting()) {
+    auto bleState = cbdos::ble::getState();
+    if (cbdos::ble::BleTransmitter::getInstance().isTransmitting() ||
+        bleState == cbdos::ble::BleAdapterState::Advertising) {
         lv_obj_remove_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(m_labelBluetooth, lv_color_hex(0xEF4444), 0); // Rojo Táctico (Ataque / Emisión)
     } else if (cbdos::security::BleShieldService::getInstance().isScanning() ||
-               cbdos::security::BleShieldService::getInstance().isIdsEnabled()) {
+               bleState == cbdos::ble::BleAdapterState::Scanning) {
         lv_obj_remove_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(m_labelBluetooth, lv_color_hex(0x3B82F6), 0); // Azul Táctico (Defensa / Monitoreo)
+    } else if (bleState == cbdos::ble::BleAdapterState::Idle) {
+        lv_obj_remove_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_color(m_labelBluetooth, lv_color_hex(0x10B981), 0); // Verde (Modo Normal / Standby en RAM)
     } else {
-        lv_obj_add_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN); // Off o Unavailable
     }
 }
 

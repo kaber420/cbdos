@@ -21,10 +21,12 @@ public:
 
 private:
     void buildSlot0Radio(lv_obj_t* parent);
+    void buildSlotBle(lv_obj_t* parent);
     void buildSlot1Backpack(lv_obj_t* parent);
     void buildSlot2Usb(lv_obj_t* parent);
 
     void updateModeVisibility();
+    void refreshBleUi();
     void refreshWifiListUi();
     void refreshSweepListUi();
     void checkBackpackHotPlug();
@@ -74,6 +76,12 @@ private:
 
     // Slot 2 (USB) Widgets
     lv_obj_t* m_cardUsb = nullptr;
+
+    // Coexistencia Bluetooth LE
+    static void blePowerSwCb(lv_event_t* e);
+    lv_obj_t* m_cardBle = nullptr;
+    lv_obj_t* m_swBlePower = nullptr;
+    lv_obj_t* m_lblBleStatus = nullptr;
 };
 
 } // namespace ui

@@ -36,7 +36,7 @@ std::vector<cbdos::radio::WifiApInfo> RadioConfigView::s_scannedAps;
 std::vector<cbdos::radio::DiscoveredNode> RadioConfigView::s_sweptNodes;
 
 RadioConfigView::RadioConfigView()
-    : BaseView("Radio Integrada (2.4 GHz)") {
+    : BaseView("Radio Integrada") {
     s_instance = this;
 }
 
@@ -150,7 +150,7 @@ void RadioConfigView::update_mode_visibility() {
 void RadioConfigView::wifi_scan_btn_cb(lv_event_t* e) {
     (void)e;
     if (s_lblWifiScanStatus && lv_obj_is_valid(s_lblWifiScanStatus)) {
-        lv_label_set_text(s_lblWifiScanStatus, "🔍 Escaneando redes Wi-Fi...");
+        lv_label_set_text(s_lblWifiScanStatus, "Escaneando redes Wi-Fi...");
         lv_obj_set_style_text_color(s_lblWifiScanStatus, lv_palette_main(LV_PALETTE_CYAN), 0);
     }
 
@@ -234,7 +234,7 @@ void RadioConfigView::refresh_wifi_list_ui() {
 
         lv_obj_t* lblCh = lv_label_create(nameCol);
         char chBuf[32];
-        snprintf(chBuf, sizeof(chBuf), "Canal %u %s", ap.channel, ap.isEncrypted ? "🔒" : "🔓");
+        snprintf(chBuf, sizeof(chBuf), "Canal %u %s", ap.channel, ap.isEncrypted ? "[Cifrado]" : "[Abierto]");
         lv_label_set_text(lblCh, chBuf);
         lv_obj_set_style_text_color(lblCh, DefaultTheme::getMutedTextColor(), 0);
         lv_obj_set_style_text_font(lblCh, &lv_font_montserrat_12, 0);
@@ -260,7 +260,7 @@ void RadioConfigView::refresh_wifi_list_ui() {
 void RadioConfigView::sweep_btn_cb(lv_event_t* e) {
     (void)e;
     if (s_lblSweepStatus && lv_obj_is_valid(s_lblSweepStatus)) {
-        lv_label_set_text(s_lblSweepStatus, "📡 Iniciando barrido multicanal (1..13)...");
+        lv_label_set_text(s_lblSweepStatus, "Iniciando barrido multicanal (1..13)...");
     }
     if (s_barSweepProgress && lv_obj_is_valid(s_barSweepProgress)) {
         lv_bar_set_value(s_barSweepProgress, 0, LV_ANIM_ON);
@@ -342,7 +342,7 @@ void RadioConfigView::refresh_sweep_list_ui() {
 
         lv_obj_t* lblName = lv_label_create(infoCol);
         char nameBuf[48];
-        snprintf(nameBuf, sizeof(nameBuf), "📡 %s", n.name[0] ? n.name : "Nodo Desconocido");
+        snprintf(nameBuf, sizeof(nameBuf), "%s", n.name[0] ? n.name : "Nodo Desconocido");
         lv_label_set_text(lblName, nameBuf);
         lv_obj_set_style_text_color(lblName, lv_palette_main(LV_PALETTE_CYAN), 0);
         lv_obj_set_style_text_font(lblName, &lv_font_montserrat_14, 0);
@@ -414,7 +414,7 @@ bool RadioConfigView::onCreate(lv_obj_t* parent) {
     DefaultTheme::disableScroll(rowMaster);
 
     lv_obj_t* lblRadioTitle = lv_label_create(rowMaster);
-    lv_label_set_text(lblRadioTitle, "Alimentación Radio 2.4 GHz");
+    lv_label_set_text(lblRadioTitle, "Alimentación de Radio");
     lv_obj_set_style_text_color(lblRadioTitle, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(lblRadioTitle, &lv_font_montserrat_14, 0);
 
@@ -427,7 +427,7 @@ bool RadioConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_add_event_cb(s_swPower, radio_power_sw_cb, LV_EVENT_VALUE_CHANGED, nullptr);
 
     s_lblPowerStatus = lv_label_create(masterCard);
-    lv_label_set_text(s_lblPowerStatus, s_cfg.enabled ? "Estado: Encendida (Módem RF Activo)" : "Estado: Apagada (Modo Seguro / Offline)");
+    lv_label_set_text(s_lblPowerStatus, s_cfg.enabled ? "Encendida" : "Apagada");
     lv_obj_set_style_text_color(s_lblPowerStatus, s_cfg.enabled ? lv_color_hex(0x10B981) : lv_color_hex(0x9CA3AF), 0);
     lv_obj_set_style_text_font(s_lblPowerStatus, &lv_font_montserrat_12, 0);
 
@@ -520,12 +520,12 @@ bool RadioConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_add_event_cb(s_btnScanWifi, wifi_scan_btn_cb, LV_EVENT_CLICKED, nullptr);
 
     lv_obj_t* lblScanWifi = lv_label_create(s_btnScanWifi);
-    lv_label_set_text(lblScanWifi, "🔍 Escanear Redes Wi-Fi");
+    lv_label_set_text(lblScanWifi, "Escanear Redes Wi-Fi");
     lv_obj_set_style_text_font(lblScanWifi, &lv_font_montserrat_12, 0);
     lv_obj_center(lblScanWifi);
 
     s_lblWifiScanStatus = lv_label_create(s_boxWifi);
-    lv_label_set_text(s_lblWifiScanStatus, "Toca para buscar redes cercanas.");
+    lv_label_set_text(s_lblWifiScanStatus, "");
     lv_obj_set_style_text_color(s_lblWifiScanStatus, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(s_lblWifiScanStatus, &lv_font_montserrat_12, 0);
 
@@ -555,7 +555,7 @@ bool RadioConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_add_event_cb(s_btnSweep, sweep_btn_cb, LV_EVENT_CLICKED, nullptr);
 
     lv_obj_t* lblSweep = lv_label_create(s_btnSweep);
-    lv_label_set_text(lblSweep, "📡 Barrido Multicanal (Ch 1..13)");
+    lv_label_set_text(lblSweep, "Barrido Multicanal (Ch 1..13)");
     lv_obj_set_style_text_color(lblSweep, lv_color_black(), 0);
     lv_obj_set_style_text_font(lblSweep, &lv_font_montserrat_12, 0);
     lv_obj_center(lblSweep);
@@ -567,7 +567,7 @@ bool RadioConfigView::onCreate(lv_obj_t* parent) {
     lv_bar_set_value(s_barSweepProgress, 0, LV_ANIM_OFF);
 
     s_lblSweepStatus = lv_label_create(s_boxMesh);
-    lv_label_set_text(s_lblSweepStatus, "Explora los 13 canales en busca de nodos y gateways.");
+    lv_label_set_text(s_lblSweepStatus, "");
     lv_obj_set_style_text_color(s_lblSweepStatus, DefaultTheme::getMutedTextColor(), 0);
     lv_obj_set_style_text_font(s_lblSweepStatus, &lv_font_montserrat_12, 0);
 

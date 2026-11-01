@@ -68,6 +68,16 @@ void BleShieldService::stopScan() {
     }
 }
 
+void BleShieldService::shutdownAndReleaseMemory() {
+    stopScan();
+    clearGeigerTarget();
+    std::lock_guard<std::mutex> lock(m_mutex);
+    std::vector<radio::BleDeviceRecord>().swap(m_devices);
+    std::vector<uint32_t>().swap(m_recentSpamTimestamps);
+    std::vector<std::string>().swap(m_spamLog);
+    m_initialized = false;
+}
+
 void BleShieldService::registerScanControl(BleScanControlHandler handler) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_scanControl = handler;
@@ -133,7 +143,7 @@ size_t BleShieldService::getDeviceCount() const {
 
 void BleShieldService::clearDevices() {
     std::lock_guard<std::mutex> lock(m_mutex);
-    m_devices.clear();
+    std::vector<radio::BleDeviceRecord>().swap(m_devices);
 }
 
 void BleShieldService::setGeigerTarget(const uint8_t mac[6]) {

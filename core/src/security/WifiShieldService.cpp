@@ -46,6 +46,20 @@ bool WifiShieldService::init() {
     return true;
 }
 
+void WifiShieldService::shutdownAndReleaseMemory() {
+    stopScan();
+    setSnifferEnabled(false);
+    setIdsEnabled(false);
+    std::lock_guard<std::mutex> lock(m_mutex);
+    std::vector<radio::WifiApRecord>().swap(m_aps);
+    std::vector<uint32_t>().swap(m_deauthTimes);
+    std::vector<uint32_t>().swap(m_disassocTimes);
+    std::vector<uint32_t>().swap(m_beaconTimes);
+    m_beaconBssids.clear();
+    std::vector<std::string>().swap(m_alertLog);
+    m_initialized = false;
+}
+
 // ────────────────────────────────────────────────────────────────
 // Control de radio
 // ────────────────────────────────────────────────────────────────
@@ -120,7 +134,7 @@ size_t WifiShieldService::getAccessPointCount() const {
 
 void WifiShieldService::clearAccessPoints() {
     std::lock_guard<std::mutex> lock(m_mutex);
-    m_aps.clear();
+    std::vector<radio::WifiApRecord>().swap(m_aps);
 }
 
 void WifiShieldService::processApRecord(const radio::WifiApRecord& ap) {

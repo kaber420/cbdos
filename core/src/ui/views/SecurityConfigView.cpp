@@ -145,39 +145,34 @@ bool SecurityConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_border_width(m_container, 0, 0);
     lv_obj_set_scrollbar_mode(m_container, LV_SCROLLBAR_MODE_AUTO);
 
-    // ─── SECCIÓN 1: Política de Seguridad del Dispositivo ───
+    // ─── SECCIÓN 1: Política de Bloqueo ───
     lv_obj_t* sec1Lbl = lv_label_create(m_container);
-    lv_label_set_text(sec1Lbl, tr(StrId::STR_SEC_POLICY_DESC));
+    lv_label_set_text(sec1Lbl, "POLÍTICA DE BLOQUEO");
     lv_obj_set_style_text_color(sec1Lbl, DefaultTheme::getMutedTextColor(), 0);
-    lv_obj_set_style_text_font(sec1Lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(sec1Lbl, &lv_font_montserrat_12, 0);
 
-    struct PolicyMeta {
-        StrId titleId;
-        StrId subId;
-    };
-
-    const PolicyMeta policies[3] = {
-        { StrId::STR_SEC_POLICY_DISABLED,   StrId::STR_SEC_POLICY_DISABLED_SUB },
-        { StrId::STR_SEC_POLICY_LOCKSCREEN, StrId::STR_SEC_POLICY_LOCKSCREEN_SUB },
-        { StrId::STR_SEC_POLICY_SETTINGS,   StrId::STR_SEC_POLICY_SETTINGS_SUB }
+    const StrId policyTitles[3] = {
+        StrId::STR_SEC_POLICY_DISABLED,
+        StrId::STR_SEC_POLICY_LOCKSCREEN,
+        StrId::STR_SEC_POLICY_SETTINGS
     };
 
     for (int i = 0; i < 3; i++) {
         lv_obj_t* card = lv_button_create(m_container);
         lv_obj_set_width(card, lv_pct(100));
-        lv_obj_set_height(card, LV_SIZE_CONTENT);
-        DefaultTheme::applyButton(card, 14);
+        lv_obj_set_height(card, 44);
+        DefaultTheme::applyButton(card, 12);
         lv_obj_set_user_data(card, (void*)(intptr_t)i);
         lv_obj_add_event_cb(card, policyCardClickedCb, LV_EVENT_CLICKED, this);
 
         lv_obj_set_flex_flow(card, LV_FLEX_FLOW_ROW);
         lv_obj_set_flex_align(card, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_set_style_pad_all(card, 12, 0);
+        lv_obj_set_style_pad_all(card, 10, 0);
         lv_obj_set_style_pad_column(card, 12, 0);
 
         // Indicador de Radio Button
         lv_obj_t* radioOuter = lv_obj_create(card);
-        lv_obj_set_size(radioOuter, 22, 22);
+        lv_obj_set_size(radioOuter, 20, 20);
         lv_obj_set_style_radius(radioOuter, LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_border_width(radioOuter, 2, 0);
         lv_obj_set_style_border_color(radioOuter, lv_color_hex(0x475569), 0);
@@ -186,37 +181,20 @@ bool SecurityConfigView::onCreate(lv_obj_t* parent) {
 
         m_policyRadios[i] = radioOuter;
 
-        // Contenedor de Texto
-        lv_obj_t* textCont = lv_obj_create(card);
-        lv_obj_set_flex_grow(textCont, 1);
-        lv_obj_set_style_bg_opa(textCont, 0, 0);
-        lv_obj_set_style_border_width(textCont, 0, 0);
-        lv_obj_set_flex_flow(textCont, LV_FLEX_FLOW_COLUMN);
-        lv_obj_set_flex_align(textCont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-        lv_obj_set_style_pad_all(textCont, 0, 0);
-        lv_obj_remove_flag(textCont, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_remove_flag(textCont, LV_OBJ_FLAG_SCROLLABLE);
-
-        lv_obj_t* titleLbl = lv_label_create(textCont);
-        lv_label_set_text(titleLbl, tr(policies[i].titleId));
+        lv_obj_t* titleLbl = lv_label_create(card);
+        lv_label_set_text(titleLbl, tr(policyTitles[i]));
         lv_obj_set_style_text_color(titleLbl, DefaultTheme::getTextColor(), 0);
-        lv_obj_set_style_text_font(titleLbl, &lv_font_montserrat_16, 0);
+        lv_obj_set_style_text_font(titleLbl, &lv_font_montserrat_14, 0);
         lv_obj_remove_flag(titleLbl, LV_OBJ_FLAG_CLICKABLE);
-
-        lv_obj_t* subLbl = lv_label_create(textCont);
-        lv_label_set_text(subLbl, tr(policies[i].subId));
-        lv_obj_set_style_text_color(subLbl, DefaultTheme::getMutedTextColor(), 0);
-        lv_obj_set_style_text_font(subLbl, &lv_font_montserrat_12, 0);
-        lv_obj_remove_flag(subLbl, LV_OBJ_FLAG_CLICKABLE);
 
         m_policyCards[i] = card;
     }
 
-    // ─── SECCIÓN 2: Credenciales de Acceso ───
+    // ─── SECCIÓN 2: PIN de Acceso ───
     lv_obj_t* sec2Lbl = lv_label_create(m_container);
-    lv_label_set_text(sec2Lbl, tr(StrId::STR_SEC_CREDENTIALS_TITLE));
+    lv_label_set_text(sec2Lbl, "PIN DE ACCESO");
     lv_obj_set_style_text_color(sec2Lbl, DefaultTheme::getMutedTextColor(), 0);
-    lv_obj_set_style_text_font(sec2Lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(sec2Lbl, &lv_font_montserrat_12, 0);
 
     lv_obj_t* cardCred = lv_obj_create(m_container);
     lv_obj_set_width(cardCred, lv_pct(100));
@@ -250,11 +228,11 @@ bool SecurityConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_style_text_font(txtPin, &lv_font_montserrat_14, 0);
     lv_obj_remove_flag(txtPin, LV_OBJ_FLAG_CLICKABLE);
 
-    // ─── SECCIÓN 3: Acciones Inmediatas ───
+    // ─── SECCIÓN 3: Acciones ───
     lv_obj_t* sec3Lbl = lv_label_create(m_container);
-    lv_label_set_text(sec3Lbl, "ACCIONES INMEDIATAS");
+    lv_label_set_text(sec3Lbl, "ACCIONES");
     lv_obj_set_style_text_color(sec3Lbl, DefaultTheme::getMutedTextColor(), 0);
-    lv_obj_set_style_text_font(sec3Lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(sec3Lbl, &lv_font_montserrat_12, 0);
 
     lv_obj_t* btnLockNow = lv_button_create(m_container);
     lv_obj_set_width(btnLockNow, lv_pct(100));

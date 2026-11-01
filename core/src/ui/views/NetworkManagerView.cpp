@@ -3,6 +3,10 @@
 #include "../themes/DefaultTheme.h"
 #include "cbdos/network.hpp"
 #include "cbdos/time.hpp"
+#include "cbdos/system.hpp"
+#include "cbdos/ble.hpp"
+#include "cbdos/ble_transmitter.hpp"
+#include "../../security/BleShieldService.hpp"
 #include "cbdos/language.hpp"
 #include <cstdio>
 #include <cstring>
@@ -54,12 +58,109 @@ bool NetworkManagerView::onCreate(lv_obj_t* parent) {
     lv_obj_set_scrollbar_mode(m_container, LV_SCROLLBAR_MODE_AUTO);
 
     buildSlot0Radio(m_container);
+    buildSlotBle(m_container);
     buildSlot1Backpack(m_container);
     buildSlot2Usb(m_container);
 
     updateModeVisibility();
 
     return true;
+}
+
+void NetworkManagerView::buildSlotBle(lv_obj_t* parent) {
+    m_cardBle = lv_obj_create(parent);
+    lv_obj_set_width(m_cardBle, lv_pct(100));
+    lv_obj_set_height(m_cardBle, LV_SIZE_CONTENT);
+    DefaultTheme::applyRaisedCard(m_cardBle, 14);
+    lv_obj_set_flex_flow(m_cardBle, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(m_cardBle, 12, 0);
+    lv_obj_set_style_pad_row(m_cardBle, 8, 0);
+
+    // Cabecera Slot BLE con switch maestro
+    lv_obj_t* headerRow = lv_obj_create(m_cardBle);
+    lv_obj_set_size(headerRow, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(headerRow, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(headerRow, 0, 0);
+    lv_obj_set_style_pad_all(headerRow, 0, 0);
+    lv_obj_set_flex_flow(headerRow, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(headerRow, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t* lblTitle = lv_label_create(headerRow);
+    lv_label_set_text(lblTitle, LV_SYMBOL_BLUETOOTH " Bluetooth LE");
+    lv_obj_set_style_text_color(lblTitle, lv_color_white(), 0);
+    lv_obj_set_style_text_font(lblTitle, &lv_font_montserrat_14, 0);
+
+    m_swBlePower = lv_switch_create(headerRow);
+    auto bleState = cbdos::ble::getState();
+    if (bleState != cbdos::ble::BleAdapterState::Off && bleState != cbdos::ble::BleAdapterState::Unavailable) {
+        lv_obj_add_state(m_swBlePower, LV_STATE_CHECKED);
+    }
+    if (bleState == cbdos::ble::BleAdapterState::Unavailable) {
+        lv_obj_add_state(m_swBlePower, LV_STATE_DISABLED);
+    }
+    lv_obj_add_event_cb(m_swBlePower, blePowerSwCb, LV_EVENT_VALUE_CHANGED, this);
+
+    m_lblBleStatus = lv_label_create(m_cardBle);
+    lv_obj_set_style_text_font(m_lblBleStatus, &lv_font_montserrat_12, 0);
+
+    refreshBleUi();
+}
+
+void NetworkManagerView::refreshBleUi() {
+    if (!m_lblBleStatus || !lv_obj_is_valid(m_lblBleStatus)) return;
+
+    auto bleState = cbdos::ble::getState();
+    switch (bleState) {
+        case cbdos::ble::BleAdapterState::Unavailable:
+            lv_label_set_text(m_lblBleStatus, "No disponible");
+            lv_obj_set_style_text_color(m_lblBleStatus, lv_color_hex(0x64748B), 0);
+            break;
+        case cbdos::ble::BleAdapterState::Off:
+            lv_label_set_text(m_lblBleStatus, "Apagado");
+            lv_obj_set_style_text_color(m_lblBleStatus, lv_color_hex(0x94A3B8), 0);
+            break;
+        case cbdos::ble::BleAdapterState::Idle:
+            lv_label_set_text(m_lblBleStatus, "En espera");
+            lv_obj_set_style_text_color(m_lblBleStatus, lv_color_hex(0x10B981), 0);
+            break;
+        case cbdos::ble::BleAdapterState::Scanning:
+            lv_label_set_text(m_lblBleStatus, "Escaneando");
+            lv_obj_set_style_text_color(m_lblBleStatus, lv_color_hex(0x3B82F6), 0);
+            break;
+        case cbdos::ble::BleAdapterState::Advertising:
+            lv_label_set_text(m_lblBleStatus, "Transmitiendo");
+            lv_obj_set_style_text_color(m_lblBleStatus, lv_color_hex(0xEF4444), 0);
+            break;
+    }
+}
+
+void NetworkManagerView::blePowerSwCb(lv_event_t* e) {
+    auto* view = static_cast<NetworkManagerView*>(lv_event_get_user_data(e));
+    if (!view) return;
+
+    bool checked = lv_obj_has_state(view->m_swBlePower, LV_STATE_CHECKED);
+    auto* adapter = cbdos::ble::getAdapter();
+    if (!adapter || !adapter->isAvailable()) {
+        UIManager::showToast("Hardware BLE no disponible");
+        lv_obj_remove_state(view->m_swBlePower, LV_STATE_CHECKED);
+        return;
+    }
+
+    if (checked) {
+        if (adapter->init("CBDos")) {
+            UIManager::showToast("Bluetooth activado");
+        } else {
+            UIManager::showToast("Error al inicializar BLE");
+            lv_obj_remove_state(view->m_swBlePower, LV_STATE_CHECKED);
+        }
+    } else {
+        cbdos::ble::BleTransmitter::getInstance().shutdown();
+        cbdos::security::BleShieldService::getInstance().shutdownAndReleaseMemory();
+        adapter->shutdown();
+        UIManager::showToast("Bluetooth apagado");
+    }
+    view->refreshBleUi();
+    UIManager::getInstance().getHeaderBar().update();
 }
 
 void NetworkManagerView::buildSlot0Radio(lv_obj_t* parent) {

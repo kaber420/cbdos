@@ -31,6 +31,7 @@ public:
 
     // Ciclo de vida
     bool init();
+    void shutdownAndReleaseMemory();
 
     // Control de escaneo (Recon)
     bool startScan(uint32_t durationSeconds = 0);

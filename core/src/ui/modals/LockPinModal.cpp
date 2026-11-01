@@ -210,12 +210,6 @@ void LockPinModal::show(const char* customTitle,
     lv_obj_set_style_text_color(title, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
 
-    // Subtítulo explicativo
-    lv_obj_t* sub = lv_label_create(s_card);
-    lv_label_set_text(sub, cbdos::lang::tr(cbdos::lang::StrId::STR_SEC_POLICY_DESC));
-    lv_obj_set_style_text_color(sub, DefaultTheme::getMutedTextColor(), 0);
-    lv_obj_set_style_text_font(sub, &lv_font_montserrat_12, 0);
-
     // Contenedor de puntos (4 indicadores)
     s_dotsContainer = lv_obj_create(s_card);
     lv_obj_set_size(s_dotsContainer, LV_SIZE_CONTENT, 32);

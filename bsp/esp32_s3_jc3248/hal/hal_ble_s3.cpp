@@ -11,6 +11,7 @@
 #include "nimble/ble.h"
 
 #include <esp_random.h>
+#include <esp_heap_caps.h>
 
 #include "cbdos/ble.hpp"
 #include "cbdos/system.hpp"
@@ -100,6 +101,7 @@ public:
 
         m_initialized = true;
         m_state = BleAdapterState::Idle;
+        cbdos::ble::notifyStateChanged(m_state);
 
         cbdos::system::log(cbdos::system::LogLevel::Info, TAG_BLE,
                            "Stack NimBLE inicializado");
@@ -243,14 +245,20 @@ public:
 
     void shutdown() override {
         if (!m_initialized) return;
+        uint32_t freeBefore = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
         stopAdvertising();
         stopScan();
-        // El stack se deja vivo a proposito: NimBLEHost::deinit() cuesta
-        // segundos y fragmenta el heap, y un unico stack cubre RX y TX.
-        // Cambiar de app no lo requiere.
+
+        NimBLEDevice::deinit(true);
+        m_pScan = nullptr;
         m_initialized = false;
-        m_state = BleAdapterState::Idle;
+        m_state = BleAdapterState::Off;
         cbdos::ble::notifyStateChanged(m_state);
+
+        uint32_t freeAfter = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+        cbdos::system::log(cbdos::system::LogLevel::Info, TAG_BLE,
+                           "NimBLE deinit completado. SRAM interna libre: %u -> %u (+%d bytes)",
+                           (unsigned)freeBefore, (unsigned)freeAfter, (int)(freeAfter - freeBefore));
     }
 
     const char* getLastError() const override {
@@ -261,7 +269,7 @@ private:
     static S3BleScanCallbacks s_scanCallbacks;
 
     NimBLEScan* m_pScan = nullptr;
-    BleAdapterState m_state = BleAdapterState::Idle;
+    BleAdapterState m_state = BleAdapterState::Off;
     std::string m_lastError;
     bool m_initialized = false;
 };

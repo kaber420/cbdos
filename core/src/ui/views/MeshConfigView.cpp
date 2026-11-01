@@ -241,10 +241,10 @@ bool MeshConfigView::onCreate(lv_obj_t* parent) {
     lv_obj_set_width(s_ddMode, lv_pct(100));
     lv_obj_set_height(s_ddMode, 36);
     lv_dropdown_set_options(s_ddMode,
-        "⚡ AUTO (Inteligente)\n"
-        "📻 ESP-NOW Normal (2.4G)\n"
-        "🚀 ESP-NOW Long Range\n"
-        "📶 Wi-Fi TCP/IP"
+        "AUTO (Inteligente)\n"
+        "ESP-NOW Normal\n"
+        "ESP-NOW Long Range\n"
+        "Wi-Fi TCP/IP"
     );
     lv_dropdown_set_selected(s_ddMode, static_cast<uint16_t>(cbdos::mesh::MeshEngine::getInstance().getRadioMode()));
     lv_obj_set_style_radius(s_ddMode, 8, 0);
