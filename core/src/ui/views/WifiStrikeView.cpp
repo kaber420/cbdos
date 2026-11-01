@@ -160,6 +160,11 @@ bool WifiStrikeView::onCreate(lv_obj_t* parent) {
     return true;
 }
 
+void WifiStrikeView::onForceClose() {
+    WifiStrikeService::getInstance().stop();
+    onDestroy();
+}
+
 void WifiStrikeView::onDestroy() {
     WifiStrikeService::getInstance().setStatusCallback(nullptr);
     if (m_beaconTimer) {
@@ -204,9 +209,14 @@ void WifiStrikeView::onShow() {
     auto& header = UIManager::getInstance().getHeaderBar();
     header.setTitle("Wi-Fi Strike");
     header.showWifi(true);
-    header.showBackButton(true, []() {
-        UIManager::getInstance().popView();
-    });
+    header.showBackButton(true, 
+        []() {
+            UIManager::getInstance().popView(false);
+        },
+        []() {
+            UIManager::getInstance().popView(true);
+        }
+    );
 
     // El servicio publica desde su propia tarea de emision; el callback no
     // toca LVGL: solo marca que hay estado nuevo para el timer de la UI.

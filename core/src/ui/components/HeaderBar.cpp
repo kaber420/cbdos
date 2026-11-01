@@ -5,6 +5,9 @@
 #include "cbdos/network.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos/input.hpp"
+#include "cbdos/ble.hpp"
+#include "cbdos/ble_transmitter.hpp"
+#include "../../security/BleShieldService.hpp"
 #include "cbdos_build_profile.h"
 #include "../views/BaseView.hpp"
 #include <cstdio>
@@ -20,13 +23,17 @@ HeaderBar::HeaderBar()
       m_btnBack(nullptr),
       m_labelClock(nullptr),
       m_labelWifi(nullptr),
+      m_labelBluetooth(nullptr),
       m_labelKeyboard(nullptr),
       m_btnRightAction(nullptr),
       m_labelRightAction(nullptr),
       m_timer(nullptr),
       m_staffPinTimer(nullptr),
+      m_backLongPressTimer(nullptr),
+      m_backLongPressed(false),
       m_onClickCb(nullptr),
       m_onBackCb(nullptr),
+      m_onForceCloseCb(nullptr),
       m_onRightActionCb(nullptr),
       m_onStaffPinCb(nullptr),
       m_lastUpdateMs(0) {
@@ -40,6 +47,10 @@ HeaderBar::~HeaderBar() {
     if (m_staffPinTimer) {
         lv_timer_delete(m_staffPinTimer);
         m_staffPinTimer = nullptr;
+    }
+    if (m_backLongPressTimer) {
+        lv_timer_delete(m_backLongPressTimer);
+        m_backLongPressTimer = nullptr;
     }
     if (m_container && lv_obj_is_valid(m_container)) {
         lv_obj_delete(m_container);
@@ -110,7 +121,7 @@ bool HeaderBar::init(lv_obj_t* parent) {
     lv_obj_set_style_text_color(lblBack, DefaultTheme::getPrimaryAccent(), 0);
     lv_obj_set_style_text_font(lblBack, &lv_font_montserrat_14, 0);
     lv_obj_center(lblBack);
-    lv_obj_add_event_cb(m_btnBack, backBtnEventHandler, LV_EVENT_CLICKED, this);
+    lv_obj_add_event_cb(m_btnBack, backBtnEventHandler, LV_EVENT_ALL, this);
     lv_obj_add_flag(m_btnBack, LV_OBJ_FLAG_HIDDEN);
 
     m_labelTitle = lv_label_create(leftBox);
@@ -175,6 +186,13 @@ bool HeaderBar::init(lv_obj_t* parent) {
     lv_obj_set_style_pad_right(m_labelKeyboard, 8, 0);
     lv_obj_add_flag(m_labelKeyboard, LV_OBJ_FLAG_HIDDEN);
 
+    m_labelBluetooth = lv_label_create(rightBox);
+    lv_label_set_text(m_labelBluetooth, LV_SYMBOL_BLUETOOTH);
+    lv_obj_set_style_text_color(m_labelBluetooth, lv_color_hex(0x3B82F6), 0);
+    lv_obj_set_style_text_font(m_labelBluetooth, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_pad_right(m_labelBluetooth, 8, 0);
+    lv_obj_add_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN);
+
     m_labelWifi = lv_label_create(rightBox);
     lv_label_set_text(m_labelWifi, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_color(m_labelWifi, lv_color_hex(0x10B981), 0);
@@ -198,8 +216,9 @@ void HeaderBar::setTitle(const char* title) {
     }
 }
 
-void HeaderBar::showBackButton(bool show, ClickCallback onBack) {
+void HeaderBar::showBackButton(bool show, ClickCallback onBack, ClickCallback onForceClose) {
     m_onBackCb = onBack;
+    m_onForceCloseCb = onForceClose;
     if (m_btnBack && lv_obj_is_valid(m_btnBack)) {
         if (show) {
             lv_obj_remove_flag(m_btnBack, LV_OBJ_FLAG_HIDDEN);
@@ -207,6 +226,11 @@ void HeaderBar::showBackButton(bool show, ClickCallback onBack) {
         } else {
             lv_obj_add_flag(m_btnBack, LV_OBJ_FLAG_HIDDEN);
             if (m_labelTitle) lv_obj_remove_flag(m_labelTitle, LV_OBJ_FLAG_HIDDEN);
+            if (m_backLongPressTimer) {
+                lv_timer_delete(m_backLongPressTimer);
+                m_backLongPressTimer = nullptr;
+            }
+            m_backLongPressed = false;
         }
     }
 }
@@ -245,7 +269,45 @@ void HeaderBar::eventHandler(lv_event_t* e) {
 
 void HeaderBar::backBtnEventHandler(lv_event_t* e) {
     auto* self = static_cast<HeaderBar*>(lv_event_get_user_data(e));
-    if (self && self->m_onBackCb) {
+    if (!self) return;
+
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_PRESSED) {
+        self->m_backLongPressed = false;
+        if (self->m_backLongPressTimer) {
+            lv_timer_delete(self->m_backLongPressTimer);
+            self->m_backLongPressTimer = nullptr;
+        }
+        self->m_backLongPressTimer = lv_timer_create(backBtnTimerCallback, 1000, self);
+        lv_timer_set_repeat_count(self->m_backLongPressTimer, 1);
+    } else if (code == LV_EVENT_RELEASED) {
+        if (self->m_backLongPressTimer) {
+            lv_timer_delete(self->m_backLongPressTimer);
+            self->m_backLongPressTimer = nullptr;
+        }
+        if (!self->m_backLongPressed) {
+            if (self->m_onBackCb) {
+                self->m_onBackCb();
+            }
+        }
+    } else if (code == LV_EVENT_PRESS_LOST) {
+        if (self->m_backLongPressTimer) {
+            lv_timer_delete(self->m_backLongPressTimer);
+            self->m_backLongPressTimer = nullptr;
+        }
+        self->m_backLongPressed = false;
+    }
+}
+
+void HeaderBar::backBtnTimerCallback(lv_timer_t* t) {
+    auto* self = static_cast<HeaderBar*>(lv_timer_get_user_data(t));
+    if (!self) return;
+
+    self->m_backLongPressTimer = nullptr;
+    self->m_backLongPressed = true;
+    if (self->m_onForceCloseCb) {
+        self->m_onForceCloseCb();
+    } else if (self->m_onBackCb) {
         self->m_onBackCb();
     }
 }
@@ -326,8 +388,26 @@ void HeaderBar::update() {
         lv_obj_set_style_text_color(m_labelWifi, lv_color_hex(connected ? 0x10B981 : 0x64748B), 0);
     }
 
-    // 3. Actualizar Indicador de Teclado Físico
+    // 3. Actualizar Estado y Telemetría de Bluetooth (Ataque Rojo / Defensa Azul)
+    updateBluetoothStatus();
+
+    // 4. Actualizar Indicador de Teclado Físico
     updateKeyboardStatus();
+}
+
+void HeaderBar::updateBluetoothStatus() {
+    if (!m_labelBluetooth || !lv_obj_is_valid(m_labelBluetooth)) return;
+
+    if (cbdos::ble::BleTransmitter::getInstance().isTransmitting()) {
+        lv_obj_remove_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_color(m_labelBluetooth, lv_color_hex(0xEF4444), 0); // Rojo Táctico (Ataque / Emisión)
+    } else if (cbdos::security::BleShieldService::getInstance().isScanning() ||
+               cbdos::security::BleShieldService::getInstance().isIdsEnabled()) {
+        lv_obj_remove_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_color(m_labelBluetooth, lv_color_hex(0x3B82F6), 0); // Azul Táctico (Defensa / Monitoreo)
+    } else {
+        lv_obj_add_flag(m_labelBluetooth, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 void HeaderBar::updateKeyboardStatus() {

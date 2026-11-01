@@ -35,6 +35,10 @@ public:
         }
     }
 
+    virtual void onForceClose() {
+        onDestroy();
+    }
+
     virtual void onShow() {
         if (m_container && lv_obj_is_valid(m_container)) {
             lv_obj_remove_flag(m_container, LV_OBJ_FLAG_HIDDEN);

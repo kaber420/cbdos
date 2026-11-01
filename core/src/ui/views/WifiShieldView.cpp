@@ -29,6 +29,13 @@ bool WifiShieldView::onCreate(lv_obj_t* parent) {
     return true;
 }
 
+void WifiShieldView::onForceClose() {
+    security::WifiShieldService::getInstance().stopScan();
+    security::WifiShieldService::getInstance().setSnifferEnabled(false);
+    security::WifiShieldService::getInstance().setIdsEnabled(false);
+    onDestroy();
+}
+
 void WifiShieldView::onDestroy() {
     security::WifiShieldService::getInstance().setApCallback(nullptr);
     if (m_refreshTimer) {
@@ -43,9 +50,14 @@ void WifiShieldView::onShow() {
     auto& header = UIManager::getInstance().getHeaderBar();
     header.setTitle("Wi-Fi Shield");
     header.showWifi(true);
-    header.showBackButton(true, []() {
-        UIManager::getInstance().popView();
-    });
+    header.showBackButton(true, 
+        []() {
+            UIManager::getInstance().popView(false);
+        },
+        []() {
+            UIManager::getInstance().popView(true);
+        }
+    );
 
     security::WifiShieldService::getInstance().setApCallback([this](const radio::WifiApRecord&) {
         m_apsDirty = true;

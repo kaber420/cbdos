@@ -389,16 +389,21 @@ void UIManager::pushView(std::shared_ptr<BaseView> view) {
 
     if (m_viewStack.size() > 1) {
         m_headerBar.setTitle(view->getViewName().c_str());
-        m_headerBar.showBackButton(true, [this]() {
-            this->popView();
-        });
+        m_headerBar.showBackButton(true, 
+            [this]() {
+                this->popView(false);
+            },
+            [this]() {
+                this->popView(true);
+            }
+        );
     } else {
         m_headerBar.setTitle("CBDos");
         m_headerBar.showBackButton(false);
     }
 }
 
-void UIManager::popView() {
+void UIManager::popView(bool forceClose) {
     if (m_viewStack.size() <= 1) {
         cbdos::system::log(cbdos::system::LogLevel::Warn, TAG, "No se puede hacer pop de la vista raíz");
         return;
@@ -410,8 +415,16 @@ void UIManager::popView() {
 
     auto topView = m_viewStack.back();
     topView->onHide();
-    topView->onDestroy();
+    if (forceClose) {
+        topView->onForceClose();
+        showToast("App cerrada por completo");
+    } else {
+        topView->onDestroy();
+    }
     m_viewStack.pop_back();
+
+    // Sincronizar inmediatamente la telemetría de radio en HeaderBar
+    m_headerBar.updateBluetoothStatus();
 
     if (!m_viewStack.empty()) {
         auto current = m_viewStack.back();
@@ -432,9 +445,14 @@ void UIManager::popView() {
             m_headerBar.showBackButton(false);
         } else {
             m_headerBar.setTitle(current->getViewName().c_str());
-            m_headerBar.showBackButton(true, [this]() {
-                this->popView();
-            });
+            m_headerBar.showBackButton(true, 
+                [this]() {
+                    this->popView(false);
+                },
+                [this]() {
+                    this->popView(true);
+                }
+            );
         }
     }
 }

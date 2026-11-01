@@ -314,9 +314,14 @@ void BleStrikeView::onShow() {
     auto& header = UIManager::getInstance().getHeaderBar();
     header.setTitle("BLE Lab");
     header.showWifi(false);
-    header.showBackButton(true, []() {
-        UIManager::getInstance().popView();
-    });
+    header.showBackButton(true, 
+        []() {
+            UIManager::getInstance().popView(false);
+        },
+        []() {
+            UIManager::getInstance().popView(true);
+        }
+    );
 
     // Plantilla inicial: MAC cada paquete, 100ms, Random/All
     BleTxConfig cfg = BleTransmitter::getInstance().getConfig();
@@ -386,6 +391,13 @@ void BleStrikeView::refreshStatus() {
     } else {
         lv_label_set_text(m_lblHint, "");
     }
+}
+
+void BleStrikeView::onForceClose() {
+    if (BleTransmitter::getInstance().isTransmitting()) {
+        BleTransmitter::getInstance().stop();
+    }
+    onDestroy();
 }
 
 void BleStrikeView::onDestroy() {

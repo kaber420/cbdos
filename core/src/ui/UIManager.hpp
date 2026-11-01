@@ -26,7 +26,7 @@ public:
     void update();
 
     void pushView(std::shared_ptr<BaseView> view);
-    void popView();
+    void popView(bool forceClose = false);
     void switchView(std::shared_ptr<BaseView> view);
     std::shared_ptr<BaseView> getCurrentView() const;
 

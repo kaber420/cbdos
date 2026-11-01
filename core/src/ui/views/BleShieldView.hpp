@@ -17,6 +17,7 @@ public:
 
     bool onCreate(lv_obj_t* parent) override;
     void onDestroy() override;
+    void onForceClose() override;
     void onShow() override;
     void onHide() override;
 

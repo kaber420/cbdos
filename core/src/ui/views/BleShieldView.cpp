@@ -29,6 +29,12 @@ bool BleShieldView::onCreate(lv_obj_t* parent) {
     return true;
 }
 
+void BleShieldView::onForceClose() {
+    security::BleShieldService::getInstance().stopScan();
+    security::BleShieldService::getInstance().setIdsEnabled(false);
+    onDestroy();
+}
+
 void BleShieldView::onDestroy() {
     security::BleShieldService::getInstance().setDeviceCallback(nullptr);
     if (m_refreshTimer) {
@@ -43,9 +49,14 @@ void BleShieldView::onShow() {
     auto& header = UIManager::getInstance().getHeaderBar();
     header.setTitle("BLE Shield");
     header.showWifi(true);
-    header.showBackButton(true, []() {
-        UIManager::getInstance().popView();
-    });
+    header.showBackButton(true, 
+        []() {
+            UIManager::getInstance().popView(false);
+        },
+        []() {
+            UIManager::getInstance().popView(true);
+        }
+    );
 
     // Registrar callback de actualizacion reactiva de dispositivos
     security::BleShieldService::getInstance().setDeviceCallback([this](const radio::BleDeviceRecord&) {
