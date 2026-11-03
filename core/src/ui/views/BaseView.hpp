@@ -12,10 +12,20 @@ enum class ViewMode {
     Immersive    // Pantalla completa pura: Contenedor en Y=0 (100% alto), HeaderBar oculta. Pausa el wallpaper animado.
 };
 
+enum class ViewOrientation {
+    Inherit,    // Mantiene la orientación actual activa
+    Portrait,   // Fuerza modo vertical (ej. Dashboard, Settings)
+    Landscape,  // Fuerza modo horizontal panorámico (ej. Terminal, KVM, LandscapeTest)
+    Auto        // Permite rotación según preferencia del usuario
+};
+
 class BaseView {
 public:
-    explicit BaseView(const std::string& name, ViewMode mode = ViewMode::Translucent)
-        : m_name(name), m_container(nullptr), m_visible(false), m_viewMode(mode) {}
+    explicit BaseView(const std::string& name,
+                      ViewMode mode = ViewMode::Translucent,
+                      ViewOrientation orientation = ViewOrientation::Inherit)
+        : m_name(name), m_container(nullptr), m_visible(false),
+          m_viewMode(mode), m_orientation(orientation) {}
     virtual ~BaseView() {
         if (m_container && lv_obj_is_valid(m_container)) {
             lv_obj_delete(m_container);
@@ -25,6 +35,9 @@ public:
 
     ViewMode getViewMode() const { return m_viewMode; }
     void setViewMode(ViewMode mode) { m_viewMode = mode; }
+
+    ViewOrientation getViewOrientation() const { return m_orientation; }
+    void setViewOrientation(ViewOrientation ori) { m_orientation = ori; }
 
     virtual bool onCreate(lv_obj_t* parent) = 0;
 
@@ -66,6 +79,7 @@ protected:
     lv_obj_t* m_container;
     bool m_visible;
     ViewMode m_viewMode;
+    ViewOrientation m_orientation;
 };
 
 } // namespace ui

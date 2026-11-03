@@ -4,6 +4,7 @@
 #include "themes/DefaultTheme.h"
 #include "assets/SystemIcons.hpp"
 #include "cbdos/system.hpp"
+#include "cbdos/display.hpp"
 #include "cbdos/input.hpp"
 #include "PowerManager.hpp"
 #include "../../lua/LuaBridge.hpp"
@@ -309,30 +310,35 @@ void UIManager::openKeyboard(lv_obj_t* ta) {
 void UIManager::applyViewMode(ViewMode mode) {
     if (!m_contentContainer || !lv_obj_is_valid(m_contentContainer)) return;
 
+    int32_t screenWidth = 480;
     int32_t screenHeight = 800;
     lv_display_t* disp = lv_display_get_default();
     if (disp) {
+        screenWidth = lv_display_get_horizontal_resolution(disp);
         screenHeight = lv_display_get_vertical_resolution(disp);
     } else if (m_rootScreen) {
+        screenWidth = lv_obj_get_width(m_rootScreen);
         screenHeight = lv_obj_get_height(m_rootScreen);
+        if (screenWidth <= 0) screenWidth = 480;
         if (screenHeight <= 0) screenHeight = 800;
     }
 
     const auto& palette = ThemeEngine::getInstance().getPalette();
     m_headerBar.setMode(mode);
 
+    bool landscape = cbdos::display::isLandscape();
+
     switch (mode) {
         case ViewMode::Translucent: {
             if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
                 lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
             }
+            int32_t topOffset = landscape ? 38 : 58;
 #if defined(CONFIG_CBDOS_PROFILE_RED)
-            lv_obj_set_pos(m_contentContainer, 0, 38);
-            lv_obj_set_height(m_contentContainer, screenHeight - 38);
-#else
-            lv_obj_set_pos(m_contentContainer, 0, 58);
-            lv_obj_set_height(m_contentContainer, screenHeight - 58);
+            topOffset = landscape ? 34 : 38;
 #endif
+            lv_obj_set_pos(m_contentContainer, 0, topOffset);
+            lv_obj_set_size(m_contentContainer, screenWidth, screenHeight - topOffset);
             lv_obj_set_style_bg_opa(m_contentContainer, LV_OPA_TRANSP, 0);
             break;
         }
@@ -340,12 +346,12 @@ void UIManager::applyViewMode(ViewMode mode) {
             if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
                 lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
             }
-            int32_t headerHeight = 38;
+            int32_t headerHeight = landscape ? 34 : 38;
 #if !defined(CONFIG_CBDOS_PROFILE_RED) && !defined(CONFIG_IDF_TARGET_ESP32S3)
-            headerHeight = 44;
+            headerHeight = landscape ? 36 : 44;
 #endif
             lv_obj_set_pos(m_contentContainer, 0, headerHeight);
-            lv_obj_set_height(m_contentContainer, screenHeight - headerHeight);
+            lv_obj_set_size(m_contentContainer, screenWidth, screenHeight - headerHeight);
             lv_obj_set_style_bg_color(m_contentContainer, lv_color_hex(palette.bg), 0);
             lv_obj_set_style_bg_opa(m_contentContainer, LV_OPA_COVER, 0);
             break;
@@ -355,7 +361,7 @@ void UIManager::applyViewMode(ViewMode mode) {
                 lv_obj_add_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
             }
             lv_obj_set_pos(m_contentContainer, 0, 0);
-            lv_obj_set_height(m_contentContainer, screenHeight);
+            lv_obj_set_size(m_contentContainer, screenWidth, screenHeight);
             lv_obj_set_style_bg_color(m_contentContainer, lv_color_hex(palette.bg), 0);
             lv_obj_set_style_bg_opa(m_contentContainer, LV_OPA_COVER, 0);
             break;
@@ -372,6 +378,13 @@ void UIManager::pushView(std::shared_ptr<BaseView> view) {
 
     if (!m_viewStack.empty()) {
         m_viewStack.back()->onHide();
+    }
+
+    // 0. Adaptar orientación de la pantalla según ViewOrientation
+    if (view->getViewOrientation() == ViewOrientation::Landscape && !cbdos::display::isLandscape()) {
+        cbdos::display::setOrientation(cbdos::display::Orientation::Landscape);
+    } else if (view->getViewOrientation() == ViewOrientation::Portrait && cbdos::display::isLandscape()) {
+        cbdos::display::setOrientation(cbdos::display::Orientation::Portrait);
     }
 
     m_viewStack.push_back(view);
@@ -401,6 +414,11 @@ void UIManager::pushView(std::shared_ptr<BaseView> view) {
         m_headerBar.setTitle("CBDos");
         m_headerBar.showBackButton(false);
     }
+
+    if (m_rootScreen && lv_obj_is_valid(m_rootScreen)) {
+        lv_obj_update_layout(m_rootScreen);
+        lv_obj_invalidate(m_rootScreen);
+    }
 }
 
 void UIManager::popView(bool forceClose) {
@@ -429,6 +447,16 @@ void UIManager::popView(bool forceClose) {
     if (!m_viewStack.empty()) {
         auto current = m_viewStack.back();
 
+        // 0. Restaurar orientación de la vista padre
+        if (current->getViewOrientation() == ViewOrientation::Portrait && cbdos::display::isLandscape()) {
+            cbdos::display::setOrientation(cbdos::display::Orientation::Portrait);
+        } else if (current->getViewOrientation() == ViewOrientation::Landscape && !cbdos::display::isLandscape()) {
+            cbdos::display::setOrientation(cbdos::display::Orientation::Landscape);
+        } else if (m_viewStack.size() == 1 && cbdos::display::isLandscape()) {
+            // Regresando a la vista raíz (Dashboard)
+            cbdos::display::setOrientation(cbdos::display::Orientation::Portrait);
+        }
+
         // 1. Restaurar modo de vista de la vista padre
         applyViewMode(current->getViewMode());
 
@@ -453,6 +481,11 @@ void UIManager::popView(bool forceClose) {
                     this->popView(true);
                 }
             );
+        }
+
+        if (m_rootScreen && lv_obj_is_valid(m_rootScreen)) {
+            lv_obj_update_layout(m_rootScreen);
+            lv_obj_invalidate(m_rootScreen);
         }
     }
 }

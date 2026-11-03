@@ -23,6 +23,10 @@ LVGL_Port::~LVGL_Port() {
         vSemaphoreDelete(lvglMux);
         lvglMux = nullptr;
     }
+    if (lvRenderBuf) {
+        free(lvRenderBuf);
+        lvRenderBuf = nullptr;
+    }
 }
 
 bool LVGL_Port::lock(uint32_t timeout_ms) {
@@ -37,6 +41,32 @@ void LVGL_Port::unlock() {
     }
 }
 
+void LVGL_Port::setOrientation(cbdos::display::Orientation orientation) {
+    if (!display) return;
+    currentOrientation = orientation;
+    lv_display_rotation_t lv_rot = LV_DISPLAY_ROTATION_0;
+    switch (orientation) {
+        case cbdos::display::Orientation::Landscape:
+            lv_rot = LV_DISPLAY_ROTATION_90;
+            break;
+        case cbdos::display::Orientation::PortraitInverted:
+            lv_rot = LV_DISPLAY_ROTATION_180;
+            break;
+        case cbdos::display::Orientation::LandscapeInverted:
+            lv_rot = LV_DISPLAY_ROTATION_270;
+            break;
+        case cbdos::display::Orientation::Portrait:
+        default:
+            lv_rot = LV_DISPLAY_ROTATION_0;
+            break;
+    }
+    lv_display_set_rotation(display, lv_rot);
+    lv_obj_t* scr = lv_screen_active();
+    if (scr && lv_obj_is_valid(scr)) {
+        lv_obj_invalidate(scr);
+    }
+}
+
 void LVGL_Port::flushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
     if (!LuaBridge::isUIPaused()) {
         esp_lcd_panel_handle_t panel_handle = DisplayHAL::getInstance().getPanelHandle();
@@ -45,17 +75,26 @@ void LVGL_Port::flushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t
             int h = DisplayHAL::getInstance().getHeight();
             size_t fb_bytes = (size_t)w * h * sizeof(uint16_t);
 
-            static int flush_count = 0;
-            if (flush_count < 10) {
-                ESP_LOGI(TAG, "flushCallback #%d (area: %d,%d a %d,%d, buf: %p)", flush_count, area->x1, area->y1, area->x2, area->y2, px_map);
-                flush_count++;
+            LVGL_Port& self = LVGL_Port::getInstance();
+            self.activeDpiFb = (self.activeDpiFb == 0) ? 1 : 0;
+            uint8_t* target_fb = (uint8_t*)DisplayHAL::getInstance().getFrameBuffer(self.activeDpiFb);
+
+            if (!target_fb) {
+                target_fb = px_map;
+            } else {
+                lv_display_rotation_t rot = lv_display_get_rotation(disp);
+                if (rot == LV_DISPLAY_ROTATION_0) {
+                    memcpy(target_fb, px_map, fb_bytes);
+                } else {
+                    lv_draw_rotate(px_map, target_fb, 800, 480, 800 * sizeof(uint16_t), 480 * sizeof(uint16_t), rot, LV_COLOR_FORMAT_RGB565);
+                }
             }
 
             // Asegurar coherencia de memoria caché antes de que el motor DPI transmita
-            esp_cache_msync(px_map, fb_bytes, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
+            esp_cache_msync(target_fb, fb_bytes, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
 
             // Notificar al controlador DPI para intercambiar y escanear este fotograma
-            esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, w, h, px_map);
+            esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, w, h, target_fb);
         }
     }
     lv_display_flush_ready(disp);
@@ -138,26 +177,20 @@ esp_err_t LVGL_Port::init(int h_res, int v_res) {
     ESP_LOGI(TAG, "Caché de imágenes LVGL 9 configurado a 2 MB (activado: %s)",
              lv_image_cache_is_enabled() ? "SÍ" : "NO");
 
-    // 3. Vincular los búferes de fotogramas del controlador DPI
-    buf1 = DisplayHAL::getInstance().getFrameBuffer(0);
-    buf2 = DisplayHAL::getInstance().getFrameBuffer(1);
+    // 3. Asignar búfer de renderizado dedicado de LVGL (completamente desacoplado del DMA de hardware)
     size_t buffer_size_bytes = width * height * sizeof(lv_color16_t);
-
-    if (!buf1 || !buf2) {
-        ESP_LOGW(TAG, "Asignando búferes dedicados en PSRAM como respaldo...");
-        buf1 = heap_caps_aligned_alloc(64, buffer_size_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-        buf2 = heap_caps_aligned_alloc(64, buffer_size_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    }
-
-    if (!buf1 || !buf2) {
-        ESP_LOGE(TAG, "Error: No hay suficiente PSRAM para buffers de pantalla");
+    lvRenderBuf = heap_caps_aligned_alloc(64, buffer_size_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!lvRenderBuf) {
+        ESP_LOGE(TAG, "Error: No hay suficiente PSRAM para lvRenderBuf");
         return ESP_ERR_NO_MEM;
     }
+    memset(lvRenderBuf, 0, buffer_size_bytes);
+    activeDpiFb = 0;
 
-    ESP_LOGI(TAG, "Búferes de LVGL vinculados: buf1=%p, buf2=%p (%u KB c/u)",
-             buf1, buf2, (unsigned)(buffer_size_bytes / 1024));
+    ESP_LOGI(TAG, "Búfer de renderizado LVGL dedicado asignado en PSRAM: %p (%u KB)",
+             lvRenderBuf, (unsigned)(buffer_size_bytes / 1024));
 
-    // 4. Crear Display en LVGL 9 con renderizado FULL
+    // 4. Crear Display en LVGL 9 con renderizado FULL en buffer independiente
     display = lv_display_create(width, height);
     if (!display) {
         ESP_LOGE(TAG, "Error creando display LVGL 9");
@@ -165,7 +198,7 @@ esp_err_t LVGL_Port::init(int h_res, int v_res) {
     }
 
     lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
-    lv_display_set_buffers(display, buf1, buf2, buffer_size_bytes, LV_DISPLAY_RENDER_MODE_FULL);
+    lv_display_set_buffers(display, lvRenderBuf, NULL, buffer_size_bytes, LV_DISPLAY_RENDER_MODE_FULL);
     lv_display_set_flush_cb(display, flushCallback);
 
     // 5. Crear e Inicializar Dispositivo de Entrada Táctil

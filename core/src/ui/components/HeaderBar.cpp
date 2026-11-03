@@ -2,6 +2,7 @@
 #include "ThemeEngine.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/system.hpp"
+#include "cbdos/display.hpp"
 #include "cbdos/network.hpp"
 #include "cbdos/time.hpp"
 #include "cbdos/input.hpp"
@@ -438,22 +439,27 @@ void HeaderBar::onThemeChanged(cbdos::theme::ThemeType theme, const cbdos::theme
 }
 
 void HeaderBar::setMode(ViewMode mode) {
-#if defined(CONFIG_CBDOS_PROFILE_RED)
-    // En perfil RED la HeaderBar permanece fija táctica (100% plana)
-    return;
-#else
     if (!m_container || !lv_obj_is_valid(m_container)) return;
 
+    bool landscape = cbdos::display::isLandscape();
+    int32_t barHeight = landscape ? 34 : 44;
+
+#if defined(CONFIG_CBDOS_PROFILE_RED)
+    barHeight = landscape ? 32 : 38;
+    lv_obj_set_size(m_container, LV_PCT(100), barHeight);
+    lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, 0);
+    return;
+#else
     if (mode == ViewMode::Solid) {
-        lv_obj_set_size(m_container, LV_PCT(100), 44);
+        lv_obj_set_size(m_container, LV_PCT(100), barHeight);
         lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, 0);
         lv_obj_set_style_radius(m_container, 0, 0);
         lv_obj_set_style_bg_opa(m_container, LV_OPA_COVER, 0);
         lv_obj_set_style_border_side(m_container, LV_BORDER_SIDE_BOTTOM, 0);
     } else {
-        lv_obj_set_size(m_container, LV_PCT(94), 44);
-        lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, 8);
-        lv_obj_set_style_radius(m_container, 14, 0);
+        lv_obj_set_size(m_container, LV_PCT(94), barHeight);
+        lv_obj_align(m_container, LV_ALIGN_TOP_MID, 0, landscape ? 4 : 8);
+        lv_obj_set_style_radius(m_container, landscape ? 8 : 14, 0);
         lv_obj_set_style_bg_opa(m_container, LV_OPA_70, 0);
         lv_obj_set_style_border_side(m_container, LV_BORDER_SIDE_FULL, 0);
     }

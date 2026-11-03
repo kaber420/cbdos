@@ -15,6 +15,7 @@
 #include "views/TlvBrowserView.hpp"
 #include "views/LuappView.hpp"
 #include "views/MeshCoreView.hpp"
+#include "views/LandscapeTestView.hpp"
 #include "../apps/kerberos/KerberosView.hpp"
 #include "../lua/LuappManager.hpp"
 
@@ -389,6 +390,19 @@ void AppRegistry::initSystemApps() {
             } else {
                 UIManager::getInstance().pushView(std::make_shared<ConfigView>());
             }
+        }
+    });
+
+    // Demo de Pantalla Panorámica / Horizontal
+    registerApp({
+        "landscape_test",
+        "Panoramica",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_IMAGE },
+        0x10B981, // Verde Esmeralda
+        true,
+        []() {
+            UIManager::getInstance().pushView(std::make_shared<LandscapeTestView>());
         }
     });
 }

@@ -58,6 +58,7 @@ set(CORE_SRCS
     "src/meshcore/meshcore_store.cpp"
     "src/ui/views/UtilitiesView.cpp"
     "src/ui/views/LottieTestView.cpp"
+    "src/ui/views/LandscapeTestView.cpp"
     "src/ui/views/TlvBrowserView.cpp"
     "src/ui/views/MeshConfigView.cpp"
     "src/ui/views/RadioConfigView.cpp"

@@ -15,8 +15,13 @@ bool init() {
 
 DisplayCaps getCapabilities() {
     DisplayCaps caps;
-    caps.width = DisplayHAL::getInstance().getWidth();
-    caps.height = DisplayHAL::getInstance().getHeight();
+    if (isLandscape()) {
+        caps.width = DisplayHAL::getInstance().getHeight();
+        caps.height = DisplayHAL::getInstance().getWidth();
+    } else {
+        caps.width = DisplayHAL::getInstance().getWidth();
+        caps.height = DisplayHAL::getInstance().getHeight();
+    }
     caps.hasHardware2D = true;  // ESP32-P4 PPA / DMA2D
     caps.targetFps = 60;
     caps.isTouchSupported = true;
@@ -58,6 +63,19 @@ bool lock(uint32_t timeout_ms) {
 
 void unlock() {
     LVGL_Port::getInstance().unlock();
+}
+
+bool setOrientation(Orientation orientation) {
+    LVGL_Port::getInstance().setOrientation(orientation);
+    return true;
+}
+
+Orientation getOrientation() {
+    return LVGL_Port::getInstance().getOrientation();
+}
+
+bool isLandscape() {
+    return LVGL_Port::getInstance().isLandscape();
 }
 
 } // namespace display

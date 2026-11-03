@@ -5,6 +5,7 @@
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 #include <lvgl.h>
+#include "cbdos/display.hpp"
 
 class LVGL_Port {
 public:
@@ -17,6 +18,13 @@ public:
 
     bool lock(uint32_t timeout_ms = portMAX_DELAY);
     void unlock();
+
+    void setOrientation(cbdos::display::Orientation orientation);
+    cbdos::display::Orientation getOrientation() const { return currentOrientation; }
+    bool isLandscape() const {
+        return currentOrientation == cbdos::display::Orientation::Landscape ||
+               currentOrientation == cbdos::display::Orientation::LandscapeInverted;
+    }
 
     lv_display_t* getDisplay() const { return display; }
     lv_indev_t* getIndev() const { return indev; }
@@ -42,8 +50,10 @@ private:
     SemaphoreHandle_t lvglMux = nullptr;
     TaskHandle_t taskHandle = nullptr;
 
-    void* buf1 = nullptr;
-    void* buf2 = nullptr;
+    void* lvRenderBuf = nullptr;
+    int activeDpiFb = 0;
+
+    cbdos::display::Orientation currentOrientation = cbdos::display::Orientation::Portrait;
 
     int width = 480;
     int height = 800;
