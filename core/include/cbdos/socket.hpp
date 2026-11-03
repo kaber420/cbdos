@@ -9,7 +9,8 @@ namespace network {
 
 enum class SocketType {
     Tcp,
-    Udp
+    Udp,
+    Tls
 };
 
 // ────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ public:
     virtual int recv(uint8_t* buffer, size_t maxLen, uint32_t timeoutMs = 3000) = 0;
     virtual size_t available() = 0;
     virtual void setTimeout(uint32_t timeoutMs) = 0;
+    virtual void setInsecure(bool allowInsecure) { (void)allowInsecure; }
 };
 
 // ────────────────────────────────────────────────────────────────

@@ -72,6 +72,8 @@ idf_component_register(
         "app_update"
         "spi_flash"
         "esp_mm"
+        "esp-tls"
+        "mbedtls"
         "freertos"
     WHOLE_ARCHIVE
 )

@@ -1,5 +1,7 @@
 #include "cbdos/http.hpp"
 #include <esp_http_client.h>
+#include <esp_crt_bundle.h>
+#include <esp_tls.h>
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <cstring>
@@ -53,8 +55,18 @@ public:
         config.buffer_size_tx = 1024;
         config.event_handler = httpEventHandler;
         config.user_data = &response;
-        if (request.insecure) {
-            config.skip_cert_common_name_check = true;
+
+        bool isHttps = (request.url.rfind("https://", 0) == 0 ||
+                        request.url.rfind("HTTPS://", 0) == 0);
+        if (isHttps) {
+            if (!request.caCertPem.empty()) {
+                config.cert_pem = request.caCertPem.c_str();
+            } else if (!request.insecure) {
+                config.crt_bundle_attach = esp_crt_bundle_attach;
+            }
+            // Si request.insecure == true y caCertPem está vacío,
+            // CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY permite MBEDTLS_SSL_VERIFY_NONE
+            // manteniendo SNI activo (skip_cert_common_name_check = false).
         }
 
         esp_http_client_method_t espMethod = HTTP_METHOD_GET;
@@ -94,6 +106,14 @@ public:
         if (err != ESP_OK) {
             ESP_LOGE(TAG_HTTP, "Error conexion HTTP: %s", esp_err_to_name(err));
             response.errorMessage = esp_err_to_name(err);
+            if (isHttps) {
+                if (err == ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED ||
+                    err == ESP_ERR_MBEDTLS_X509_CRT_PARSE_FAILED) {
+                    response.tlsReason = http::TlsFailureReason::CertUntrusted;
+                } else {
+                    response.tlsReason = http::TlsFailureReason::HandshakeFailed;
+                }
+            }
             esp_http_client_cleanup(client);
             return response;
         }

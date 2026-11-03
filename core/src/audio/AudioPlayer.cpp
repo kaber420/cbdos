@@ -277,7 +277,7 @@ bool AudioPlayer::playStream(const char* url) {
 
     CBD_LOG_I(TAG, "Iniciando Helix Stream Player para: %s", url);
 
-    m_taskHandle = cbdos::rtos::createTask(streamPlaybackTask, "helix_stream_task", 12288, this, 6, 0);
+    m_taskHandle = cbdos::rtos::createTask(streamPlaybackTask, "helix_stream_task", 16384, this, 6, 0);
 
     cbdos::rtos::unlockMutex(m_mutex);
     return true;
@@ -305,12 +305,14 @@ void AudioPlayer::runStreamPlayback() {
         uint16_t portNum = 80;
         std::string path = "/";
 
+        bool isHttps = false;
         std::string urlToParse = currentUrl;
-        if (urlToParse.rfind("http://", 0) == 0) {
+        if (urlToParse.rfind("http://", 0) == 0 || urlToParse.rfind("HTTP://", 0) == 0) {
             urlToParse = urlToParse.substr(7);
-        } else if (urlToParse.rfind("https://", 0) == 0) {
+        } else if (urlToParse.rfind("https://", 0) == 0 || urlToParse.rfind("HTTPS://", 0) == 0) {
             urlToParse = urlToParse.substr(8);
             portNum = 443;
+            isHttps = true;
         }
 
         size_t slashIdx = urlToParse.find('/');
@@ -328,18 +330,35 @@ void AudioPlayer::runStreamPlayback() {
             host = host.substr(0, colonIdx);
         }
 
-        CBD_LOG_I(TAG, "[Stream] Conectando a %s:%u%s", host.c_str(), portNum, path.c_str());
+        CBD_LOG_I(TAG, "[Stream] Conectando (%s) a %s:%u%s",
+                  isHttps ? "HTTPS/TLS" : "HTTP/TCP", host.c_str(), portNum, path.c_str());
 
-        client = cbdos::network::createSocket(cbdos::network::SocketType::Tcp);
+        client = cbdos::network::createSocket(
+            isHttps ? cbdos::network::SocketType::Tls : cbdos::network::SocketType::Tcp
+        );
         if (!client) {
             CBD_LOG_E(TAG, "[Stream] Fallo al instanciar socket");
             break;
         }
 
-        if (!client->connect(host, portNum, 6000)) {
-            CBD_LOG_E(TAG, "[Stream] Fallo al conectar socket con %s:%u", host.c_str(), portNum);
-            client.reset();
-            break;
+        if (isHttps) {
+            client->setInsecure(false);
+            if (!client->connect(host, portNum, 8000)) {
+                CBD_LOG_W(TAG, "[Stream] Handshake TLS estricto fallo en %s:%u, reintentando modo tolerante...",
+                          host.c_str(), portNum);
+                client->setInsecure(true);
+                if (!client->connect(host, portNum, 8000)) {
+                    CBD_LOG_E(TAG, "[Stream] Fallo al conectar socket TLS con %s:%u", host.c_str(), portNum);
+                    client.reset();
+                    break;
+                }
+            }
+        } else {
+            if (!client->connect(host, portNum, 6000)) {
+                CBD_LOG_E(TAG, "[Stream] Fallo al conectar socket TCP con %s:%u", host.c_str(), portNum);
+                client.reset();
+                break;
+            }
         }
 
         char req[512];
@@ -368,10 +387,11 @@ void AudioPlayer::runStreamPlayback() {
             if (headerBuf.size() > 4096) break;
         }
 
-        // Analizar si hay redirección (301, 302, 307)
+        // Analizar si hay redirección (301, 302, 307, 308)
         if (headerBuf.find("301 ") != std::string::npos ||
             headerBuf.find("302 ") != std::string::npos ||
-            headerBuf.find("307 ") != std::string::npos) {
+            headerBuf.find("307 ") != std::string::npos ||
+            headerBuf.find("308 ") != std::string::npos) {
             size_t locPos = headerBuf.find("Location: ");
             if (locPos == std::string::npos) locPos = headerBuf.find("location: ");
             if (locPos != std::string::npos) {

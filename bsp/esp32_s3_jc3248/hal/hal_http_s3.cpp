@@ -23,7 +23,9 @@ public:
         WiFiClient* activeClient = &plainClient;
 
         if (isHttps) {
-            if (request.insecure) {
+            if (!request.caCertPem.empty()) {
+                secureClient.setCACert(request.caCertPem.c_str());
+            } else if (request.insecure) {
                 secureClient.setInsecure();
             }
             secureClient.setTimeout(request.timeoutMs);

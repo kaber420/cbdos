@@ -20,6 +20,15 @@ enum class HttpMethod {
 const char* httpMethodToString(HttpMethod method);
 HttpMethod stringToHttpMethod(const std::string& str);
 
+enum class TlsFailureReason {
+    None,
+    CertUntrusted,         // Certificado autofirmado o CA desconocida
+    CertExpired,           // Certificado caducado
+    CommonNameMismatch,    // El dominio no coincide con el certificado
+    HandshakeFailed,       // Error genérico de cifrado / cipher mismatch
+    IoTimeout              // Timeout de socket TCP
+};
+
 struct HttpHeader {
     std::string key;
     std::string value;
@@ -32,7 +41,8 @@ struct HttpRequest {
     std::string body;
     uint32_t timeoutMs = 8000;
     size_t maxBodyCaptureBytes = 32768; // Límite defensivo de 32 KB para evitar OOM
-    bool insecure = true;               // Permitir certificados autofirmados (ej. Ubiquiti AirOS / LAN routers)
+    bool insecure = true;               // Permitir certificados autofirmados (ej. Ubiquiti AirOS / LAN routers / KVM)
+    std::string caCertPem;              // Opcional: Certificado CA raíz personalizado en formato PEM
 };
 
 struct HttpResponse {
@@ -44,6 +54,7 @@ struct HttpResponse {
     bool success = false;
     bool truncated = false;    // Indica si el cuerpo excedió maxBodyCaptureBytes
     std::string errorMessage;  // Detalle de fallo en caso de error de conexión/DNS
+    TlsFailureReason tlsReason = TlsFailureReason::None;
 };
 
 class IHttpClient {

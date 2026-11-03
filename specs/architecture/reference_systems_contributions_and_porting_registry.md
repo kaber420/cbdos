@@ -1,8 +1,8 @@
 # 🏛️ Registro Maestro de Aportes, Portados e Inspiraciones de Sistemas de Referencia (`references/`)
 
-**Fecha de Actualización:** 30 de Octubre de 2026  
+**Fecha de Actualización:** 1 de Noviembre de 2026  
 **Ubicación:** `specs/architecture/reference_systems_contributions_and_porting_registry.md`  
-**Repositorios Locales Auditados:** `references/poseidon`, `references/bruce`, `references/ghostesp`, `references/esp32_marauder`, `references/TentacleOS`, `references/HomeTiles`, `references/momentum-firmware`, `references/tab5-cyberdeck` (DECK//OS), `references/Slave_I`, `references/ESP32-Bit-Pirate`, `references/SquachWatch-CYD`
+**Repositorios Locales Auditados:** `references/poseidon`, `references/bruce`, `references/ghostesp`, `references/esp32_marauder`, `references/TentacleOS`, `references/HomeTiles`, `references/momentum-firmware`, `references/tab5-cyberdeck` (DECK//OS), `references/Slave_I`, `references/ESP32-Bit-Pirate`, `references/SquachWatch-CYD`, `espkvm/espkvm-term` (Apache 2.0)
 
 ---
 
@@ -120,7 +120,21 @@ Se registran los siguientes componentes clave para integración en CBDos (especi
 
 ---
 
-## 8. Criterio de Decisión Rápida al Momento de Implementar
+## 8. Nuevos Aportes Seleccionados de `espkvm` y `espkvm-term` (Apache License 2.0)
+
+**`espkvm`** y su terminal complementario **`espkvm-term`** son proyectos abiertos bajo licencia permisiva **Apache 2.0** que implementan soluciones KVM sobre ESP32-P4. Siguiendo la dirección del usuario, en CBDos **descartamos el rol de servidor KVM** (para no atar la placa como periférico *headless*) y adoptamos **exclusivamente el rol de Cliente / Terminal Portátil** (`CBDos-KVM Client`), permitiendo al Cyberdeck conectarse a servidores ESP-KVM, PiKVM y Web-KVM de campo.
+
+Especificación técnica detallada: [`specs/architecture/especificacion_tecnica_cbdos_kvm_client.md`](especificacion_tecnica_cbdos_kvm_client.md).
+
+| # | Módulo / Característica | Origen en `espkvm / espkvm-term` | ¿Portar o Crear Versión Propia? | Evaluación y Justificación Técnica en CBDos |
+| :-: | :--- | :--- | :---: | :--- |
+| **K1** | **Pipeline Decodificador MJPEG Hardware con PPA (ESP32-P4)** | Pipeline de streaming en `espkvm-term` | 🧬 **Versión Propia Inspirada (`KvmClientService`)** | Aprovecha el decodificador JPEG por silicio del ESP32-P4 (`esp_jpeg`) y el acelerador 2D PPA con protección `Dma2dArbiterGuard` (HomeTiles H1) para renderizar frames remotos de 720p escalados a 800x480 sin sobrecargar la CPU. |
+| **K2** | **Protocolo de Inyección HID y Macros de Sistema (`Ctrl+Alt+Del`)** | Rutinas REST/WebSocket HID en `espkvm` | 🔄 **Adaptación a Servicio C++** | Serialización de eventos de teclado físico USB Host (`Slave_I` S1) y pulsaciones virtuales (`Ctrl+Alt+Del`, `Win`, `Esc`, `SysRq`, ciclo de energía ATX) hacia los endpoints REST/WebSocket de ESP-KVM y PiKVM. |
+| **K3** | **Controlador Táctil Dual: Puntero Absoluto & Trackpad Relativo** | Algoritmos de touchpad en `espkvm-term` | 🧬 **Versión Propia en LVGL 9.5 (`KvmClientView`)** | Mapeo de coordenadas táctiles Goodix GT911 hacia resolución remota en modo absoluto, con opción conmutable a trackpad delta con soporte de scroll vertical y zoom. Integrado bajo `BaseView` y `HeaderBar`. |
+
+---
+
+## 9. Criterio de Decisión Rápida al Momento de Implementar
 
 Cuando iniciemos la codificación de cualquiera de los puntos anteriores, aplicaremos esta regla práctica:
 1. **Si el archivo de referencia habla con estándares (Lua C API, ESP-IDF `usb/hid_host`, `esp_ieee802154`, `jpeg_decode`/`ppa`, `libvterm`, sockets LwIP RFB/DES, árbitro DMA2D, comandos SPI Flash JEDEC 0x9F/0x02/0x03):** **Lo portamos directo** adaptando solo los nombres de funciones al namespace `cbdos::` para ahorrar semanas de depuración de protocolos.
