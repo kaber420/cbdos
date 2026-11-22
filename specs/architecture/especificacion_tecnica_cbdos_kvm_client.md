@@ -61,34 +61,67 @@ La arquitectura sigue el principio estricto de desacoplamiento de CBDos: la capa
 
 ```mermaid
 graph TD
-    subgraph "Servidor IP-KVM Remoto"
+    subgraph "Servidor IP-KVM Remoto (ESP-KVM / PiKVM)"
         REMOTE_KVM["ESP-KVM / PiKVM<br/>(192.168.x.x)"]
     end
 
     subgraph "Core de Red & Protocolo (C++ / FreeRTOS)"
         DISCOVERY["mDNS Discovery<br/>(_espkvm._tcp, _pikvm._tcp)"]
-        STREAM_TASK["KvmStreamTask<br/>(HTTP Chunked MJPEG)"]
-        HID_SENDER["KvmHidSender<br/>(WebSocket / REST POST)"]
-        HW_JPEG["ESP32-P4 Hardware JPEG Decoder<br/>+ DMA2D Arbiter"]
-        PPA_BLIT["PPA (Pixel Processing Accelerator)<br/>RGB565 / Scaling"]
+        VIDEO_WS["WebSocket /video<br/>(12-byte header + MJPEG + ACKs)"]
+        CONTROL_WS["WebSocket /ws<br/>(8-byte HID packets + status)"]
+        HW_JPEG["Decodificador JPEG (HW en P4 / SW en S3)<br/>+ DMA2D Arbiter"]
+        PPA_BLIT["PPA SRM (Scale-Rotate-Mirror)<br/>RGB565 a Buffer Panorámico"]
     end
 
-    subgraph "UI & Entrada (LVGL v9.5)"
-        KVM_VIEW["KvmClientView : public BaseView"]
-        HEADER["HeaderBar (FPS, Latencia, Ping)"]
-        CANVAS["Direct Draw Canvas / Display Area"]
-        FLOAT_BAR["Toolbar Flotante (Ctrl+Alt+Del, ATX, Zoom)"]
-        INDEV_MGR["Gestor Touch GT911 + USB HID Keyboard"]
+    subgraph "UI & Entrada (LVGL v9.5 Panorámica)"
+        KVM_VIEW["KvmClientView : public BaseView<br/>(Rotación Panorámica 90°/270°)"]
+        HEADER["HeaderBar (FPS, Latencia RTT, Host)"]
+        CANVAS["Direct Draw Canvas / Video Display Area"]
+        FLOAT_BAR["Toolbar Flotante (CAD, Win, ESC, TAB, KBD, ATX, Modo Ratón)"]
+        INDEV_MGR["Gestor Touch GT911/AXS15231B + USB HID Keyboard"]
     end
 
     REMOTE_KVM -->|mDNS Query| DISCOVERY
-    REMOTE_KVM -->|MJPEG Stream| STREAM_TASK
-    STREAM_TASK --> HW_JPEG --> PPA_BLIT --> CANVAS
+    REMOTE_KVM -->|Frames MJPEG| VIDEO_WS
+    VIDEO_WS --> HW_JPEG --> PPA_BLIT --> CANVAS
     INDEV_MGR --> KVM_VIEW
-    KVM_VIEW --> HID_SENDER -->|JSON / Binary HID| REMOTE_KVM
+    KVM_VIEW --> CONTROL_WS -->|HID 8-byte Binario| REMOTE_KVM
     KVM_VIEW --> HEADER
     KVM_VIEW --> FLOAT_BAR
 ```
+
+---
+
+## 3.1. Especificación del Protocolo Wire Binario (`kvm_proto.h`)
+
+Auditado y portado directamente de `references/espkvm-term` (`Apache 2.0`), el canal de comunicación se estructura en dos sockets WebSocket concurrentes con serialización Little-Endian:
+
+### A. Canal de Video (`/video`):
+* **Suscripción inicial:** El cliente envía `0x01` (para stream de imagen) o `0x02` (`WS_SUBSCRIBE_TEXT` para modo consola de caracteres).
+* **Confirmación del dispositivo:** El servidor responde `0x85` (`WS_D2C_VIDEO_ACKS`), indicando que acepta control de flujo por ventana de ACKs.
+* **Cabecera de Frame (12 Bytes):**
+  | Offset | Campo | Tipo | Descripción |
+  | :--- | :--- | :--- | :--- |
+  | `0` | `magic` | `uint8_t` | `0x4B` (`'K'`) |
+  | `1` | `type` | `uint8_t` | `1` = JPEG, `2` = H.264 Annex-B |
+  | `2..3` | `width` | `uint16_t` | Ancho del frame remoto (Little-Endian) |
+  | `4..5` | `height` | `uint16_t` | Alto del frame remoto (Little-Endian) |
+  | `6..9` | `seq` | `uint32_t` | Número de secuencia incremental del frame |
+  | `10..11`| `pts_ms`| `uint16_t` | Timestamp en milisegundos para cálculo de latencia |
+* **Control de flujo por ACK (`WS_C2D_VIDEO_ACK = 0x09`):**  
+  Tras recibir un frame, el cliente envía un paquete de 5 bytes: `[0x09, seq_b0, seq_b1, seq_b2, seq_b3]`. El servidor limita el tráfico en tránsito a un máximo de `VIDEO_ACK_WINDOW = 2` frames, impidiendo que el buffer TCP de LwIP se congestione y acumulé latencia.
+
+### B. Canal de Control e HID (`/ws`):
+* **`WS_C2D_MOUSE_ABS` (0x01):** 8 bytes `[0x01, buttons, x_lo, x_hi, y_lo, y_hi, wheel, pan]`. Coordenadas `x, y` normalizadas en el rango `0 .. 32767` (`KVM_ABS_MAX`).
+* **`WS_C2D_MOUSE_REL` (0x02):** 8 bytes `[0x02, buttons, dx_lo, dx_hi, dy_lo, dy_hi, wheel, pan]`. Deltas relativos de movimiento.
+* **`WS_C2D_KEYBOARD` (0x03):** 8 bytes `[0x03, modifier, key1, key2, key3, key4, key5, key6]`. Usages estándar USB HID Boot Keyboard.
+* **`WS_C2D_RELEASE_ALL` (0x05):** 1 byte. Libera todas las teclas y botones pulsados.
+* **`WS_C2D_PING` (0x06):** 1 byte. Heartbeat periódico y solicitud de telemetría de estado.
+* **`WS_C2D_TAKEOVER` (0x07):** 1 byte. Solicita control activo del servidor ante múltiples clientes.
+* **Mensajes entrantes del Servidor:**
+  * `WS_D2C_STATUS` (`0x81`): Flags de conexión del target físico y estado de LEDs de teclado (Caps Lock, Num Lock, Scroll Lock).
+  * `WS_D2C_PONG` (`0x82`): Respuesta a ping para cálculo reactivo de RTT en el `HeaderBar`.
+  * `WS_D2C_CONTROL` (`0x83`): Estado de asignación de control (`0` = ocupado por otro, `1` = asignado a CBDos, `2` = libre).
 
 ---
 
@@ -173,12 +206,16 @@ El digitalizador capacitivo **Goodix GT911** de la pantalla soporta dos modos de
    * Gestos multitáctiles: dos dedos para rueda de desplazamiento vertical (*mouse wheel*).
    * Gesto de pellizco (*pinch-to-zoom*) para acercar zonas críticas de la pantalla (hasta 4x digital).
 
-### 6.2. Teclado Físico USB Host (Integración Slave_I S1)
-* Cuando se conecta un teclado USB al puerto USB-A del Cyberdeck, el controlador `usb/hid_host` encola los *keycodes* de 8 bytes de acuerdo con el protocolo estándar USB HID Boot Keyboard.
-* En lugar de procesar los caracteres localmente, el `KvmClientService` envía los paquetes de pulsación y liberación (*key down / key up*) directamente al servidor KVM vía WebSocket o REST POST:
-  ```json
-  {"type": "keydown", "code": "KeyA", "modifiers": ["Control", "Alt"]}
+### 6.2. Teclado Físico USB Host (Integración Slave_I S1) y Teclado Virtual
+* Cuando se conecta un teclado USB al puerto USB-A del Cyberdeck, el controlador `usb/hid_host` encola los *keycodes* de acuerdo con el protocolo estándar USB HID Boot Keyboard.
+* En lugar de procesar los caracteres localmente, el `KvmClientService` envía directamente el paquete de 8 bytes `WS_C2D_KEYBOARD` al canal `/ws`:
+  ```c
+  uint8_t pkt[8];
+  pkt[0] = WS_C2D_KEYBOARD; // 0x03
+  pkt[1] = modifiers;       // Bitmask: Ctrl, Shift, Alt, GUI
+  memcpy(&pkt[2], keys, 6); // Hasta 6 keycodes HID simultáneos
   ```
+* Para terminales sin teclado físico conectado, el botón `[KBD]` en la barra flotante despliega un teclado táctil LVGL 9.5 cuyos eventos de tecla emiten paquetes `WS_C2D_KEYBOARD` (pulsación + liberación inmediata).
 
 ---
 

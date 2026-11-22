@@ -2974,6 +2974,13 @@ CONFIG_TINYUSB_VENDOR_COUNT=0
 # end of TinyUSB Stack
 
 #
+# ESP WebSocket client
+#
+# CONFIG_ESP_WS_CLIENT_ENABLE_DYNAMIC_BUFFER is not set
+# CONFIG_ESP_WS_CLIENT_SEPARATE_TX_LOCK is not set
+# end of ESP WebSocket client
+
+#
 # Wi-Fi Remote
 #
 CONFIG_ESP_WIFI_REMOTE_ENABLED=y

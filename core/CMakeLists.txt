@@ -59,6 +59,9 @@ set(CORE_SRCS
     "src/ui/views/UtilitiesView.cpp"
     "src/ui/views/LottieTestView.cpp"
     "src/ui/views/LandscapeTestView.cpp"
+    "src/kvm/KvmClientService.cpp"
+    "src/kvm/KvmP4Decoder.cpp"
+    "src/kvm/KvmClientView.cpp"
     "src/ui/views/TlvBrowserView.cpp"
     "src/ui/views/MeshConfigView.cpp"
     "src/ui/views/RadioConfigView.cpp"
@@ -265,6 +268,7 @@ idf_component_register(
         "src/terminal/libvterm/include"
         "src/terminal/libvterm/src"
         "src/ui/fonts"
+        "src/kvm"
     REQUIRES 
         "esp_timer"
         "freertos"
@@ -276,6 +280,10 @@ idf_component_register(
         "app_update"
         "esp_partition"
         "mbedtls"
+        "esp_driver_jpeg"
+        "esp_driver_ppa"
+        "espressif__esp_websocket_client"
+        "espressif__esp_lvgl_port"
     PRIV_REQUIRES
         "main"
 )

@@ -69,6 +69,12 @@ Para que nadie (ni agentes de IA futuros) vuelva a inflar este documento:
 - Init sequence del panel aislada en `panels/`
 - **Prueba de aceptación:** crear un JSON ficticio de "otra placa P4", compilar, y ver que ningún driver de display/audio/touch necesita ediciones
 
+### Multi-fabricante / multi-revisión (Fase D — plan aparte)
+- El firmware no es solo JC4880: llega la 7" JC1060P470C (JD9165) y conviven varias
+  revisiones de silicio P4 (`<v3` y v3.x).
+- Un solo **código** BSP (`bsp/esp32_p4`), selección por `CBDOS_BOARD`; no un `.bin` universal.
+- Ejecución por fases en [`plan_bsp_generico_p4_multiplaca.md`](plan_bsp_generico_p4_multiplaca.md).
+
 ### Recursos (Fase C del plan)
 - URM funcional con owners, estados y wiring real (no el esqueleto muerto actual)
 - Pines NC (1, 2) conocidos por el sistema
@@ -95,6 +101,8 @@ Para que nadie (ni agentes de IA futuros) vuelva a inflar este documento:
 | Codec ES8311 addr | 0x18 (7-bit docs) = 0x30 (write 8-bit IDF). **Sin conflicto.** Confirmar solo si se duda al JSON Paso 7. | ✅ resuelto |
 | Defaults UART: ¿32/28 (JP1) o 38/37 (consola)? | Código usa 32/28 como default, 38/37 como preset | Decisión de producto |
 | `board.cdt` binario | Sin partición ni loader es trabajo huérfano | Hacer solo con caso de uso real; si no, eliminar del plan |
+| Nombre del BSP P4 | `esp32_p4_jc4880` acopla una placa al código | Renombrar a `esp32_p4` en Fase D |
+| Binario universal P4 | `<v3` y v3.x no comparten firmware | Builds separados por placa/revisión |
 | Init sequence en JSON vs `panels/*.h` | Tabla binaria opaca | Recomendación: `panels/*.h` (ya reflejado en plan) |
 
 ---

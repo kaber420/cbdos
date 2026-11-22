@@ -16,6 +16,7 @@
 #include "views/LuappView.hpp"
 #include "views/MeshCoreView.hpp"
 #include "views/LandscapeTestView.hpp"
+#include "../kvm/KvmClientView.hpp"
 #include "../apps/kerberos/KerberosView.hpp"
 #include "../lua/LuappManager.hpp"
 
@@ -403,6 +404,19 @@ void AppRegistry::initSystemApps() {
         true,
         []() {
             UIManager::getInstance().pushView(std::make_shared<LandscapeTestView>());
+        }
+    });
+
+    // Cliente KVM Panorámico (Hardware P4)
+    registerApp({
+        "kvm_client",
+        "KVM Remote",
+        AppOrigin::SYSTEM_NATIVE,
+        { IconType::LVGL_SYMBOL, "", LV_SYMBOL_KEYBOARD },
+        0x0284C7, // Azul Cielo Táctico
+        true,
+        []() {
+            UIManager::getInstance().pushView(std::make_shared<KvmClientView>());
         }
     });
 }

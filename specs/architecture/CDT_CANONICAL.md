@@ -24,11 +24,20 @@ panels/                          ← DATOS DE LA PANTALLA (el módulo de display
 
 tools/cdtc.py                    JSON → cbdos_device_tree.h (constexpr)
 
-bsp/<placa>/hal/
-  DisplayHAL.cpp                 driver genérico: LEE del DT, no hardcodea
-  AudioHAL.cpp                   idem
-  TouchHAL.cpp                   idem
+bsp/esp32_p4/                    ← BSP GENÉRICO (sin nombre de placa)
+  sdkconfig.defaults             base común (revisión, CPU, PSRAM, LVGL, C6)
+  sdkconfig.defaults.<board>     override por placa (opcional)
+  hal/
+    DisplayHAL.cpp               driver genérico: LEE del DT, no hardcodea
+    AudioHAL.cpp                 idem
+    TouchHAL.cpp                 idem
 ```
+
+**Selección de placa en build:** `CBDOS_BOARD` (variable de CMake, default `jc4880p443`)
+elige el JSON de `boards/` y el `sdkconfig.defaults.<board>`. No hay un BSP por placa ni un
+binario universal entre revisiones de silicio. **Alcance actual: `<v3` (360 MHz); v3.x
+pospuesto hasta que exista placa con esa revisión.** Detalle de la implementación por fases
+en [`plan_bsp_generico_p4_multiplaca.md`](plan_bsp_generico_p4_multiplaca.md).
 
 ### 1.1 ¿Qué va en `boards/*.json`? (la placa)
 
@@ -172,5 +181,8 @@ Resumen:
 | **A** | Nivel 1: todos los pines en DT; migrar Touch, Display.h, Audio, UART, Storage, Flasher |
 | **B** | Nivel 2 multi-placa: LDO/DSI/timings en JSON; init sequence a `panels/`; drivers genéricos |
 | **C** | URM real + NC + `board.cdt` (solo con loader) + S3 en el sistema + purga de docs |
+| **D** | BSP genérico `bsp/esp32_p4`, selección por `CBDOS_BOARD`, soporte multi-revisión (`<v3` / v3.x) y placa 7" JC1060P470C |
 
 **Éxito de la Fase B:** nueva placa P4 = 1 JSON + 1 `panels/*.h` + build. Cero ediciones en `DisplayHAL.cpp`, `AudioHAL.cpp`, `TouchHAL.cpp`.
+
+**La Fase D se ejecuta con su propio plan:** [`plan_bsp_generico_p4_multiplaca.md`](plan_bsp_generico_p4_multiplaca.md). No se mezcla con las Fases A-C para no romper el build de JC4880 a medias.

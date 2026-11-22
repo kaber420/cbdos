@@ -66,6 +66,7 @@ bsp/esp32_p4_jc4880/hal/
 | 14 | `board.cdt` binario (solo si hay loader/partición) | ⬜ |
 | 15 | S3: JSON CDT + cdtc compartido | ⬜ |
 | 16 | Purga specs viejos + docs hardware | ⬜ |
+| **17** | **Fase D: BSP genérico `esp32_p4`, `CBDOS_BOARD`, multi-revisión y JC1060P470C** | ⬜ ([plan aparte](plan_bsp_generico_p4_multiplaca.md)) |
 
 ---
 
@@ -238,6 +239,30 @@ Reemplazar hardcode:
 - Cabecera `OBSOLETO → CDT_CANONICAL.md` en residual.
 - Actualizar `CDT_CANONICAL.md` §1/§4: estructura boards/panels, Nivel 2, sin promesas de "sin recompilar" sin loader.
 - **Éxito:** grep `DEVICE_TREE_DISPLAY|BOARD_ALLOWED_PINS|SystemLocked` en specs vigentes = 0.
+
+---
+
+## Fase D — BSP genérico y multi-revisión (plan aparte)
+
+La Fase B deja una placa más, pero el BSP sigue llamándose `esp32_p4_jc4880` y la 7"
+(JC1060P470C) necesita panel JD9165 y revisión de silicio `<v3`. Esa migración **no** se
+mezcla con los pasos 7-11: tiene su propio plan por fases.
+
+> **Plan:** [`plan_bsp_generico_p4_multiplaca.md`](plan_bsp_generico_p4_multiplaca.md)
+
+Resumen:
+
+| Fase | Objetivo |
+|---|---|
+| 0 | Completar los pasos 7-11 de Fase B (requisito previo) |
+| 1 | Parametrizar `CBDOS_BOARD`; header DT en build dir; panel por referencia |
+| 2 | `git mv bsp/esp32_p4_jc4880 bsp/esp32_p4` y actualizar refs |
+| 3 | `sdkconfig.defaults` coherente con `<v3` (360 MHz) y overrides por placa |
+| 4 | Nueva placa JC1060P470C: JSON + `panels/jd9165_jc1060.h` + driver JD9165 |
+| 5 | Purga documental |
+
+**Restricción:** un firmware compilado para `<v3` no arranca en v3.x. No existe binario
+universal; la unidad es el código fuente + config por placa.
 
 ---
 
