@@ -16,6 +16,7 @@ def main():
     board_name = data.get("board", "Unknown")
     version = data.get("version", "Unknown")
     soc = data.get("soc", "unknown")
+    silicon_rev = data.get("silicon_rev", "unknown")
     devices = data.get("devices", {})
     
     # 1. Extraer pines de expansion (JP1)
@@ -62,6 +63,19 @@ def main():
     disp_bus = disp.get("bus", "mipi_dpi")
     disp_res = disp.get("resolution", [480, 800])
     disp_fps = disp.get("fps", 60)
+    disp_panel_header = disp.get("panel_header", "")
+    disp_dsi = disp.get("dsi", {})
+    dsi_lanes = disp_dsi.get("lanes", 2)
+    dsi_lane_mbps = disp_dsi.get("lane_mbps", 500)
+    dsi_dpi_clk = disp_dsi.get("dpi_clock_mhz", 34)
+    dsi_hpw = disp_dsi.get("hpw", 12)
+    dsi_hbp = disp_dsi.get("hbp", 42)
+    dsi_hfp = disp_dsi.get("hfp", 42)
+    dsi_vpw = disp_dsi.get("vpw", 2)
+    dsi_vbp = disp_dsi.get("vbp", 8)
+    dsi_vfp = disp_dsi.get("vfp", 166)
+    dsi_ldo_ch = disp_dsi.get("ldo_channel", 3)
+    dsi_ldo_mv = disp_dsi.get("ldo_voltage_mv", 2500)
     disp_pins = disp.get("pins", {})
     disp_rst = disp_pins.get("rst", -1)
     disp_bl = disp_pins.get("bl", -1)
@@ -74,6 +88,7 @@ def main():
     
     # Touchscreen
     touch = devices.get("touch_i2c0", {})
+    touch_driver = touch.get("driver", "gt911")
     touch_pins = touch.get("pins", {})
     touch_sda = touch_pins.get("sda", -1)
     touch_scl = touch_pins.get("scl", -1)
@@ -82,9 +97,16 @@ def main():
     touch_port = touch.get("i2c_port", 0)
     touch_freq = touch.get("freq", 400000)
     touch_addr_str = str(touch.get("addr", "0x3B"))
+    touch_swap_xy = bool(touch.get("swap_xy", False))
+    touch_mirror_x = bool(touch.get("mirror_x", False))
+    touch_mirror_y = bool(touch.get("mirror_y", False))
     
     # Audio
     audio = devices.get("audio_i2s", {})
+    audio_codec = audio.get("codec", "es8311")
+    audio_i2s_port = audio.get("i2s_port", 0)
+    audio_i2c_port = audio.get("i2c_port", touch_port)
+    audio_codec_addr = str(audio.get("codec_addr", "0x18"))
     audio_pins = audio.get("pins", {})
     audio_mclk = audio_pins.get("mclk", -1)
     audio_bclk = audio_pins.get("bclk", -1)
@@ -97,6 +119,8 @@ def main():
     # Storage (SDMMC / SPI)
     storage = devices.get("storage", devices.get("sdmmc", {}))
     storage_bus = storage.get("bus", "sdmmc" if "sdmmc" in devices else "spi")
+    sd_ldo_ch = storage.get("ldo_channel", 4 if storage_bus == "sdmmc" else -1)
+    sd_ldo_mv = storage.get("ldo_voltage_mv", 3300)
     storage_pins = storage.get("pins", {})
     # Pines SDMMC
     sd_d0 = storage_pins.get("d0", -1)
@@ -164,6 +188,7 @@ namespace board {{
 constexpr const char* BOARD_NAME = "{board_name}";
 constexpr const char* BOARD_VERSION = "{version}";
 constexpr const char* SOC_TYPE = "{soc}";
+constexpr const char* SILICON_REV = "{silicon_rev}";
 
 // Pines de expansion disponibles (Cabecera JP1 Whitelist)
 constexpr size_t NUM_EXPANSION_PINS = {len(expansion_pins)};
@@ -187,9 +212,21 @@ constexpr std::array<int, NUM_PROHIBITED_PINS> PROHIBITED_PINS = {{
 namespace display {{
     constexpr const char* DRIVER = "{disp_driver}";
     constexpr const char* BUS = "{disp_bus}";
+    constexpr const char* PANEL_HEADER = "{disp_panel_header}";
     constexpr int WIDTH = {disp_res[0]};
     constexpr int HEIGHT = {disp_res[1]};
     constexpr int FPS = {disp_fps};
+    constexpr int DSI_LANES = {dsi_lanes};
+    constexpr int DSI_LANE_MBPS = {dsi_lane_mbps};
+    constexpr int DPI_CLOCK_MHZ = {dsi_dpi_clk};
+    constexpr int HSYNC_PW = {dsi_hpw};
+    constexpr int HSYNC_BP = {dsi_hbp};
+    constexpr int HSYNC_FP = {dsi_hfp};
+    constexpr int VSYNC_PW = {dsi_vpw};
+    constexpr int VSYNC_BP = {dsi_vbp};
+    constexpr int VSYNC_FP = {dsi_vfp};
+    constexpr int LDO_CHANNEL = {dsi_ldo_ch};
+    constexpr int LDO_VOLTAGE_MV = {dsi_ldo_mv};
     constexpr int PIN_RST = {disp_rst};
     constexpr int PIN_BL = {disp_bl};
     // Pines bus QSPI (si aplica)
@@ -203,6 +240,7 @@ namespace display {{
 
 // 2. Touchscreen (I2C)
 namespace touch {{
+    constexpr const char* DRIVER = "{touch_driver}";
     constexpr int PIN_SDA = {touch_sda};
     constexpr int PIN_SCL = {touch_scl};
     constexpr int PIN_RST = {touch_rst};
@@ -210,10 +248,17 @@ namespace touch {{
     constexpr int I2C_PORT = {touch_port};
     constexpr uint32_t I2C_FREQ = {touch_freq};
     constexpr uint8_t I2C_ADDR = {touch_addr_str};
+    constexpr bool SWAP_XY = {'true' if touch_swap_xy else 'false'};
+    constexpr bool MIRROR_X = {'true' if touch_mirror_x else 'false'};
+    constexpr bool MIRROR_Y = {'true' if touch_mirror_y else 'false'};
 }}
 
 // 3. Audio (I2S + Codec)
 namespace audio {{
+    constexpr const char* CODEC = "{audio_codec}";
+    constexpr int I2S_PORT = {audio_i2s_port};
+    constexpr int I2C_PORT = {audio_i2c_port};
+    constexpr uint8_t CODEC_ADDR = {audio_codec_addr};
     constexpr bool HAS_MCLK = {'true' if has_mclk else 'false'};
     constexpr int PIN_MCLK = {audio_mclk};
     constexpr int PIN_BCLK = {audio_bclk};
@@ -226,6 +271,8 @@ namespace audio {{
 // 4. Tarjeta MicroSD (SDMMC / SPI)
 namespace sdcard {{
     constexpr const char* BUS = "{storage_bus}";
+    constexpr int LDO_CHANNEL = {sd_ldo_ch};
+    constexpr int LDO_VOLTAGE_MV = {sd_ldo_mv};
     // Pines SDMMC
     constexpr int PIN_D0 = {sd_d0};
     constexpr int PIN_D1 = {sd_d1};

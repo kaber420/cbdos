@@ -1,0 +1,96 @@
+{
+  "board": "JC1060P470C",
+  "version": "v3+",
+  "soc": "esp32p4",
+  "silicon_rev": "v3+",
+  "devices": {
+    "display": {
+      "driver": "jd9165",
+      "bus": "mipi_dpi",
+      "resolution": [1024, 600],
+      "fps": 60,
+      "panel_header": "panels/jd9165_jc1060_v2.h",
+      "dsi": {
+        "lanes": 2,
+        "lane_mbps": 750,
+        "dpi_clock_mhz": 52,
+        "hpw": 24,
+        "hbp": 136,
+        "hfp": 160,
+        "vpw": 2,
+        "vbp": 21,
+        "vfp": 12,
+        "ldo_channel": 3,
+        "ldo_voltage_mv": 2500
+      },
+      "pins": {
+        "rst": 0,
+        "bl": 23
+      }
+    },
+    "touch_i2c0": {
+      "driver": "gt911",
+      "i2c_port": 1,
+      "freq": 400000,
+      "addr": "0x5D",
+      "swap_xy": false,
+      "mirror_x": false,
+      "mirror_y": false,
+      "pins": {
+        "sda": 7,
+        "scl": 8,
+        "rst": -1,
+        "int": -1
+      }
+    },
+    "audio_i2s": {
+      "codec": "es8311",
+      "i2s_port": 1,
+      "i2c_port": 1,
+      "codec_addr": "0x30",
+      "has_mclk": true,
+      "pins": {
+        "mclk": 13,
+        "bclk": 12,
+        "ws": 10,
+        "dout": 9,
+        "din": 11,
+        "pa": 20
+      }
+    },
+    "sdmmc": {
+      "bus": "sdmmc",
+      "ldo_channel": 4,
+      "ldo_voltage_mv": 3300,
+      "pins": {
+        "d0": 39,
+        "d1": 40,
+        "d2": 41,
+        "d3": 42,
+        "clk": 43,
+        "cmd": 44
+      }
+    },
+    "console_uart0": {
+      "pins": {
+        "tx": 38,
+        "rx": 37
+      }
+    },
+    "coprocessor_c6": {
+      "pins": {
+        "sdio": [14, 15, 16, 17, 18, 19],
+        "reset": 54,
+        "handshake": -1
+      }
+    },
+    "system_buttons": {
+      "pins": {
+        "boot": 35
+      }
+    }
+  },
+  "expansion": {
+    "jp1_allowed": []
+  }
+}
