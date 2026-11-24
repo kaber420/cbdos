@@ -10,7 +10,8 @@
 #include "PowerManager.hpp"
 #include "../../lua/LuaBridge.hpp"
 #include "cbdos_build_profile.h"
-#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #if CBDOS_FEATURE_DASHBOARD
 #include "views/DashboardView.hpp"
@@ -187,18 +188,73 @@ void UIManager::update() {
 }
 
 static lv_obj_t* s_activeKeyboard = nullptr;
-static std::unordered_map<lv_obj_t*, KeyboardOptions> s_kbOptions;
+static std::vector<std::pair<lv_obj_t*, KeyboardOptions>> s_kbOptions;
+
+static KeyboardOptions* findKbOptions(lv_obj_t* ta) {
+    for (auto& entry : s_kbOptions) {
+        if (entry.first == ta) return &entry.second;
+    }
+    return nullptr;
+}
+
+static void eraseKbOptions(lv_obj_t* ta) {
+    for (auto it = s_kbOptions.begin(); it != s_kbOptions.end(); ++it) {
+        if (it->first == ta) {
+            s_kbOptions.erase(it);
+            return;
+        }
+    }
+}
+
+static void ensureKeyboardStyles(lv_style_t*& mainStyle, lv_style_t*& itemsStyle,
+                                 lv_style_t*& pressedStyle, lv_style_t*& checkedStyle) {
+    static lv_style_t s_main;
+    static lv_style_t s_items;
+    static lv_style_t s_pressed;
+    static lv_style_t s_checked;
+    static bool s_initialized = false;
+
+    if (!s_initialized) {
+        lv_style_init(&s_main);
+        lv_style_set_bg_color(&s_main, lv_color_hex(0x11131A));
+        lv_style_set_border_color(&s_main, lv_color_hex(0x2E3444));
+        lv_style_set_border_width(&s_main, 1);
+
+        lv_style_init(&s_items);
+        lv_style_set_text_color(&s_items, lv_color_white());
+        lv_style_set_bg_color(&s_items, lv_color_hex(0x1E2230));
+        lv_style_set_border_color(&s_items, lv_color_hex(0x3B4252));
+        lv_style_set_border_width(&s_items, 1);
+        lv_style_set_radius(&s_items, 6);
+
+        lv_style_init(&s_pressed);
+        lv_style_set_bg_color(&s_pressed, lv_color_hex(0x00F5D4));
+        lv_style_set_text_color(&s_pressed, lv_color_hex(0x0F172A));
+
+        lv_style_init(&s_checked);
+        lv_style_set_bg_color(&s_checked, lv_color_hex(0x2E3444));
+        lv_style_set_text_color(&s_checked, lv_color_white());
+
+        s_initialized = true;
+    }
+
+    mainStyle = &s_main;
+    itemsStyle = &s_items;
+    pressedStyle = &s_pressed;
+    checkedStyle = &s_checked;
+}
 
 lv_obj_t* UIManager::getActiveKeyboard() {
-    return (s_activeKeyboard && lv_obj_is_valid(s_activeKeyboard)) ? s_activeKeyboard : nullptr;
+    return (s_activeKeyboard && lv_obj_is_valid(s_activeKeyboard) &&
+            !lv_obj_has_flag(s_activeKeyboard, LV_OBJ_FLAG_HIDDEN))
+               ? s_activeKeyboard
+               : nullptr;
 }
 
 void UIManager::closeKeyboard() {
     if (s_activeKeyboard && lv_obj_is_valid(s_activeKeyboard)) {
         lv_keyboard_set_textarea(s_activeKeyboard, nullptr);
-        lv_obj_t* kb = s_activeKeyboard;
-        s_activeKeyboard = nullptr;
-        lv_obj_delete_async(kb);
+        lv_obj_add_flag(s_activeKeyboard, LV_OBJ_FLAG_HIDDEN);
     } else {
         s_activeKeyboard = nullptr;
     }
@@ -210,20 +266,18 @@ static void kb_event_cb(lv_event_t* ev) {
     if (c == LV_EVENT_READY) {
         lv_obj_t* ta = lv_keyboard_get_textarea(kb);
         if (ta && lv_obj_is_valid(ta)) {
-            auto it = s_kbOptions.find(ta);
-            if (it != s_kbOptions.end()) {
-                const auto& opts = it->second;
-                if (opts.onSubmit) {
+            if (const auto* opts = findKbOptions(ta)) {
+                if (opts->onSubmit) {
                     const char* text = lv_textarea_get_text(ta);
-                    opts.onSubmit(text ? text : "");
+                    opts->onSubmit(text ? text : "");
                 }
-                if (opts.nextFocusTarget && lv_obj_is_valid(opts.nextFocusTarget)) {
-                    lv_keyboard_set_textarea(kb, opts.nextFocusTarget);
-                    lv_obj_send_event(opts.nextFocusTarget, LV_EVENT_FOCUSED, NULL);
-                    lv_obj_scroll_to_view(opts.nextFocusTarget, LV_ANIM_ON);
+                if (opts->nextFocusTarget && lv_obj_is_valid(opts->nextFocusTarget)) {
+                    lv_keyboard_set_textarea(kb, opts->nextFocusTarget);
+                    lv_obj_send_event(opts->nextFocusTarget, LV_EVENT_FOCUSED, NULL);
+                    lv_obj_scroll_to_view(opts->nextFocusTarget, LV_ANIM_ON);
                     return;
                 }
-                if (opts.autoCloseOnSubmit) {
+                if (opts->autoCloseOnSubmit) {
                     UIManager::closeKeyboard();
                 }
                 return;
@@ -252,37 +306,33 @@ static void ta_event_cb(lv_event_t* e) {
             return;
         }
 
+        const UiMetrics metrics = UiMetrics::current();
         if (!s_activeKeyboard || !lv_obj_is_valid(s_activeKeyboard)) {
             lv_obj_t* topLayer = lv_layer_top();
             s_activeKeyboard = lv_keyboard_create(topLayer);
 
-            const UiMetrics metrics = UiMetrics::current();
-            int32_t kbHeight = metrics.keyboardHeight();
-            int32_t kbWidth = metrics.keyboardMaxWidth();
+            lv_style_t *mainStyle, *itemsStyle, *pressedStyle, *checkedStyle;
+            ensureKeyboardStyles(mainStyle, itemsStyle, pressedStyle, checkedStyle);
 
-            lv_obj_set_size(s_activeKeyboard, kbWidth, kbHeight);
-            lv_obj_align(s_activeKeyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
-            lv_obj_set_style_bg_color(s_activeKeyboard, lv_color_hex(0x11131A), 0);
-            lv_obj_set_style_border_color(s_activeKeyboard, lv_color_hex(0x2E3444), 0);
-            lv_obj_set_style_border_width(s_activeKeyboard, 1, 0);
-            lv_obj_set_style_text_color(s_activeKeyboard, lv_color_white(), LV_PART_ITEMS);
-            lv_obj_set_style_bg_color(s_activeKeyboard, lv_color_hex(0x1E2230), LV_PART_ITEMS);
-            lv_obj_set_style_border_color(s_activeKeyboard, lv_color_hex(0x3B4252), LV_PART_ITEMS);
-            lv_obj_set_style_border_width(s_activeKeyboard, 1, LV_PART_ITEMS);
-            lv_obj_set_style_radius(s_activeKeyboard, 6, LV_PART_ITEMS);
-            lv_obj_set_style_bg_color(s_activeKeyboard, lv_color_hex(0x00F5D4), (lv_style_selector_t)LV_PART_ITEMS | (lv_style_selector_t)LV_STATE_PRESSED);
-            lv_obj_set_style_text_color(s_activeKeyboard, lv_color_hex(0x0F172A), (lv_style_selector_t)LV_PART_ITEMS | (lv_style_selector_t)LV_STATE_PRESSED);
-            lv_obj_set_style_bg_color(s_activeKeyboard, lv_color_hex(0x2E3444), (lv_style_selector_t)LV_PART_ITEMS | (lv_style_selector_t)LV_STATE_CHECKED);
-            lv_obj_set_style_text_color(s_activeKeyboard, lv_color_white(), (lv_style_selector_t)LV_PART_ITEMS | (lv_style_selector_t)LV_STATE_CHECKED);
-            lv_obj_add_event_cb(s_activeKeyboard, kb_event_cb, LV_EVENT_ALL, NULL);
+            lv_obj_add_style(s_activeKeyboard, mainStyle, 0);
+            lv_obj_add_style(s_activeKeyboard, itemsStyle, LV_PART_ITEMS);
+            lv_obj_add_style(s_activeKeyboard, pressedStyle, (lv_style_selector_t)LV_PART_ITEMS | (lv_style_selector_t)LV_STATE_PRESSED);
+            lv_obj_add_style(s_activeKeyboard, checkedStyle, (lv_style_selector_t)LV_PART_ITEMS | (lv_style_selector_t)LV_STATE_CHECKED);
+
+            lv_obj_add_event_cb(s_activeKeyboard, kb_event_cb, LV_EVENT_READY, NULL);
+            lv_obj_add_event_cb(s_activeKeyboard, kb_event_cb, LV_EVENT_CANCEL, NULL);
+            lv_obj_add_event_cb(s_activeKeyboard, kb_event_cb, LV_EVENT_DELETE, NULL);
         } else {
             lv_obj_remove_flag(s_activeKeyboard, LV_OBJ_FLAG_HIDDEN);
             lv_obj_move_to_index(s_activeKeyboard, -1);
         }
+
+        lv_obj_set_size(s_activeKeyboard, metrics.keyboardMaxWidth(), metrics.keyboardHeight());
+        lv_obj_align(s_activeKeyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
         lv_keyboard_set_textarea(s_activeKeyboard, targetTa);
         lv_obj_scroll_to_view(targetTa, LV_ANIM_ON);
     } else if (code == LV_EVENT_DELETE) {
-        s_kbOptions.erase(targetTa);
+        eraseKbOptions(targetTa);
         if (s_activeKeyboard && lv_obj_is_valid(s_activeKeyboard)) {
             if (lv_keyboard_get_textarea(s_activeKeyboard) == targetTa) {
                 UIManager::closeKeyboard();
@@ -293,11 +343,14 @@ static void ta_event_cb(lv_event_t* e) {
 
 void UIManager::attachKeyboard(lv_obj_t* ta, const KeyboardOptions& opts) {
     if (!ta) return;
-    bool alreadyAttached = (s_kbOptions.find(ta) != s_kbOptions.end());
-    s_kbOptions[ta] = opts;
-    if (!alreadyAttached) {
-        lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_ALL, NULL);
+    if (auto* existing = findKbOptions(ta)) {
+        *existing = opts;
+        return;
     }
+    s_kbOptions.emplace_back(ta, opts);
+    lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ta, ta_event_cb, LV_EVENT_DELETE, NULL);
 }
 
 void UIManager::openKeyboard(lv_obj_t* ta) {
@@ -367,6 +420,27 @@ void UIManager::applyViewMode(ViewMode mode) {
     }
 }
 
+void UIManager::syncOrientation(ViewOrientation orientation) {
+    if (orientation == ViewOrientation::Landscape && !cbdos::display::isLandscape()) {
+        cbdos::display::setOrientation(cbdos::display::Orientation::Landscape);
+    } else if (orientation == ViewOrientation::Portrait && cbdos::display::isLandscape()) {
+        cbdos::display::setOrientation(cbdos::display::Orientation::Portrait);
+    }
+}
+
+void UIManager::updateHeaderForStack() {
+    if (m_viewStack.size() > 1 && m_viewStack.back()) {
+        m_headerBar.setTitle(m_viewStack.back()->getViewName().c_str());
+        m_headerBar.showBackButton(true,
+            [this]() { this->popView(false); },
+            [this]() { this->popView(true); }
+        );
+    } else {
+        m_headerBar.setTitle("CBDos");
+        m_headerBar.showBackButton(false);
+    }
+}
+
 void UIManager::pushView(std::shared_ptr<BaseView> view) {
     if (!view) return;
 
@@ -379,11 +453,7 @@ void UIManager::pushView(std::shared_ptr<BaseView> view) {
     }
 
     // 0. Adaptar orientación de la pantalla según ViewOrientation
-    if (view->getViewOrientation() == ViewOrientation::Landscape && !cbdos::display::isLandscape()) {
-        cbdos::display::setOrientation(cbdos::display::Orientation::Landscape);
-    } else if (view->getViewOrientation() == ViewOrientation::Portrait && cbdos::display::isLandscape()) {
-        cbdos::display::setOrientation(cbdos::display::Orientation::Portrait);
-    }
+    syncOrientation(view->getViewOrientation());
 
     m_viewStack.push_back(view);
 
@@ -398,24 +468,10 @@ void UIManager::pushView(std::shared_ptr<BaseView> view) {
     view->onCreate(m_contentContainer);
     view->onShow();
 
-    if (m_viewStack.size() > 1) {
-        m_headerBar.setTitle(view->getViewName().c_str());
-        m_headerBar.showBackButton(true, 
-            [this]() {
-                this->popView(false);
-            },
-            [this]() {
-                this->popView(true);
-            }
-        );
-    } else {
-        m_headerBar.setTitle("CBDos");
-        m_headerBar.showBackButton(false);
-    }
+    updateHeaderForStack();
 
     if (m_rootScreen && lv_obj_is_valid(m_rootScreen)) {
         lv_obj_update_layout(m_rootScreen);
-        lv_obj_invalidate(m_rootScreen);
     }
 }
 
@@ -446,14 +502,7 @@ void UIManager::popView(bool forceClose) {
         auto current = m_viewStack.back();
 
         // 0. Restaurar orientación de la vista padre
-        if (current->getViewOrientation() == ViewOrientation::Portrait && cbdos::display::isLandscape()) {
-            cbdos::display::setOrientation(cbdos::display::Orientation::Portrait);
-        } else if (current->getViewOrientation() == ViewOrientation::Landscape && !cbdos::display::isLandscape()) {
-            cbdos::display::setOrientation(cbdos::display::Orientation::Landscape);
-        } else if (m_viewStack.size() == 1 && cbdos::display::isLandscape()) {
-            // Regresando a la vista raíz (Dashboard)
-            cbdos::display::setOrientation(cbdos::display::Orientation::Portrait);
-        }
+        syncOrientation(current->getViewOrientation());
 
         // 1. Restaurar modo de vista de la vista padre
         applyViewMode(current->getViewMode());
@@ -466,24 +515,10 @@ void UIManager::popView(bool forceClose) {
         }
 
         current->onShow();
-        if (m_viewStack.size() == 1) {
-            m_headerBar.setTitle("CBDos");
-            m_headerBar.showBackButton(false);
-        } else {
-            m_headerBar.setTitle(current->getViewName().c_str());
-            m_headerBar.showBackButton(true, 
-                [this]() {
-                    this->popView(false);
-                },
-                [this]() {
-                    this->popView(true);
-                }
-            );
-        }
+        updateHeaderForStack();
 
         if (m_rootScreen && lv_obj_is_valid(m_rootScreen)) {
             lv_obj_update_layout(m_rootScreen);
-            lv_obj_invalidate(m_rootScreen);
         }
     }
 }
@@ -509,30 +544,18 @@ std::shared_ptr<BaseView> UIManager::getCurrentView() const {
 }
 
 void UIManager::openDashboard() {
-    closeKeyboard();
-    if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
-        lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
-    }
 #if CBDOS_FEATURE_DASHBOARD
     switchView(std::make_shared<DashboardView>());
 #endif
 }
 
 void UIManager::openTableHubKds() {
-    closeKeyboard();
-    if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
-        lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
-    }
 #if defined(CONFIG_CBDOS_PRODUCT_TABLEHUB) || CBDOS_DEFAULT_VIEW == CBDOS_VIEW_TABLEHUB_KDS
     switchView(std::make_shared<TableHubKdsView>());
 #endif
 }
 
 void UIManager::openTableHubTabletop() {
-    closeKeyboard();
-    if (m_headerBar.getContainer() && lv_obj_is_valid(m_headerBar.getContainer())) {
-        lv_obj_remove_flag(m_headerBar.getContainer(), LV_OBJ_FLAG_HIDDEN);
-    }
 #if defined(CONFIG_CBDOS_PRODUCT_TABLEHUB) || CBDOS_DEFAULT_VIEW == CBDOS_VIEW_TABLEHUB_TABLETOP
     switchView(std::make_shared<TableHubTabletopView>());
 #endif
@@ -586,6 +609,10 @@ void UIManager::onThemeChanged(cbdos::theme::ThemeType theme, const cbdos::theme
     }
     if (m_contentContainer && lv_obj_is_valid(m_contentContainer)) {
         lv_obj_set_style_text_color(m_contentContainer, lv_color_hex(palette.textPrimary), 0);
+        auto currentView = getCurrentView();
+        if (currentView && currentView->getViewMode() != ViewMode::Translucent) {
+            lv_obj_set_style_bg_color(m_contentContainer, lv_color_hex(palette.bg), 0);
+        }
     }
 
     m_headerBar.onThemeChanged(theme, palette);

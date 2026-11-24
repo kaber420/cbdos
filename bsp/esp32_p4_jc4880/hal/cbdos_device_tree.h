@@ -15,6 +15,7 @@ namespace board {
 constexpr const char* BOARD_NAME = "JC4880P443C";
 constexpr const char* BOARD_VERSION = "1.3";
 constexpr const char* SOC_TYPE = "unknown";
+constexpr const char* SILICON_REV = "unknown";
 
 // Pines de expansion disponibles (Cabecera JP1 Whitelist)
 constexpr size_t NUM_EXPANSION_PINS = 11;
@@ -38,9 +39,21 @@ constexpr std::array<int, NUM_PROHIBITED_PINS> PROHIBITED_PINS = {
 namespace display {
     constexpr const char* DRIVER = "st7701s";
     constexpr const char* BUS = "mipi_dpi";
+    constexpr const char* PANEL_HEADER = "";
     constexpr int WIDTH = 480;
     constexpr int HEIGHT = 800;
     constexpr int FPS = 60;
+    constexpr int DSI_LANES = 2;
+    constexpr int DSI_LANE_MBPS = 500;
+    constexpr int DPI_CLOCK_MHZ = 34;
+    constexpr int HSYNC_PW = 12;
+    constexpr int HSYNC_BP = 42;
+    constexpr int HSYNC_FP = 42;
+    constexpr int VSYNC_PW = 2;
+    constexpr int VSYNC_BP = 8;
+    constexpr int VSYNC_FP = 166;
+    constexpr int LDO_CHANNEL = 3;
+    constexpr int LDO_VOLTAGE_MV = 2500;
     constexpr int PIN_RST = 5;
     constexpr int PIN_BL = 23;
     // Pines bus QSPI (si aplica)
@@ -54,6 +67,7 @@ namespace display {
 
 // 2. Touchscreen (I2C)
 namespace touch {
+    constexpr const char* DRIVER = "gt911";
     constexpr int PIN_SDA = 7;
     constexpr int PIN_SCL = 8;
     constexpr int PIN_RST = 22;
@@ -61,10 +75,17 @@ namespace touch {
     constexpr int I2C_PORT = 0;
     constexpr uint32_t I2C_FREQ = 400000;
     constexpr uint8_t I2C_ADDR = 0x3B;
+    constexpr bool SWAP_XY = false;
+    constexpr bool MIRROR_X = false;
+    constexpr bool MIRROR_Y = false;
 }
 
 // 3. Audio (I2S + Codec)
 namespace audio {
+    constexpr const char* CODEC = "es8311";
+    constexpr int I2S_PORT = 0;
+    constexpr int I2C_PORT = 0;
+    constexpr uint8_t CODEC_ADDR = 0x18;
     constexpr bool HAS_MCLK = true;
     constexpr int PIN_MCLK = 13;
     constexpr int PIN_BCLK = 12;
@@ -77,6 +98,8 @@ namespace audio {
 // 4. Tarjeta MicroSD (SDMMC / SPI)
 namespace sdcard {
     constexpr const char* BUS = "sdmmc";
+    constexpr int LDO_CHANNEL = 4;
+    constexpr int LDO_VOLTAGE_MV = 3300;
     // Pines SDMMC
     constexpr int PIN_D0 = 39;
     constexpr int PIN_D1 = 40;

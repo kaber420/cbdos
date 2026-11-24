@@ -52,6 +52,8 @@ private:
     UIManager(const UIManager&) = delete;
     UIManager& operator=(const UIManager&) = delete;
 
+    void syncOrientation(ViewOrientation orientation);
+    void updateHeaderForStack();
     void onThemeChanged(cbdos::theme::ThemeType theme, const cbdos::theme::ThemePalette& palette);
 
     lv_obj_t* m_rootScreen;

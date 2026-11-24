@@ -19,6 +19,10 @@ static uint32_t lvgl_tick_cb(void) {
 LVGL_Port::LVGL_Port() {}
 LVGL_Port::~LVGL_Port() {
     running = false;
+    if (ppaClient) {
+        ppa_unregister_client(ppaClient);
+        ppaClient = nullptr;
+    }
     if (lvglMux) {
         vSemaphoreDelete(lvglMux);
         lvglMux = nullptr;
@@ -44,23 +48,8 @@ void LVGL_Port::unlock() {
 void LVGL_Port::setOrientation(cbdos::display::Orientation orientation) {
     if (!display) return;
     currentOrientation = orientation;
-    lv_display_rotation_t lv_rot = LV_DISPLAY_ROTATION_0;
-    switch (orientation) {
-        case cbdos::display::Orientation::Landscape:
-            lv_rot = LV_DISPLAY_ROTATION_90;
-            break;
-        case cbdos::display::Orientation::PortraitInverted:
-            lv_rot = LV_DISPLAY_ROTATION_180;
-            break;
-        case cbdos::display::Orientation::LandscapeInverted:
-            lv_rot = LV_DISPLAY_ROTATION_270;
-            break;
-        case cbdos::display::Orientation::Portrait:
-        default:
-            lv_rot = LV_DISPLAY_ROTATION_0;
-            break;
-    }
-    lv_display_set_rotation(display, lv_rot);
+    const bool landscape = isLandscape();
+    lv_display_set_resolution(display, landscape ? height : width, landscape ? width : height);
     lv_obj_t* scr = lv_screen_active();
     if (scr && lv_obj_is_valid(scr)) {
         lv_obj_invalidate(scr);
@@ -82,11 +71,69 @@ void LVGL_Port::flushCallback(lv_display_t* disp, const lv_area_t* area, uint8_t
             if (!target_fb) {
                 target_fb = px_map;
             } else {
-                lv_display_rotation_t rot = lv_display_get_rotation(disp);
-                if (rot == LV_DISPLAY_ROTATION_0) {
+                const auto ori = self.currentOrientation;
+                if (ori == cbdos::display::Orientation::Portrait) {
                     memcpy(target_fb, px_map, fb_bytes);
                 } else {
-                    lv_draw_rotate(px_map, target_fb, 800, 480, 800 * sizeof(uint16_t), 480 * sizeof(uint16_t), rot, LV_COLOR_FORMAT_RGB565);
+                    const bool is90or270 = (ori == cbdos::display::Orientation::Landscape ||
+                                            ori == cbdos::display::Orientation::LandscapeInverted);
+                    const uint32_t src_w = is90or270 ? (uint32_t)h : (uint32_t)w;
+                    const uint32_t src_h = is90or270 ? (uint32_t)w : (uint32_t)h;
+                    bool rotatedByHw = false;
+
+                    if (self.rotationMode == RotationMode::HardwarePPA && self.ppaClient != nullptr) {
+                        ppa_srm_rotation_angle_t ppa_rot = PPA_SRM_ROTATION_ANGLE_0;
+                        if (ori == cbdos::display::Orientation::Landscape) {
+                            ppa_rot = PPA_SRM_ROTATION_ANGLE_270;
+                        } else if (ori == cbdos::display::Orientation::PortraitInverted) {
+                            ppa_rot = PPA_SRM_ROTATION_ANGLE_180;
+                        } else if (ori == cbdos::display::Orientation::LandscapeInverted) {
+                            ppa_rot = PPA_SRM_ROTATION_ANGLE_90;
+                        }
+
+                        esp_cache_msync(px_map, fb_bytes, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
+
+                        ppa_srm_oper_config_t srm_cfg = {};
+                        srm_cfg.in.buffer = px_map;
+                        srm_cfg.in.pic_w = src_w;
+                        srm_cfg.in.pic_h = src_h;
+                        srm_cfg.in.block_w = src_w;
+                        srm_cfg.in.block_h = src_h;
+                        srm_cfg.in.block_offset_x = 0;
+                        srm_cfg.in.block_offset_y = 0;
+                        srm_cfg.in.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
+
+                        srm_cfg.out.buffer = target_fb;
+                        srm_cfg.out.buffer_size = fb_bytes;
+                        srm_cfg.out.pic_w = w;
+                        srm_cfg.out.pic_h = h;
+                        srm_cfg.out.block_offset_x = 0;
+                        srm_cfg.out.block_offset_y = 0;
+                        srm_cfg.out.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
+
+                        srm_cfg.rotation_angle = ppa_rot;
+                        srm_cfg.scale_x = 1.0f;
+                        srm_cfg.scale_y = 1.0f;
+                        srm_cfg.mode = PPA_TRANS_MODE_BLOCKING;
+
+                        if (ppa_do_scale_rotate_mirror(self.ppaClient, &srm_cfg) == ESP_OK) {
+                            rotatedByHw = true;
+                        }
+                    }
+
+                    if (!rotatedByHw) {
+                        lv_display_rotation_t lv_rot = LV_DISPLAY_ROTATION_0;
+                        if (ori == cbdos::display::Orientation::Landscape) {
+                            lv_rot = LV_DISPLAY_ROTATION_270;
+                        } else if (ori == cbdos::display::Orientation::PortraitInverted) {
+                            lv_rot = LV_DISPLAY_ROTATION_180;
+                        } else if (ori == cbdos::display::Orientation::LandscapeInverted) {
+                            lv_rot = LV_DISPLAY_ROTATION_90;
+                        }
+                        lv_draw_rotate(px_map, target_fb, src_w, src_h,
+                                       src_w * sizeof(uint16_t), w * sizeof(uint16_t),
+                                       lv_rot, LV_COLOR_FORMAT_RGB565);
+                    }
                 }
             }
 
@@ -112,8 +159,20 @@ void LVGL_Port::touchReadCallback(lv_indev_t* indev, lv_indev_data_t* data) {
 
     if (TouchHAL::getInstance().read(&x, &y, &pressed)) {
         if (pressed) {
-            data->point.x = x;
-            data->point.y = y;
+            const auto ori = LVGL_Port::getInstance().getOrientation();
+            if (ori == cbdos::display::Orientation::Landscape) {
+                data->point.x = y;
+                data->point.y = 479 - x;
+            } else if (ori == cbdos::display::Orientation::LandscapeInverted) {
+                data->point.x = 799 - y;
+                data->point.y = x;
+            } else if (ori == cbdos::display::Orientation::PortraitInverted) {
+                data->point.x = 479 - x;
+                data->point.y = 799 - y;
+            } else {
+                data->point.x = x;
+                data->point.y = y;
+            }
             data->state = LV_INDEV_STATE_PRESSED;
         } else {
             data->state = LV_INDEV_STATE_RELEASED;
@@ -190,6 +249,18 @@ esp_err_t LVGL_Port::init(int h_res, int v_res) {
     ESP_LOGI(TAG, "Búfer de renderizado LVGL dedicado asignado en PSRAM: %p (%u KB)",
              lvRenderBuf, (unsigned)(buffer_size_bytes / 1024));
 
+    // 3.1. Registrar cliente PPA SRM para rotación por hardware (con fallback a software)
+    ppa_client_config_t ppa_cfg = {};
+    ppa_cfg.oper_type = PPA_OPERATION_SRM;
+    ppa_cfg.max_pending_trans_num = 1;
+    ppa_cfg.data_burst_length = PPA_DATA_BURST_LENGTH_128;
+    if (ppa_register_client(&ppa_cfg, &ppaClient) == ESP_OK) {
+        ESP_LOGI(TAG, "PPA SRM cliente registrado para rotación por hardware");
+    } else {
+        ppaClient = nullptr;
+        ESP_LOGW(TAG, "PPA SRM no disponible, usando rotación por software");
+    }
+
     // 4. Crear Display en LVGL 9 con renderizado FULL en buffer independiente
     display = lv_display_create(width, height);
     if (!display) {
@@ -200,6 +271,7 @@ esp_err_t LVGL_Port::init(int h_res, int v_res) {
     lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
     lv_display_set_buffers(display, lvRenderBuf, NULL, buffer_size_bytes, LV_DISPLAY_RENDER_MODE_FULL);
     lv_display_set_flush_cb(display, flushCallback);
+    setOrientation(cbdos::display::Orientation::Landscape);
 
     // 5. Crear e Inicializar Dispositivo de Entrada Táctil
     indev = lv_indev_create();

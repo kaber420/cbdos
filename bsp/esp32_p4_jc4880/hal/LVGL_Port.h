@@ -4,6 +4,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
+#include <driver/ppa.h>
 #include <lvgl.h>
 #include "cbdos/display.hpp"
 
@@ -19,8 +20,16 @@ public:
     bool lock(uint32_t timeout_ms = portMAX_DELAY);
     void unlock();
 
+    enum class RotationMode {
+        HardwarePPA,
+        Software
+    };
+
     void setOrientation(cbdos::display::Orientation orientation);
     cbdos::display::Orientation getOrientation() const { return currentOrientation; }
+    void setRotationMode(RotationMode mode) { rotationMode = mode; }
+    RotationMode getRotationMode() const { return rotationMode; }
+    bool isHardwareRotationAvailable() const { return ppaClient != nullptr; }
     bool isLandscape() const {
         return currentOrientation == cbdos::display::Orientation::Landscape ||
                currentOrientation == cbdos::display::Orientation::LandscapeInverted;
@@ -52,6 +61,8 @@ private:
 
     void* lvRenderBuf = nullptr;
     int activeDpiFb = 0;
+    ppa_client_handle_t ppaClient = nullptr;
+    RotationMode rotationMode = RotationMode::HardwarePPA;
 
     cbdos::display::Orientation currentOrientation = cbdos::display::Orientation::Portrait;
 
