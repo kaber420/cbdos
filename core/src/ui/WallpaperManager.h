@@ -35,6 +35,7 @@ private:
     bool hasCustomWallpaper;
     uint8_t* customBuffer;
     lv_image_dsc_t customDsc;
+    lv_obj_t* m_parent = nullptr;
 };
 
 #endif // WALLPAPER_MANAGER_H

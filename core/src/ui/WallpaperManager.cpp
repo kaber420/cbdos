@@ -121,26 +121,34 @@ void WallpaperManager::init() {
 
 void WallpaperManager::applyWallpaper(lv_obj_t* parent) {
     if (!parent) return;
+    m_parent = parent;
 
     if (currentPath == "animated" || currentPath == "animated_constellation") {
+        lv_obj_set_style_bg_image_src(parent, nullptr, 0);
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::Constellation);
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     } else if (currentPath == "animated_waves") {
+        lv_obj_set_style_bg_image_src(parent, nullptr, 0);
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::Waves);
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     } else if (currentPath == "animated_comic") {
+        lv_obj_set_style_bg_image_src(parent, nullptr, 0);
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::ComicDrive);
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     } else if (currentPath == "animated_fireflies") {
+        lv_obj_set_style_bg_image_src(parent, nullptr, 0);
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::Fireflies);
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     } else if (currentPath == "animated_touch") {
+        lv_obj_set_style_bg_image_src(parent, nullptr, 0);
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::TouchSwarm);
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     } else if (currentPath == "animated_synthwave") {
+        lv_obj_set_style_bg_image_src(parent, nullptr, 0);
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::Synthwave80s);
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     } else if (currentPath == "animated_matrix") {
+        lv_obj_set_style_bg_image_src(parent, nullptr, 0);
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::MatrixRain);
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     } else if (hasCustomWallpaper && customBuffer) {
@@ -148,6 +156,7 @@ void WallpaperManager::applyWallpaper(lv_obj_t* parent) {
         lv_obj_set_style_bg_image_src(parent, &customDsc, 0);
         lv_obj_set_style_bg_image_opa(parent, LV_OPA_COVER, 0);
     } else {
+        lv_obj_set_style_bg_image_src(parent, nullptr, 0);
         // Fallback animado: MatrixRain en perfil RED, Constellation en estándar
 #if defined(CONFIG_CBDOS_PROFILE_RED)
         cbdos::ui::AnimatedWallpaper::getInstance().setStyle(cbdos::ui::AnimatedWallpaper::Style::MatrixRain);
@@ -156,6 +165,8 @@ void WallpaperManager::applyWallpaper(lv_obj_t* parent) {
 #endif
         cbdos::ui::AnimatedWallpaper::getInstance().init(parent);
     }
+
+    lv_obj_invalidate(parent);
 }
 
 void WallpaperManager::setAnimatedMode(lv_obj_t* parent, const std::string& mode) {
@@ -167,14 +178,15 @@ void WallpaperManager::setAnimatedMode(lv_obj_t* parent, const std::string& mode
         backend->setString("path", currentPath);
         backend->end();
     }
-    if (parent) {
-        applyWallpaper(parent);
+    lv_obj_t* target = parent ? parent : m_parent;
+    if (target && lv_obj_is_valid(target)) {
+        applyWallpaper(target);
     }
 }
 
 bool WallpaperManager::setWallpaper(const std::string& path) {
     if (path.rfind("animated", 0) == 0) {
-        setAnimatedMode(nullptr, path);
+        setAnimatedMode(m_parent, path);
         return true;
     }
     if (path == "default" || path.empty()) {
@@ -282,6 +294,10 @@ bool WallpaperManager::setWallpaper(const std::string& path) {
         backend->end();
     }
 
+    if (m_parent && lv_obj_is_valid(m_parent)) {
+        applyWallpaper(m_parent);
+    }
+
     return true;
 #else
     return false;
@@ -303,6 +319,9 @@ void WallpaperManager::restoreDefault() {
         backend->setBool("custom", false);
         backend->setString("path", "animated_constellation");
         backend->end();
+    }
+    if (m_parent && lv_obj_is_valid(m_parent)) {
+        applyWallpaper(m_parent);
     }
 }
 
