@@ -1,4 +1,5 @@
 #include "LockPinModal.hpp"
+#include "../UiMetrics.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/display.hpp"
@@ -166,7 +167,7 @@ void LockPinModal::show(const char* customTitle,
     s_fullScreenMode = fullScreen;
     s_enteredPin.clear();
 
-    auto caps = cbdos::display::getCapabilities();
+    const auto metrics = UiMetrics::current();
 
     s_mask = lv_obj_create(lv_layer_top());
     lv_obj_set_size(s_mask, LV_PCT(100), LV_PCT(100));
@@ -179,13 +180,7 @@ void LockPinModal::show(const char* customTitle,
 
     // Tarjeta Modal Glassmorphism
     s_card = lv_obj_create(s_mask);
-    int32_t cardWidth = (caps.width >= 480) ? 340 : 280;
-    if (fullScreen) {
-        lv_obj_set_width(s_card, (caps.width >= 480) ? 380 : 300);
-    } else {
-        lv_obj_set_width(s_card, cardWidth);
-    }
-    lv_obj_set_height(s_card, LV_SIZE_CONTENT);
+    applyAdaptiveModalSize(s_card, metrics, fullScreen ? 400 : 360, 540);
     DefaultTheme::applyRaisedCard(s_card, 16);
     lv_obj_center(s_card);
     lv_obj_set_flex_flow(s_card, LV_FLEX_FLOW_COLUMN);
@@ -241,7 +236,8 @@ void LockPinModal::show(const char* customTitle,
     // Teclado Numérico con lv_btnmatrix
     s_btnMatrix = lv_btnmatrix_create(s_card);
     lv_btnmatrix_set_map(s_btnMatrix, s_btnmMap);
-    lv_obj_set_size(s_btnMatrix, lv_pct(100), (caps.height >= 800) ? 230 : 180);
+    int32_t matrixH = metrics.isShort() ? std::max<int32_t>(140, std::min<int32_t>(180, static_cast<int32_t>(metrics.height) - 150)) : 230;
+    lv_obj_set_size(s_btnMatrix, lv_pct(100), matrixH);
     lv_obj_set_style_bg_opa(s_btnMatrix, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_btnMatrix, 0, 0);
     lv_obj_set_style_pad_all(s_btnMatrix, 2, 0);

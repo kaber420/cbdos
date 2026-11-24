@@ -1,4 +1,5 @@
 #include "AboutModal.hpp"
+#include "../UiMetrics.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/display.hpp"
@@ -28,6 +29,7 @@ void AboutModal::show(lv_obj_t* parent) {
     hide();
 
     auto caps = cbdos::display::getCapabilities();
+    const auto metrics = UiMetrics::current();
 
     s_modalMask = lv_obj_create(lv_layer_top());
     lv_obj_set_size(s_modalMask, LV_PCT(100), LV_PCT(100));
@@ -39,8 +41,7 @@ void AboutModal::show(lv_obj_t* parent) {
 
     // Tarjeta Modal con Glassmorphism
     lv_obj_t* card = lv_obj_create(s_modalMask);
-    lv_obj_set_width(card, (caps.width >= 480) ? 430 : 304);
-    lv_obj_set_height(card, (caps.width >= 480) ? 620 : 440);
+    applyAdaptiveModalSize(card, metrics, 480, 620);
     DefaultTheme::applyRaisedCard(card, 16);
     lv_obj_center(card);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
@@ -116,11 +117,15 @@ void AboutModal::show(lv_obj_t* parent) {
     addInfoBox(card, tr(StrId::STR_ABOUT_LICENSE), "GNU General Public License v3.0 (GPLv3)");
     addInfoBox(card, tr(StrId::STR_ABOUT_LICENSE_LINK), "https://www.gnu.org/licenses/gpl-3.0.html", "url");
 
-    if (caps.width >= 480) {
-        addInfoBox(card, tr(StrId::STR_ABOUT_HW), "ESP32-P4 RISC-V Dual-Core @ 400MHz\n480x800 MIPI-DPI | 32MB Hexal-PSRAM");
+    char hwBuf[128];
+    if (caps.hasHardware2D) {
+        snprintf(hwBuf, sizeof(hwBuf), "ESP32-P4 RISC-V Dual-Core @ 400MHz\n%ux%u MIPI-DPI | 32MB Hexal-PSRAM",
+                 (unsigned int)caps.width, (unsigned int)caps.height);
     } else {
-        addInfoBox(card, tr(StrId::STR_ABOUT_HW), "ESP32-S3 Xtensa Dual-Core @ 240MHz\n320x480 QSPI | 8MB Octal-PSRAM");
+        snprintf(hwBuf, sizeof(hwBuf), "ESP32-S3 Xtensa Dual-Core @ 240MHz\n%ux%u QSPI | 8MB Octal-PSRAM",
+                 (unsigned int)caps.width, (unsigned int)caps.height);
     }
+    addInfoBox(card, tr(StrId::STR_ABOUT_HW), hwBuf);
 
     // Botón Cerrar
     lv_obj_t* btnClose = lv_button_create(card);

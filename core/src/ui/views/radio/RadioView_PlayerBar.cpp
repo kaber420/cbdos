@@ -43,6 +43,7 @@ void RadioView::buildPlayerBar(lv_obj_t* parent) {
 
     lv_obj_t* textCol = lv_obj_create(leftCol);
     lv_obj_set_size(textCol, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_flex_grow(textCol, 1);
     lv_obj_set_flex_flow(textCol, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_all(textCol, 0, 0);
     lv_obj_set_style_pad_row(textCol, 2, 0);
@@ -55,7 +56,7 @@ void RadioView::buildPlayerBar(lv_obj_t* parent) {
     lv_obj_set_style_text_color(m_currentNameLbl, DefaultTheme::getTextColor(), 0);
     lv_obj_set_style_text_font(m_currentNameLbl, &lv_font_montserrat_14, 0);
     lv_label_set_long_mode(m_currentNameLbl, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_width(m_currentNameLbl, 250);
+    lv_obj_set_width(m_currentNameLbl, lv_pct(100));
 
     m_currentStatusLbl = lv_label_create(textCol);
     lv_label_set_text(m_currentStatusLbl, s_isPlaying ? "Reproduciendo stream..." : "Detenido");

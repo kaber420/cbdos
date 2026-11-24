@@ -77,7 +77,8 @@ bool LandscapeTestView::onCreate(lv_obj_t* parent) {
 
     // 3. Botón de prueba de Touch interactivo
     m_btnTouch = lv_button_create(m_container);
-    lv_obj_set_size(m_btnTouch, 320, 48);
+    lv_obj_set_size(m_btnTouch, lv_pct(85), 48);
+    lv_obj_set_style_max_width(m_btnTouch, 420, 0);
     DefaultTheme::applyButton(m_btnTouch, 12);
     lv_obj_add_event_cb(m_btnTouch, touchTestBtnCb, LV_EVENT_CLICKED, this);
 

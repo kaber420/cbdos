@@ -1,4 +1,5 @@
 #include "QuickSettingsPanel.hpp"
+#include "../UiMetrics.hpp"
 #include "../themes/DefaultTheme.h"
 #include "../UIManager.hpp"
 #include "../views/RadioConfigView.hpp"
@@ -174,9 +175,14 @@ void QuickSettingsPanel::toggle() {
         return;
     }
 
+    const auto metrics = UiMetrics::current();
     panelObj = lv_obj_create(lv_layer_top());
-    lv_obj_set_width(panelObj, 300);
+    lv_obj_set_width(panelObj, lv_pct(metrics.isCompact() ? 90 : 65));
+    lv_obj_set_style_max_width(panelObj, metrics.maxModalWidth(420), 0);
     lv_obj_set_height(panelObj, LV_SIZE_CONTENT);
+    lv_obj_set_style_max_height(panelObj, metrics.maxModalHeight(560), 0);
+    lv_obj_add_flag(panelObj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(panelObj, LV_DIR_VER);
     DefaultTheme::applyRaisedCard(panelObj, 18);
     lv_obj_align(panelObj, LV_ALIGN_TOP_MID, 0, 56);
     lv_obj_set_flex_flow(panelObj, LV_FLEX_FLOW_COLUMN);

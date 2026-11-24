@@ -132,7 +132,8 @@ bool LottieTestView::onCreate(lv_obj_t* parent) {
 
     // 3. Barra de Control de Navegación (< Anterior | Fullscreen | Siguiente >)
     m_navRow = lv_obj_create(m_container);
-    lv_obj_set_size(m_navRow, 420, 44);
+    lv_obj_set_size(m_navRow, lv_pct(95), 44);
+    lv_obj_set_style_max_width(m_navRow, 520, 0);
     lv_obj_set_style_bg_opa(m_navRow, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(m_navRow, 0, 0);
     lv_obj_set_style_pad_all(m_navRow, 0, 0);
@@ -196,7 +197,8 @@ bool LottieTestView::onCreate(lv_obj_t* parent) {
 
     // 4. Panel de Métricas de Rendimiento
     m_statsCard = lv_obj_create(m_container);
-    lv_obj_set_width(m_statsCard, 400);
+    lv_obj_set_width(m_statsCard, lv_pct(95));
+    lv_obj_set_style_max_width(m_statsCard, 520, 0);
     lv_obj_set_height(m_statsCard, LV_SIZE_CONTENT);
     DefaultTheme::applyRaisedCard(m_statsCard, 12);
     lv_obj_set_style_pad_all(m_statsCard, 8, 0);

@@ -6,6 +6,7 @@
 #if CBDOS_FEATURE_CARTRIDGE
 
 #include "CartridgeView.hpp"
+#include "../UiMetrics.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/cartridge.hpp"
@@ -196,9 +197,13 @@ void CartridgeView::showSDPickerDialog(esp_partition_subtype_t targetSlot) {
     lv_obj_set_style_bg_opa(m_modalBg, LV_OPA_70, 0);
     lv_obj_set_style_border_width(m_modalBg, 0, 0);
 
+    const auto metrics = UiMetrics::current();
+    int32_t dlgH = std::min<int32_t>(340, metrics.maxModalHeight(360));
+
     // Caja de Diálogo
     lv_obj_t* dialog = lv_obj_create(m_modalBg);
-    lv_obj_set_size(dialog, 300, 340);
+    lv_obj_set_size(dialog, lv_pct(metrics.modalWidthPct()), dlgH);
+    lv_obj_set_style_max_width(dialog, metrics.maxModalWidth(420), 0);
     lv_obj_center(dialog);
     lv_obj_set_style_bg_color(dialog, lv_color_hex(0x1E1E1E), 0);
     lv_obj_set_style_border_color(dialog, lv_color_hex(0x3F68D9), 0);
@@ -227,7 +232,7 @@ void CartridgeView::showSDPickerDialog(esp_partition_subtype_t targetSlot) {
 
     // Lista de Archivos
     lv_obj_t* list = lv_obj_create(dialog);
-    lv_obj_set_size(list, LV_PCT(100), 260);
+    lv_obj_set_size(list, LV_PCT(100), dlgH - 80);
     lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(list, 0, 0);
@@ -289,9 +294,12 @@ void CartridgeView::startFlashing(const std::string& binPath, esp_partition_subt
     lv_obj_t* screen = lv_screen_active();
     if (!screen) return;
 
+    const auto metrics = UiMetrics::current();
+
     // Modal de Progreso de Flasheo (Exacto como en espOS32)
     m_modalBg = lv_obj_create(screen);
-    lv_obj_set_size(m_modalBg, 280, 190);
+    lv_obj_set_size(m_modalBg, lv_pct(metrics.isCompact() ? 88 : 60), 190);
+    lv_obj_set_style_max_width(m_modalBg, metrics.maxModalWidth(380), 0);
     lv_obj_center(m_modalBg);
     lv_obj_set_style_bg_color(m_modalBg, lv_color_hex(0x1F1F1F), 0);
     lv_obj_set_style_border_color(m_modalBg, lv_color_hex(0x00E5FF), 0);
@@ -315,7 +323,7 @@ void CartridgeView::startFlashing(const std::string& binPath, esp_partition_subt
     lv_obj_align(pSub, LV_ALIGN_TOP_MID, 0, 35);
 
     lv_obj_t* pBar = lv_bar_create(m_modalBg);
-    lv_obj_set_size(pBar, 230, 18);
+    lv_obj_set_size(pBar, lv_pct(85), 18);
     lv_obj_align(pBar, LV_ALIGN_CENTER, 0, 5);
     lv_bar_set_range(pBar, 0, 100);
     lv_bar_set_value(pBar, 0, LV_ANIM_OFF);

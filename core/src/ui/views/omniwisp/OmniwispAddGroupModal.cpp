@@ -1,4 +1,5 @@
 #include "OmniwispAddGroupModal.hpp"
+#include "../../UiMetrics.hpp"
 #include "../../UIManager.hpp"
 #include <cstdio>
 
@@ -26,8 +27,9 @@ void OmniwispAddGroupModal::show(lv_obj_t* parent, const std::string& parentId, 
     lv_obj_set_style_pad_all(s_mask, 0, 0);
     lv_obj_center(s_mask);
 
+    const auto metrics = UiMetrics::current();
     s_card = lv_obj_create(s_mask);
-    lv_obj_set_size(s_card, 300, 260);
+    applyAdaptiveModalSize(s_card, metrics, 420, 380);
     lv_obj_center(s_card);
     lv_obj_set_style_bg_color(s_card, lv_color_hex(omni_colors::CARD_BG), 0);
     lv_obj_set_style_border_color(s_card, lv_color_hex(omni_colors::TEAL_ACCENT), 0);

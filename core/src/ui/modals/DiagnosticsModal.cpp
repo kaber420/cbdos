@@ -1,5 +1,6 @@
 #include "DiagnosticsModal.hpp"
 #include "C6FlasherModal.hpp"
+#include "../UiMetrics.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/display.hpp"
@@ -33,6 +34,7 @@ void DiagnosticsModal::show(lv_obj_t* parent) {
     hide();
 
     auto caps = cbdos::display::getCapabilities();
+    const auto metrics = UiMetrics::current();
 
     s_modalMask = lv_obj_create(lv_layer_top());
     lv_obj_set_size(s_modalMask, LV_PCT(100), LV_PCT(100));
@@ -44,8 +46,7 @@ void DiagnosticsModal::show(lv_obj_t* parent) {
 
     // Tarjeta Modal con Glassmorphism
     lv_obj_t* card = lv_obj_create(s_modalMask);
-    lv_obj_set_width(card, (caps.width >= 480) ? 430 : 304);
-    lv_obj_set_height(card, (caps.width >= 480) ? 620 : 440);
+    applyAdaptiveModalSize(card, metrics, 480, 620);
     DefaultTheme::applyRaisedCard(card, 16);
     lv_obj_center(card);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
@@ -190,12 +191,17 @@ void DiagnosticsModal::show(lv_obj_t* parent) {
 
     // --- SECCIÓN 1: HARDWARE & SISTEMA ---
     addSectionHeader(card, "--- Hardware y Sistema ---");
-    if (caps.width >= 480) {
-        addInfoRow(card, "Target Chip:", "ESP32-P4 (JC4880P443C)", true);
-        addInfoRow(card, "Pantalla:", "480x800 MIPI-DPI @ 60 FPS", true);
+    char dispBuf[64];
+    if (caps.hasHardware2D) {
+        addInfoRow(card, "Target Chip:", "ESP32-P4", true);
+        snprintf(dispBuf, sizeof(dispBuf), "%ux%u MIPI-DPI @ %u FPS",
+                 (unsigned int)caps.width, (unsigned int)caps.height, (unsigned int)caps.targetFps);
+        addInfoRow(card, "Pantalla:", dispBuf, true);
     } else {
         addInfoRow(card, "Target Chip:", "ESP32-S3 (JC3248W535)", true);
-        addInfoRow(card, "Pantalla:", "320x480 QSPI @ 30 FPS", true);
+        snprintf(dispBuf, sizeof(dispBuf), "%ux%u QSPI @ %u FPS",
+                 (unsigned int)caps.width, (unsigned int)caps.height, (unsigned int)caps.targetFps);
+        addInfoRow(card, "Pantalla:", dispBuf, true);
     }
 
     uint32_t uptimeSec = cbdos::system::getTimeMs() / 1000;

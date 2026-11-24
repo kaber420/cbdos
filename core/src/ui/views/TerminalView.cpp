@@ -204,7 +204,8 @@ void TerminalView::createModeSelector(lv_obj_t* parent) {
     m_ddMode = lv_dropdown_create(m_modeRow);
     lv_dropdown_set_options(m_ddMode, cbdos::lang::tr(cbdos::lang::StrId::STR_TERM_MODE_UART));
     lv_dropdown_set_selected(m_ddMode, 0);
-    lv_obj_set_width(m_ddMode, 175);
+    lv_obj_set_flex_grow(m_ddMode, 1);
+    lv_obj_set_style_max_width(m_ddMode, 260, 0);
     lv_obj_set_style_text_font(m_ddMode, &lv_font_montserrat_12, 0);
     lv_obj_add_event_cb(m_ddMode, modeChangedCb, LV_EVENT_VALUE_CHANGED, this);
 }

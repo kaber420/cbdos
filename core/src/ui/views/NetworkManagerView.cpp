@@ -1,4 +1,5 @@
 #include "NetworkManagerView.hpp"
+#include "../UiMetrics.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/network.hpp"
@@ -566,8 +567,9 @@ void NetworkManagerView::wifiApClickCb(lv_event_t* e) {
     const auto& ap = s_scannedAps[idx];
 
     // Abrir diálogo de conexión
+    const auto metrics = UiMetrics::current();
     lv_obj_t* modal = lv_obj_create(lv_screen_active());
-    lv_obj_set_size(modal, 280, 220);
+    applyAdaptiveModalSize(modal, metrics, 420, 360);
     lv_obj_center(modal);
     lv_obj_set_style_bg_color(modal, lv_color_hex(0x131722), 0);
     lv_obj_set_style_border_color(modal, lv_color_hex(0x00E5FF), 0);

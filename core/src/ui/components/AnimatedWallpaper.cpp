@@ -1,4 +1,5 @@
 #include "AnimatedWallpaper.hpp"
+#include "cbdos/display.hpp"
 #include "cbdos/log.hpp"
 #include <cmath>
 #include <cstdlib>
@@ -7,6 +8,19 @@ namespace cbdos {
 namespace ui {
 
 static const char* TAG = "AnimatedWallpaper";
+
+static bool getActiveTouchPoint(lv_point_t& outPoint) {
+    for (lv_indev_t* indev = lv_indev_get_next(nullptr);
+         indev != nullptr;
+         indev = lv_indev_get_next(indev)) {
+        if (lv_indev_get_type(indev) == LV_INDEV_TYPE_POINTER &&
+            lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED) {
+            lv_indev_get_point(indev, &outPoint);
+            return true;
+        }
+    }
+    return false;
+}
 
 static const char MATRIX_GLYPHS[] = "0123456789ABCDEFHIJKLMNOPQRSTUVWXYZ*#@$%&+-=<>?:/";
 static const size_t MATRIX_GLYPH_COUNT = sizeof(MATRIX_GLYPHS) - 1;
@@ -62,10 +76,13 @@ void AnimatedWallpaper::init(lv_obj_t* parent) {
     // Registrar callback de dibujo vectorial LVGL 9.5
     lv_obj_add_event_cb(m_canvasObj, drawCallback, LV_EVENT_DRAW_MAIN, this);
 
-    // Inicializar partículas vectoriales aleatorias (movimiento dinámico y fluido a 60 FPS)
+    // Inicializar partículas vectoriales aleatorias según resolución activa
+    const auto caps = cbdos::display::getCapabilities();
+    const int initW = (caps.width > 0) ? caps.width : 480;
+    const int initH = (caps.height > 0) ? caps.height : 800;
     for (int i = 0; i < PARTICLE_COUNT; i++) {
-        m_particles[i].x = (float)(rand() % 480);
-        m_particles[i].y = (float)(rand() % 800);
+        m_particles[i].x = (float)(rand() % initW);
+        m_particles[i].y = (float)(rand() % initH);
         m_particles[i].vx = ((rand() % 100) / 100.0f - 0.5f) * 1.0f;
         m_particles[i].vy = ((rand() % 100) / 100.0f - 0.5f) * 1.0f;
         m_particles[i].radius = 4.0f + (rand() % 10);
@@ -129,16 +146,8 @@ void AnimatedWallpaper::updatePhysics() {
     if (height <= 0) height = 800;
 
     // Detectar punto de toque activo para interactividad táctil
-    bool isTouchPressed = false;
     lv_point_t touchPoint = {0, 0};
-    lv_indev_t* indev = lv_indev_get_next(NULL);
-    if (indev) {
-        lv_indev_state_t state = lv_indev_get_state(indev);
-        if (state == LV_INDEV_STATE_PRESSED) {
-            isTouchPressed = true;
-            lv_indev_get_point(indev, &touchPoint);
-        }
-    }
+    bool isTouchPressed = getActiveTouchPoint(touchPoint);
 
     if (m_style == Style::MatrixRain) {
         if (!m_matrixInitialized) {
@@ -598,14 +607,8 @@ void AnimatedWallpaper::draw(lv_layer_t* layer) {
         }
     } else if (m_style == Style::TouchSwarm) {
         // Estilo: Partículas Magnéticas Interactivas al Tacto
-        // Detectar si el toque está activo
-        lv_indev_t* indev = lv_indev_get_next(NULL);
-        bool isPressed = false;
         lv_point_t touchPoint = {0, 0};
-        if (indev && lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED) {
-            isPressed = true;
-            lv_indev_get_point(indev, &touchPoint);
-        }
+        bool isPressed = getActiveTouchPoint(touchPoint);
 
         // Anillos táctiles magnéticos alrededor del toque
         if (isPressed) {

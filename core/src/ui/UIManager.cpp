@@ -1,4 +1,5 @@
 #include "UIManager.hpp"
+#include "UiMetrics.hpp"
 #include "WallpaperManager.h"
 #include "components/AnimatedWallpaper.hpp"
 #include "themes/DefaultTheme.h"
@@ -255,14 +256,11 @@ static void ta_event_cb(lv_event_t* e) {
             lv_obj_t* topLayer = lv_layer_top();
             s_activeKeyboard = lv_keyboard_create(topLayer);
 
-            int32_t screenH = 800;
-            lv_display_t* disp = lv_display_get_default();
-            if (disp) {
-                screenH = lv_display_get_vertical_resolution(disp);
-            }
-            int32_t kbHeight = (screenH >= 800) ? 280 : 190;
+            const UiMetrics metrics = UiMetrics::current();
+            int32_t kbHeight = metrics.keyboardHeight();
+            int32_t kbWidth = metrics.keyboardMaxWidth();
 
-            lv_obj_set_size(s_activeKeyboard, lv_pct(100), kbHeight);
+            lv_obj_set_size(s_activeKeyboard, kbWidth, kbHeight);
             lv_obj_align(s_activeKeyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
             lv_obj_set_style_bg_color(s_activeKeyboard, lv_color_hex(0x11131A), 0);
             lv_obj_set_style_border_color(s_activeKeyboard, lv_color_hex(0x2E3444), 0);

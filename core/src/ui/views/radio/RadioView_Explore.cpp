@@ -133,7 +133,7 @@ void RadioView::refreshExploreUI(const std::vector<audio::RadioStation>& station
         lv_label_set_text(nameLbl, txt);
         lv_obj_set_style_text_color(nameLbl, DefaultTheme::getTextColor(), 0);
         lv_obj_set_style_text_font(nameLbl, &lv_font_montserrat_12, 0);
-        lv_obj_set_width(nameLbl, 240);
+        lv_obj_set_flex_grow(nameLbl, 1);
 
         // Actions Row
         lv_obj_t* actionsRow = lv_obj_create(row);

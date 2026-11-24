@@ -63,7 +63,7 @@ private:
     static const int PARTICLE_COUNT = 16;
     Particle m_particles[PARTICLE_COUNT];
 
-    static const int MATRIX_COL_MAX = 32;
+    static const int MATRIX_COL_MAX = 64;
     static const int MATRIX_TRAIL_MAX = 24;
     struct MatrixColumn {
         float y;

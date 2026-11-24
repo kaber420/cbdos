@@ -1,4 +1,5 @@
 #include "DashboardView.hpp"
+#include "../UiMetrics.hpp"
 #include "../AppRegistry.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
@@ -43,14 +44,20 @@ void DashboardView::onDestroy() {
 }
 
 void DashboardView::setupLayout() {
-    auto caps = cbdos::display::getCapabilities();
+    const auto metrics = UiMetrics::current();
 
-    // Configurar Flex Wrap para distribución automática de 3 columnas
+    // Configurar Flex Wrap para distribución automática por breakpoint
     lv_obj_set_flex_flow(m_container, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(m_container, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    
-    if (caps.width >= 480) {
-        // ESP32-P4 (480x800): 3 columnas amplias
+
+    if (metrics.isWide()) {
+        // Wide (>= 800px): 5 columnas en 800x480, 6 columnas en 1024x600
+        lv_obj_set_style_pad_row(m_container, 18, 0);
+        lv_obj_set_style_pad_column(m_container, (metrics.width >= 1000) ? 16 : 12, 0);
+        lv_obj_set_style_pad_hor(m_container, 24, 0);
+        lv_obj_set_style_pad_ver(m_container, 16, 0);
+    } else if (metrics.isMedium()) {
+        // ESP32-P4 Portrait (480x800): 3 columnas amplias
         lv_obj_set_style_pad_row(m_container, 20, 0);
         lv_obj_set_style_pad_column(m_container, 8, 0);
         lv_obj_set_style_pad_hor(m_container, 16, 0);
@@ -65,12 +72,25 @@ void DashboardView::setupLayout() {
 }
 
 void DashboardView::createCards() {
-    auto caps = cbdos::display::getCapabilities();
+    const auto metrics = UiMetrics::current();
     const auto& apps = AppRegistry::getInstance().getVisibleApps();
 
-    int32_t itemWidth = (caps.width >= 480) ? 140 : 96;
-    int32_t iconSize = (caps.width >= 480) ? 84 : 64;
-    int32_t iconRadius = (caps.width >= 480) ? 24 : 18;
+    int32_t itemWidth = 96;
+    int32_t iconSize = 64;
+    int32_t iconRadius = 18;
+    int32_t iconPx = 36;
+
+    if (metrics.isWide()) {
+        itemWidth = (metrics.width >= 1000) ? 148 : 136;
+        iconSize = 80;
+        iconRadius = 22;
+        iconPx = 46;
+    } else if (metrics.isMedium()) {
+        itemWidth = 140;
+        iconSize = 84;
+        iconRadius = 24;
+        iconPx = 48;
+    }
 
     m_cardObjs.clear();
 
@@ -114,7 +134,7 @@ void DashboardView::createCards() {
         // 3. Icono de la App
         lv_obj_t* iconObj = nullptr;
         if (app.icon.type == IconType::SYSTEM_BUILTIN && !app.icon.source.empty()) {
-            iconObj = SystemIcons::createIcon(btnIcon, app.icon.source, (caps.width >= 480) ? 48 : 36);
+            iconObj = SystemIcons::createIcon(btnIcon, app.icon.source, iconPx);
         }
 
         if (iconObj) {

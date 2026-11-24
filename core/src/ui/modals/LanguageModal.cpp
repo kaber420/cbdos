@@ -1,4 +1,5 @@
 #include "LanguageModal.hpp"
+#include "../UiMetrics.hpp"
 #include "../UIManager.hpp"
 #include "../themes/DefaultTheme.h"
 #include "cbdos/display.hpp"
@@ -55,7 +56,7 @@ void LanguageModal::show(lv_obj_t* parent) {
     using lang::tr;
     using lang::StrId;
 
-    auto caps = cbdos::display::getCapabilities();
+    const auto metrics = UiMetrics::current();
 
     s_modalMask = lv_obj_create(lv_layer_top());
     lv_obj_set_size(s_modalMask, LV_PCT(100), LV_PCT(100));
@@ -67,8 +68,7 @@ void LanguageModal::show(lv_obj_t* parent) {
 
     // Tarjeta Modal con Glassmorphism
     lv_obj_t* card = lv_obj_create(s_modalMask);
-    lv_obj_set_width(card, (caps.width >= 480) ? 380 : 280);
-    lv_obj_set_height(card, LV_SIZE_CONTENT);
+    applyAdaptiveModalSize(card, metrics, 420, 560);
     DefaultTheme::applyRaisedCard(card, 16);
     lv_obj_center(card);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);

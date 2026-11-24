@@ -1,4 +1,5 @@
 #include "KvmClientView.hpp"
+#include "UiMetrics.hpp"
 #include "UIManager.hpp"
 #include "themes/DefaultTheme.h"
 #include "ThemeEngine.hpp"
@@ -164,7 +165,8 @@ bool KvmClientView::onCreate(lv_obj_t* parent) {
 void KvmClientView::createToolbar(lv_obj_t* parent) {
     // 1. Textarea flotante para enviar texto al KVM (oculto hasta presionar [KBD])
     m_taKvmInput = lv_textarea_create(parent);
-    lv_obj_set_size(m_taKvmInput, 400, 36);
+    lv_obj_set_size(m_taKvmInput, lv_pct(90), 36);
+    lv_obj_set_style_max_width(m_taKvmInput, 480, 0);
     lv_obj_align(m_taKvmInput, LV_ALIGN_BOTTOM_LEFT, 10, -50);
     DefaultTheme::applyTextArea(m_taKvmInput, 6);
     lv_textarea_set_one_line(m_taKvmInput, true);
@@ -197,7 +199,8 @@ void KvmClientView::createToolbar(lv_obj_t* parent) {
 
     // 2. Barra de herramientas flotante
     m_toolbar = lv_obj_create(parent);
-    lv_obj_set_size(m_toolbar, 780, 42);
+    lv_obj_set_size(m_toolbar, lv_pct(96), 42);
+    lv_obj_set_style_max_width(m_toolbar, 960, 0);
     lv_obj_align(m_toolbar, LV_ALIGN_BOTTOM_MID, 0, -4);
     lv_obj_set_style_bg_color(m_toolbar, lv_color_hex(0x1E293B), 0);
     lv_obj_set_style_bg_opa(m_toolbar, LV_OPA_80, 0);
@@ -244,8 +247,9 @@ void KvmClientView::createToolbar(lv_obj_t* parent) {
 }
 
 void KvmClientView::createConnectDialog(lv_obj_t* parent) {
+    const auto metrics = UiMetrics::current();
     m_connectModal = lv_obj_create(parent);
-    lv_obj_set_size(m_connectModal, 440, 270);
+    applyAdaptiveModalSize(m_connectModal, metrics, 480, 420);
     lv_obj_center(m_connectModal);
     lv_obj_set_style_bg_color(m_connectModal, lv_color_hex(0x0F172A), 0);
     lv_obj_set_style_border_color(m_connectModal, lv_color_hex(0x0284C7), 0);
@@ -263,7 +267,7 @@ void KvmClientView::createConnectDialog(lv_obj_t* parent) {
 
     // Campo IP Host con tema CBDos oscuro
     m_taHost = lv_textarea_create(m_connectModal);
-    lv_obj_set_size(m_taHost, 380, 42);
+    lv_obj_set_size(m_taHost, lv_pct(100), 42);
     DefaultTheme::applyTextArea(m_taHost, 8);
     lv_textarea_set_one_line(m_taHost, true);
     lv_textarea_set_placeholder_text(m_taHost, "IP Host (ej: 192.168.1.150)");
@@ -272,7 +276,7 @@ void KvmClientView::createConnectDialog(lv_obj_t* parent) {
 
     // Campo Puerto con tema CBDos oscuro
     m_taPort = lv_textarea_create(m_connectModal);
-    lv_obj_set_size(m_taPort, 380, 42);
+    lv_obj_set_size(m_taPort, lv_pct(100), 42);
     DefaultTheme::applyTextArea(m_taPort, 8);
     lv_textarea_set_one_line(m_taPort, true);
     lv_textarea_set_placeholder_text(m_taPort, "Puerto (ej: 80 o 443)");
@@ -292,7 +296,7 @@ void KvmClientView::createConnectDialog(lv_obj_t* parent) {
 
     // Fila de Botones: Cancelar / Conectar
     lv_obj_t* btnRow = lv_obj_create(m_connectModal);
-    lv_obj_set_size(btnRow, 380, 44);
+    lv_obj_set_size(btnRow, lv_pct(100), 44);
     lv_obj_set_style_bg_opa(btnRow, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(btnRow, 0, 0);
     lv_obj_set_style_pad_all(btnRow, 0, 0);
